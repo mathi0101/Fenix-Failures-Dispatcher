@@ -301,7 +301,6 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             var status = _orchestrator.ConnectionStatus;
             IsSimConnected = status.IsSimConnectConnected;
             IsFenixConnected = status.IsFenixConnected;
-            CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;
 
             OnPropertyChanged(nameof(SimConnectDotColor));
             OnPropertyChanged(nameof(FenixDotColor));
@@ -309,6 +308,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             OnPropertyChanged(nameof(FenixStatusBrush));
 
             OnPropertyChanged(nameof(CanStartEngine));
+        }
+        if (e.PropertyName == nameof(IEngineOrchestrator.CurrentFlightPhase)) {
+            CurrentComplexFlightPhase = _orchestrator.CurrentFlightPhase;
         }
     }
 

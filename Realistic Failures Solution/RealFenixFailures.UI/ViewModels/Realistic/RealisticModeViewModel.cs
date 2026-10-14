@@ -497,6 +497,11 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private void Orchestrator_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(IEngineOrchestrator.ConnectionStatus)) {
             SyncConnectionFromOrchestrator();
+        } else if (e.PropertyName == nameof(IEngineOrchestrator.CurrentFlightPhase)) {
+            var phase = _orchestrator.CurrentFlightPhase;
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+                CurrentFlightPhase = phase;
+            });
         } else if (e.PropertyName == nameof(IEngineOrchestrator.IsEngineActive) ||
                    e.PropertyName == nameof(IEngineOrchestrator.CurrentMode)) {
             OnPropertyChanged(nameof(IsEngineActive));
@@ -507,10 +512,13 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private void SyncConnectionFromOrchestrator() {
         var status = _orchestrator.ConnectionStatus;
         if (status is null) return;
-        IsSimConnected = status.IsSimConnectConnected;
-        IsFenixConnected = status.IsFenixConnected;
-        SimpleFlightPhase = status.CurrentFlightPhase;
-        CurrentFlightPhase = _realisticSessionManager.SessionState?.CurrentFlightPhase ?? ComplexFlightPhaseEnum.Unknown;
+        var phase = _orchestrator.CurrentFlightPhase;
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+            IsSimConnected = status.IsSimConnectConnected;
+            IsFenixConnected = status.IsFenixConnected;
+            SimpleFlightPhase = status.CurrentFlightPhase;
+            CurrentFlightPhase = phase;
+        });
     }
 
     private void RaiseActivationState() {

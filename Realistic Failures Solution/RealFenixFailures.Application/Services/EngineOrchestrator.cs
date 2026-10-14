@@ -85,6 +85,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         }
     }
 
+    public ComplexFlightPhaseEnum CurrentFlightPhase => _flightEventDetector.CurrentPhase;
+
     #region INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -170,6 +172,9 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                     var data = await _simulatorConnectionService.GetSimulatorData(ct);
                     if (data.IsSuccess && data.Value != null) {
                         _flightEventDetector.ProcessSnapshot(data.Value);
+                        // Notificar siempre, aunque la transición no haya generado un evento de log
+                        // (p. ej. la primera clasificación tras Unknown): la UI necesita la fase vigente.
+                        OnPropertyChanged(nameof(CurrentFlightPhase));
                     }
                 }
             }

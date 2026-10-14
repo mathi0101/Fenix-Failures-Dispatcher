@@ -10,6 +10,11 @@ public interface IEngineOrchestrator : INotifyPropertyChanged {
 
     ConnectionStatusDto ConnectionStatus { get; }
 
+    /// Fase de vuelo actual conocida por el detector transversal (<see cref="IFlightEventDetector"/>).
+    /// Se refresca en cada tick del timer automático, incluso cuando la transición de fase no genera
+    /// un evento de log (p. ej. la primera clasificación tras Unknown).
+    ComplexFlightPhaseEnum CurrentFlightPhase { get; }
+
     /// Metodos para controlar la actualizacion automática
     Task StartAutomaticTimerAsync(CancellationToken ct);
     Task UpdateConnection(CancellationToken ct);
