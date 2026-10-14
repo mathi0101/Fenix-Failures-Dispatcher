@@ -43,6 +43,7 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 ## Regla obligatoria de documentación
 
 - Todo cambio significativo en comportamiento, lógica, sistema, esquema, integración o arquitectura actualiza **en el mismo trabajo** el doc de estado afectado y agrega una entrada a [docs/CHANGELOG.md](docs/CHANGELOG.md).
+- **Lógica o comportamiento nuevo**: todo agente que implemente lógica o comportamiento nuevo (no solo cambios sobre lo existente) debe dejar, en el mismo trabajo, la documentación correspondiente en su lugar dentro de `docs/` (el doc de estado del modo/componente si existe, o uno nuevo si no hay uno equivalente) **además** de la entrada en `CHANGELOG.md`. No alcanza con describirlo solo en la respuesta al usuario o en el commit.
 - Refactors triviales o correcciones de typos **no** necesitan entrada.
 - Nunca afirmar una prueba que no se haya ejecutado: si no se corrió, se dice "no verificado". Cualquier cambio de integración real (MSFS/Fenix) debe probarse manualmente antes de declararse funcionando.
 - No repetir documentación extensa en respuestas o commits: citar el doc y el cambio puntual.

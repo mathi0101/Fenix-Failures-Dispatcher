@@ -11,6 +11,7 @@
 | [desarrollo.md](desarrollo.md) | Requisitos, comandos, configuración, migrations, ramas y formato de commits | Siempre que se vaya a desarrollar, migrar o commitear | Vigente |
 | [CHANGELOG.md](CHANGELOG.md) | Bitácora técnica de cambios (qué/por qué/áreas/pruebas/pendientes) | Al terminar cada cambio significativo | Vigente (crece con cada entrada) |
 | [realistic-mode/estado-y-diseno.md](realistic-mode/estado-y-diseno.md) | Estado del modo Realistic: implementado, estabilización verificada, en desarrollo, pendiente, decisiones y limitaciones restantes | Antes de tocar cualquier archivo del modo Realistic | Vigente (evoluciona con el WIP) |
+| [realistic-mode/especificacion-funcional.md](realistic-mode/especificacion-funcional.md) | Especificación funcional **deseada** del modo Realistic (visión de producto): aeronaves, desgaste, niveles de riesgo y lógica de fallas, con brechas respecto a la implementación actual | Antes de diseñar o priorizar trabajo nuevo del modo Realistic | Vigente |
 | [integraciones/simconnect.md](integraciones/simconnect.md) | Cliente SimConnect real y mock, contratos, message pump, polling, thread safety y advertencias | Antes de tocar `Integrations.SimConnect` | Vigente |
 | [integraciones/fenix-api.md](integraciones/fenix-api.md) | Endpoints Fenix, configuración por claves, cliente real/mock, reset y verificaciones | Antes de tocar `Integrations.Fenix` | Vigente |
 
@@ -26,7 +27,7 @@ Documentos que describen un estado pasado del proyecto. Se conservan como refere
 
 - Contexto del simulador: [integraciones/simconnect.md](integraciones/simconnect.md) (datos) + [arquitectura.md](arquitectura.md) (flujo).
 - Sistemas/fallas del Fenix: [integraciones/fenix-api.md](integraciones/fenix-api.md).
-- Modo Realistic: [realistic-mode/estado-y-diseno.md](realistic-mode/estado-y-diseno.md) (incluye diseño e implementación; el prompt original de diseño quedó reemplazado por este doc).
+- Modo Realistic: [realistic-mode/especificacion-funcional.md](realistic-mode/especificacion-funcional.md) (qué debería hacer) + [realistic-mode/estado-y-diseno.md](realistic-mode/estado-y-diseno.md) (qué hace hoy el código; el prompt original de diseño quedó reemplazado por este doc).
 - Convenciones de desarrollo y commits: [desarrollo.md](desarrollo.md).
 - Bitácora de cambios: [CHANGELOG.md](CHANGELOG.md).
 
