@@ -29,14 +29,14 @@ public class PresetRepository : IPresetRepository {
 
     public async Task<IReadOnlyList<FailurePreset>> GetAllAsync(PresetTypeEnum presetType, CancellationToken ct) {
         return await _dbContext.FailurePresets
-            .Where(x => x.PresetType == presetType)
+            .Where(x => x.PresetTypeId == (int)presetType)
             .Include(x => x.PresetFailureDefinitions)
             .ThenInclude(x => x.FenixFailure)
             .ToListAsync(ct);
     }
 
     public async Task<bool> GetAnyAsync(PresetTypeEnum presetType, CancellationToken ct) {
-        return await _dbContext.FailurePresets.AnyAsync(p => p.PresetType == presetType, ct);
+        return await _dbContext.FailurePresets.AnyAsync(p => p.PresetTypeId == (int)presetType, ct);
     }
 
     public async Task<FailurePreset?> GetByIdAsync(int id, CancellationToken ct) {

@@ -15,7 +15,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.AircraftSystemWear", b =>
                 {
@@ -149,9 +149,6 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("PresetType")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("PresetTypeId")
                         .HasColumnType("INTEGER")
                         .HasColumnName("PresetType");
@@ -165,11 +162,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
 
                     b.HasIndex("PresetTypeId");
 
-                    b.ToTable("FailurePresets", t =>
-                        {
-                            t.Property("PresetType")
-                                .HasColumnName("PresetType1");
-                        });
+                    b.ToTable("FailurePresets");
                 });
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FenixFailureDefinition", b =>

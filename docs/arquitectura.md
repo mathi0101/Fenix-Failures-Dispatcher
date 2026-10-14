@@ -22,6 +22,8 @@ RealFenixFailures.TestUnits ── xUnit (Domain + Integrations.SimConnect)
 - Integrations.SimConnect: `SimConnectClient` (real, `IFlightSimulationController`), `MockSimConnectClient`, `SimulatorFlightDataProvider` (implementa `ISimFlightDataProvider`), `AircraftStateData`/`SimConnectAircraftState`.
 - UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre `IInitializerService.InitializeAsync()` (carga fallas iniciales y presets seed) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
 
+En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTypeId` como FK a `FailurePresetTypes`; EF ignora la propiedad enum de conveniencia `FailurePreset.PresetType`. La migración `FixFailurePresetDuplicateColumn` elimina `PresetType1` de bases existentes.
+
 ## DI
 
 `HostBuilderExtensions.ConfigureRealFenixFailures()` compone: `AddDomain()`, `AddApplication()`, `AddInfrastructure(config)`, `AddSimConnectIntegration()`, `AddFenixIntegration(config)`; registra ventanas y viewmodels.

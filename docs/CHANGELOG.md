@@ -4,6 +4,33 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-14 — Corrección de columna duplicada `PresetType` en `FailurePresets`
+
+**Qué**
+
+- `RealFenixDbContext`: `FailurePreset.PresetType` (propiedad enum de conveniencia) pasa a `Ignore`; la única columna de tipo es `PresetTypeId`, mapeada a `PresetType`.
+- `PresetRepository`: las consultas filtran por `PresetTypeId == (int)presetType` (una propiedad ignorada no es traducible a SQL).
+- Nueva migración `20261014215307_FixFailurePresetDuplicateColumn`: elimina la columna `PresetType1`. `Up` = `DropColumn`; `Down` = `AddColumn` (INTEGER NOT NULL, default 0). `InitialCreate` no se editó (ya aplicada).
+
+**Por qué**
+
+- La tabla `FailurePresets` tenía dos columnas de tipo: `PresetType` (FK a `FailurePresetTypes`) y `PresetType1` (la propiedad enum, renombrada por el `ToTable` del modelo).
+
+**Áreas**
+
+- `RealFenixFailures.Infrastructure` — `Persistence/RealFenixDbContext.cs`, `Repositories/PresetRepository.cs`, `Migrations/`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.Infrastructure`: 0 errores.
+- `dotnet test RealFenixFailures.TestUnits`: 34/34 OK.
+- SQL de la migración aplicado sobre una copia de la base de la UI: la tabla queda con una sola columna `PresetType`, los 7 presets se conservan y `__EFMigrationsHistory` registra la migración. No se aplicó sobre la base real.
+- No verificado: arranque de la app con la migración aplicada (la app estaba en ejecución y bloqueaba `RealFenixFailures.UI/bin`).
+
+**Pendientes**
+
+- `App.xaml.cs` llama a `Database.MigrateAsync()` al arrancar: la migración se aplica sola en la próxima ejecución de la app. Verificar ese arranque antes de dar el cambio por cerrado.
+
 ### 2026-10-14 — Paneles de modo translúcidos sobre el fondo de la ventana
 
 **Qué**

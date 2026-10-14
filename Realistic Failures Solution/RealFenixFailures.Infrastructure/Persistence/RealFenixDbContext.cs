@@ -110,6 +110,7 @@ public class RealFenixDbContext : DbContext {
             entity.Property(x => x.Name).HasMaxLength(120).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(600).IsRequired();
             entity.Property(x => x.TriggerDescription).HasMaxLength(600).IsRequired();
+            entity.Ignore(x => x.PresetType);
             entity.Property(x => x.PresetTypeId)
                   .HasColumnName("PresetType")
                   .IsRequired();
