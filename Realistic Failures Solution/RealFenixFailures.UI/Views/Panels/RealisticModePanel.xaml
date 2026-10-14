@@ -576,6 +576,24 @@
                             </Grid>
                         </StackPanel>
                     </Border>
+
+                    <!-- Fallas de la sesión actual -->
+                    <Border Background="#0D0F14" CornerRadius="8" Padding="14" Margin="0,12,0,0"
+                            Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="FALLAS DE LA SESIÓN ACTUAL" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
+                            <ItemsControl ItemsSource="{Binding LiveTriggeredFailures}" MaxHeight="140">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="11"
+                                                   Foreground="{StaticResource Brush.Accent.Amber.Primary}"
+                                                   Margin="0,0,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Margin="0,12,0,0">

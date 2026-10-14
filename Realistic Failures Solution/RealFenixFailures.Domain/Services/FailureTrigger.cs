@@ -13,36 +13,29 @@ public class FailureTrigger : IFailureTrigger {
         _random = random ?? Random.Shared;
     }
 
-    public TriggeredFailure? TryTriggerFailure(FailurePreset preset, ComplexFlightPhaseEnum currentPhase, double globalProbability, DateTime timestampUtc) {
-        if (preset.PresetFailureDefinitions.Count == 0) {
-            return null;
-        }
+    public PresetFailureDefinition? TryTriggerFailure(
+        FailurePreset preset,
+        ComplexFlightPhaseEnum currentPhase,
+        RiskLevel riskLevel,
+        double globalProbability,
+        IReadOnlyCollection<string> activeFenixFailureIds) {
+        if (preset.PresetFailureDefinitions.Count == 0) return null;
+        if (_random.NextDouble() > globalProbability) return null;
 
-        if (_random.NextDouble() > globalProbability) {
-            return null;
-        }
-
-        var eligible = _ruleEvaluator.EvaluateEligibleFailures(preset.PresetFailureDefinitions, currentPhase);
-        if (eligible.Count == 0) {
-            return null;
-        }
+        var eligible = _ruleEvaluator.EvaluateEligibleFailures(preset.PresetFailureDefinitions, currentPhase, riskLevel, activeFenixFailureIds);
+        if (eligible.Count == 0) return null;
 
         var totalWeight = eligible.Sum(x => x.Probability);
+        if (totalWeight <= 0) return null;
         var roll = _random.NextDouble() * totalWeight;
         var cumulative = 0.0;
 
         foreach (var candidate in eligible) {
             cumulative += candidate.Probability;
             if (roll <= cumulative) {
-                return new TriggeredFailure {
-                    FenixFailureId = candidate.FenixFailureId,
-                    FlightSessionId = 1,
-                    TriggeredAt = timestampUtc,
-                    FlightPhase = currentPhase
-                };
+                return candidate;
             }
         }
-
         return null;
     }
 

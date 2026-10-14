@@ -28,7 +28,7 @@ public class FailureTriggerTests {
         };
 
         // Act
-        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, 1.0, DateTime.UtcNow);
+        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, RiskLevel.High, 1.0, Array.Empty<string>());
 
         // Assert
         Assert.Null(result);
@@ -45,14 +45,14 @@ public class FailureTriggerTests {
             }
         };
 
-        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>()))
+        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<RiskLevel>(), It.IsAny<IReadOnlyCollection<string>>()))
                           .Returns(new List<PresetFailureDefinition>(preset.PresetFailureDefinitions));
 
         // Primero NextDouble() -> chequeo global -> devolvemos 0.9 (> 0.5) => no debe continuar
         _mockRandom.SetupNextDouble(0.9);
 
         // Act
-        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, 0.5, DateTime.UtcNow);
+        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, RiskLevel.High, 0.5, Array.Empty<string>());
 
         // Assert
         Assert.Null(result);
@@ -70,7 +70,7 @@ public class FailureTriggerTests {
             }
         };
 
-        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>()))
+        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<RiskLevel>(), It.IsAny<IReadOnlyCollection<string>>()))
                           .Returns(new List<PresetFailureDefinition>(preset.PresetFailureDefinitions));
 
         // Encolamos dos valores:
@@ -79,16 +79,12 @@ public class FailureTriggerTests {
         _mockRandom.SetupNextDouble(0.3); // chequeo global (0.3 <= 0.5)
         _mockRandom.SetupNextDouble(0.1); // roll (0.1 * totalWeight(=1.0) => 0.1 -> selecciona al único candidato)
 
-        var timestamp = DateTime.UtcNow;
-
         // Act
-        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, 0.5, timestamp);
+        var result = _failureTrigger.TryTriggerFailure(preset, ComplexFlightPhaseEnum.Cruise, RiskLevel.High, 0.5, Array.Empty<string>());
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal("FID1", result!.FenixFailureId);
-        Assert.Equal(ComplexFlightPhaseEnum.Cruise, result.FlightPhase);
-        Assert.Equal(timestamp, result.TriggeredAt);
     }
 
     [Fact]
@@ -222,8 +218,8 @@ public class FailureTriggerTests {
         var failureTrigger = new FailureTrigger(_mockRuleEvaluator.Object, rng);
 
         // Mock para que siempre devuelva todas las definiciones como elegibles
-        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>()))
-                          .Returns<IEnumerable<PresetFailureDefinition>, ComplexFlightPhaseEnum>((defs, phase) => defs.ToList());
+        _mockRuleEvaluator.Setup(e => e.EvaluateEligibleFailures(It.IsAny<IEnumerable<PresetFailureDefinition>>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<RiskLevel>(), It.IsAny<IReadOnlyCollection<string>>()))
+                          .Returns<IEnumerable<PresetFailureDefinition>, ComplexFlightPhaseEnum, RiskLevel, IReadOnlyCollection<string>>((defs, phase, risk, activeIds) => defs.ToList());
 
         const int iterations = 100000;
         var counts = new Dictionary<string, int> {

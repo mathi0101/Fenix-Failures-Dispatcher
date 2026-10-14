@@ -11,6 +11,7 @@ public static class DependencyInjection {
         services.AddScoped<IFlightSessionService, FlightSessionService>();
         services.AddScoped<IEngineOrchestrator, EngineOrchestrator>();
         services.AddSingleton<ISimulatorConnectionService, SimulatorConnectionService>();
+        services.AddSingleton<IFlightEventDetector, FlightEventDetector>();
         services.AddSingleton<IRealisticSessionManager, RealisticSessionManager>();
         return services;
     }

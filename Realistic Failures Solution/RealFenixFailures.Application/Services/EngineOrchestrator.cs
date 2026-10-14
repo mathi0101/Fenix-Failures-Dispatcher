@@ -21,6 +21,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
     private readonly IRealisticSessionManager _realisticSessionManager;
     private readonly FailureEngineSettings _settings;
     private readonly IFailureTrigger _failureTrigger;
+    private readonly IFlightEventDetector _flightEventDetector;
+    private readonly IFlightSimulationController _flightSimulationController;
     private readonly ILogger<EngineOrchestrator> _logger;
 
     private readonly ConcurrentBag<FailureTriggerLogDto> _recentLogs = new();
@@ -101,6 +103,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         ISimulatorConnectionService simulatorService,
         IUserAircraftService userAircraftService,
         IRealisticSessionManager realisticSessionManager,
+        IFlightEventDetector flightEventDetector,
+        IFlightSimulationController flightSimulationController,
         IOptions<FailureEngineSettings> settings,
         ILogger<EngineOrchestrator> logger) {
         _presetService = presetService;
@@ -108,6 +112,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         _userAircraftService = userAircraftService;
         _realisticSessionManager = realisticSessionManager;
         _failureTrigger = failureTrigger;
+        _flightEventDetector = flightEventDetector;
+        _flightSimulationController = flightSimulationController;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -156,6 +162,15 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         try {
             while (await _automaticTimer.WaitForNextTickAsync(ct) && !ct.IsCancellationRequested) {
                 ConnectionStatus = await _simulatorConnectionService.GetConnectionStatusAsync(ct);
+
+                // El modo Realista ya alimenta el detector con su propio loop de evaluación (30s);
+                // en los demás modos (o sin modo activo) lo alimentamos aquí para no perder eventos de vuelo.
+                if (CurrentMode != UserAppMode.Realistic && ConnectionStatus.IsSimConnectConnected) {
+                    var data = await _simulatorConnectionService.GetSimulatorData(ct);
+                    if (data.IsSuccess) {
+                        _flightEventDetector.ProcessSnapshot(data.Value!);
+                    }
+                }
             }
         } catch (OperationCanceledException) {
             _logger.LogInformation("Automatic timer loop canceled.");
@@ -194,10 +209,15 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             );
 
 
-            await _realisticSessionManager.StartNewSessionAsync(context, ct);
+            var sessionResult = await _realisticSessionManager.StartNewSessionAsync(context, ct);
+            if (!sessionResult.IsSuccess) {
+                _logger.LogWarning(sessionResult.Error, "Realistic mode could not start: {ErrorMessage}", sessionResult.ErrorMessage);
+                return;
+            }
 
             CurrentMode = UserAppMode.Realistic;
             IsEngineActive = true;
+            _flightSimulationController.StartFlightSimulation();
 
             _logger.LogInformation("Realistic mode started for aircraft {Registration}. RealisticSessionManager will select from available presets.",
                 aircraft.Registration);
@@ -231,6 +251,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             var armedFailures = await _simulatorConnectionService.ExecutePresetAsync(_activePreset, ct);
 
             if (!armedFailures.IsSuccess) {
+                _logger.LogError("Failed to arm training preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
                 _recentLogs.Add(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                 return;
             }
@@ -247,6 +268,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             CurrentMode = UserAppMode.Training;
             IsEngineActive = true;
+            _flightSimulationController.StartFlightSimulation();
 
             _logger.LogInformation("Training preset {PresetId} loaded: {PresetName}",
                 presetId, _activePreset.Name);
@@ -286,6 +308,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                 var armedFailures = await _simulatorConnectionService.ExecutePresetAsync(_activePreset, ct);
 
                 if (!armedFailures.IsSuccess) {
+                    _logger.LogError("Failed to arm custom preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
                     _recentLogs.Add(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                     return;
                 }
@@ -303,6 +326,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             CurrentMode = UserAppMode.Custom;
             IsEngineActive = true;
+            _flightSimulationController.StartFlightSimulation();
 
             _logger.LogInformation("Custom mode started with {Count} failures. Activate immediately: {Activate}",
                 _activePreset.PresetFailureDefinitions.Count, activateImmediately);
@@ -328,11 +352,12 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             _activePreset = null;
             _activeScenarioFailures.Clear();
+            _flightEventDetector.Reset();
+
+            _logger.LogInformation("Mode {Mode} stopped.", CurrentMode);
 
             CurrentMode = UserAppMode.None;
             IsEngineActive = false;
-
-            _logger.LogInformation("Engine stopped and failures reset.");
         } finally {
             _operationLock.Release();
         }

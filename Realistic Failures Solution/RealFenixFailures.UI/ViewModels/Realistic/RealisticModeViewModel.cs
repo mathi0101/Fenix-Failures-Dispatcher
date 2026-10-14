@@ -65,6 +65,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
         Sessions = new ObservableCollection<FlightSessionItemViewModel>();
+        LiveTriggeredFailures = new ObservableCollection<string>();
 
         SelectAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await SelectAircraftAsync(a));
         DeleteAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await DeleteAircraftAsync(a));
@@ -84,6 +85,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => CanActivate || IsEngineActive);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
+        _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
         SyncConnectionFromOrchestrator();
     }
     #endregion
@@ -111,6 +113,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public ObservableCollection<UserAircraftItemViewModel> Aircraft { get; }
     public ObservableCollection<WearSystemViewModel> WearSystems { get; }
     public ObservableCollection<FlightSessionItemViewModel> Sessions { get; }
+    public ObservableCollection<string> LiveTriggeredFailures { get; }
 
     #endregion
 
@@ -434,6 +437,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
             if (!CanActivate || SelectedAircraft is null || !SelectedRiskLevel.HasValue) return;
 
+            LiveTriggeredFailures.Clear();
             var risk = (RiskLevel)SelectedRiskLevel.Value;
             await _orchestrator.StartRealisticModeAsync(SelectedAircraft.Id, risk, CancellationToken.None);
             _logger.LogInformation(
@@ -444,6 +448,12 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         } finally {
             RaiseActivationState();
         }
+    }
+
+    private void RealisticSessionManager_FailureTriggered(object? sender, FailureTriggeredEventArgs e) {
+        System.Windows.Application.Current?.Dispatcher.Invoke(() => {
+            LiveTriggeredFailures.Insert(0, $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}  {e.Description}");
+        });
     }
 
     private void Orchestrator_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -479,5 +489,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public void Dispose() {
         _orchestrator.PropertyChanged -= Orchestrator_PropertyChanged;
+        _realisticSessionManager.FailureTriggered -= RealisticSessionManager_FailureTriggered;
     }
 }

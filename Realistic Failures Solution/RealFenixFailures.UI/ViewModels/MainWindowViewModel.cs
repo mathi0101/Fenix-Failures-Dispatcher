@@ -20,6 +20,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private readonly IEngineOrchestrator _orchestrator;
     private readonly IPresetService _presetService;
     private readonly IFlightHistoryService _flightHistoryService;
+    private readonly IFlightEventDetector _flightEventDetector;
     private readonly ILogger<MainWindowViewModel> _logger;
 
     // ViewModel del flujo de 4 pasos del Modo Realista (Paso 1..4).
@@ -50,15 +51,18 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         IPresetService presetService,
         IFlightHistoryService flightHistoryService,
         RealisticModeViewModel realisticModeViewModel,
+        IFlightEventDetector flightEventDetector,
         ILogger<MainWindowViewModel> logger) {
         _orchestrator = orchestrator;
         _presetService = presetService;
         _flightHistoryService = flightHistoryService;
+        _flightEventDetector = flightEventDetector;
         Realistic = realisticModeViewModel;
         _logger = logger;
 
         // Suscribirse a los eventos del orquestador
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
+        _flightEventDetector.FlightEventDetected += FlightEventDetector_FlightEventDetected;
 
         TrainingScenarios = new ObservableCollection<TrainingScenarioViewModel>();
         CustomPresets = new ObservableCollection<CustomPresetViewModel>();
@@ -295,8 +299,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             var status = _orchestrator.ConnectionStatus;
             IsSimConnected = status.IsSimConnectConnected;
             IsFenixConnected = status.IsFenixConnected;
-            CurrentComplexFlightPhase = ComplexFlightPhaseEnum.OnGate;
-
+            CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;
 
             OnPropertyChanged(nameof(SimConnectDotColor));
             OnPropertyChanged(nameof(FenixDotColor));
@@ -305,6 +308,13 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
             OnPropertyChanged(nameof(CanStartEngine));
         }
+    }
+
+    private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
+        System.Windows.Application.Current?.Dispatcher.Invoke(() => {
+            LogEntries.Insert(0, $"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
+            CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;
+        });
     }
 
     #endregion
@@ -354,7 +364,6 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
         // Refresh UI state from orchestrator
         UpdateCommandStates();
-        await RefreshLogsAsync();
     }
 
     private async Task ActivateCustomPresetAsync(CustomPresetViewModel? preset) {
@@ -374,7 +383,6 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         _logger.LogInformation("Custom preset triggered: {Name}", preset.Name);
 
         UpdateCommandStates();
-        await RefreshLogsAsync();
     }
 
     private async Task DeleteCustomPresetAsync(CustomPresetViewModel? preset) {
@@ -414,20 +422,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             });
         }
         UpdateCommandStates();
-        await RefreshLogsAsync();
     }
-
-
-
-    private async Task RefreshLogsAsync() {
-        var logs = await _orchestrator.GetRecentFailuresAsync(CancellationToken.None);
-        LogEntries.Clear();
-        foreach (var item in logs?.OrderByDescending(x => x.TriggeredAtUtc).Take(50) ?? Enumerable.Empty<FailureTriggerLogDto>()) {
-            // Assumes DTO has these properties; adapt formatting to actual DTO
-            LogEntries.Add($"{item.TriggeredAtUtc:HH:mm:ss} {item.FlightPhase,-12} {item.FailureName}");
-        }
-    }
-
     // ----- Helpers -----
     private void UpdateCommandStates() {
         // Asumo que tu RelayCommand tiene RaiseCanExecuteChanged(); si tu implementación tiene otro nombre, ajustalo.
@@ -444,6 +439,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public void Dispose() {
         _orchestrator.StopAutomaticTimerAsync(CancellationToken.None);
         _orchestrator.PropertyChanged -= Orchestrator_PropertyChanged;
+        _flightEventDetector.FlightEventDetected -= FlightEventDetector_FlightEventDetected;
         Realistic.Dispose();
     }
 }

@@ -18,7 +18,6 @@ public class RealisticSession : INotifyPropertyChanged {
     private List<FenixFailureDto> failedFailures = [];
     private List<FenixFailureDto> armedFailures = [];
 
-    private ComplexFlightPhaseEnum previousflightPhase = ComplexFlightPhaseEnum.Unknown;
     private ComplexFlightPhaseEnum currentflightPhase = ComplexFlightPhaseEnum.Unknown;
     #endregion
 
@@ -41,6 +40,17 @@ public class RealisticSession : INotifyPropertyChanged {
     #region Properties
     public FlightSession Session => _session;
     public UserAircraftDto Aircraft => _aircraft;
+    public RiskLevel RiskLevel => riskLevel;
+
+    /// <summary>UTC timestamp of the last failure triggered in this session, used to enforce cooldown.</summary>
+    public DateTime? LastTriggeredAtUtc { get; private set; }
+
+    /// <summary>Number of failures currently armed or already failed in Fenix, used to enforce the simultaneous-failure limit.</summary>
+    public int ActiveFailureCount => ArmedFailures.Count + FailedFailures.Count;
+
+    /// <summary>Fenix failure ids that are currently armed or failed, so the engine does not re-arm them.</summary>
+    public IReadOnlyCollection<string> ActiveFenixFailureIds =>
+        AllFenixFailures.Where(f => f.IsArmed || f.Failed).Select(f => f.FenixId).ToList();
 
     public ComplexFlightPhaseEnum CurrentFlightPhase {
         get => currentflightPhase;
@@ -105,57 +115,15 @@ public class RealisticSession : INotifyPropertyChanged {
 
     #region Public
 
-    public void ProcessSimData(SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures) {
+    public void ProcessSimData(SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures, ComplexFlightPhaseEnum currentPhase) {
         AllFenixFailures = failures.ToList();
-        DetermineFlightPhase(rawData);
-
-
-
-
+        CurrentFlightPhase = currentPhase;
         LastSimData = rawData;
     }
 
-    #endregion
-
-    #region Private
-
-    private void DetermineFlightPhase(SimulatorAircraftStateSnapshot state) {
-        ComplexFlightPhaseEnum newPhase;
-
-        if (state.IsOnGround) {
-            if (state.Engine1IsRunning || state.Engine2IsRunning) {
-                if (state.GroundSpeed > 5)
-                    newPhase = ComplexFlightPhaseEnum.Taxi;
-                else if (state.ThrottlePercent1 > 80 || state.ThrottlePercent2 > 80)
-                    newPhase = ComplexFlightPhaseEnum.Takeoff;
-                else
-                    newPhase = ComplexFlightPhaseEnum.Parked;
-            } else {
-                newPhase = ComplexFlightPhaseEnum.OnGate;
-            }
-        } else {
-            if (state.AltitudeAGL < 5000) {
-                if (state.VerticalSpeed > 500)
-                    newPhase = ComplexFlightPhaseEnum.Climb;
-                else if (state.VerticalSpeed < -500)
-                    newPhase = ComplexFlightPhaseEnum.Approach;
-                else
-                    newPhase = ComplexFlightPhaseEnum.Cruise;
-            } else {
-                if (Math.Abs(state.VerticalSpeed) < 100)
-                    newPhase = ComplexFlightPhaseEnum.Cruise;
-                else if (state.VerticalSpeed > 200)
-                    newPhase = ComplexFlightPhaseEnum.Climb;
-                else
-                    newPhase = ComplexFlightPhaseEnum.Descent;
-            }
-        }
-
-        if (previousflightPhase == ComplexFlightPhaseEnum.Unknown) {
-            previousflightPhase = newPhase;
-        }
-
-        CurrentFlightPhase = newPhase;
+    public void RecordTriggeredFailure(DateTime timestampUtc) {
+        LastTriggeredAtUtc = timestampUtc;
+        OnPropertyChanged(nameof(LastTriggeredAtUtc));
     }
 
     #endregion

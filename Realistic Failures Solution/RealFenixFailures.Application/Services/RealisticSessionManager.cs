@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Session;
+using RealFenixFailures.Domain.Interfaces;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Services;
@@ -18,6 +19,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
     private readonly ISimulatorConnectionService _simulator;
     private readonly IPresetService _presetService;
     private readonly IFlightSessionService _sessionService;
+    private readonly IFailureTrigger _failureTrigger;
+    private readonly IFlightEventDetector _flightEventDetector;
 
     private RealisticSessionEngine? _engine;
     private PeriodicTimer? _evaluationTimer;
@@ -48,12 +51,16 @@ public class RealisticSessionManager : IRealisticSessionManager {
         ILoggerFactory loggerFactory,
         ISimulatorConnectionService simulatorConnectionService,
         IPresetService presetService,
-        IFlightSessionService sessionService) {
+        IFlightSessionService sessionService,
+        IFailureTrigger failureTrigger,
+        IFlightEventDetector flightEventDetector) {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _simulator = simulatorConnectionService;
         _presetService = presetService;
         _sessionService = sessionService;
+        _failureTrigger = failureTrigger;
+        _flightEventDetector = flightEventDetector;
     }
     #endregion
 
@@ -67,7 +74,9 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 _simulator,
                 _loggerFactory.CreateLogger<RealisticSessionEngine>(),
                 _sessionService,
-                _presetService);
+                _presetService,
+                _failureTrigger,
+                _flightEventDetector);
 
             var result = await _engine.TryStartSession(context, ct);
             if (result.Started == false) {

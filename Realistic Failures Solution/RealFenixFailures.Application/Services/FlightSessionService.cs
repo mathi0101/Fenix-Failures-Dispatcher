@@ -33,4 +33,15 @@ public class FlightSessionService : IFlightSessionService {
 
         return session;
     }
+
+    public async Task AddTriggeredFailureAsync(int sessionId, string fenixFailureId, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct) {
+        var triggeredFailure = new TriggeredFailure {
+            FlightSessionId = sessionId,
+            FenixFailureId = fenixFailureId,
+            TriggeredAt = triggeredAtUtc,
+            FlightPhase = flightPhase
+        };
+        await _sessionRepository.AddTriggeredFailureAsync(triggeredFailure, ct);
+        await _sessionRepository.SaveChangesAsync(ct);
+    }
 }

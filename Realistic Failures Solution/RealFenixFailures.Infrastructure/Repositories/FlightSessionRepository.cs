@@ -24,6 +24,10 @@ public class FlightSessionRepository : IFlightSessionRepository {
         return result.Entity;
     }
 
+    public async Task AddTriggeredFailureAsync(TriggeredFailure triggeredFailure, CancellationToken ct) {
+        await _dbContext.TriggeredFailures.AddAsync(triggeredFailure, ct);
+    }
+
     public async Task DeleteAsync(int id, CancellationToken ct) {
         var session = await _dbContext.FlightSessions
             .FirstOrDefaultAsync(x => x.Id == id, ct)

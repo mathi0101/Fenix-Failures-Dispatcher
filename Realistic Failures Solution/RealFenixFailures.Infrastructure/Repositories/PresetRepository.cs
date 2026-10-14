@@ -30,6 +30,8 @@ public class PresetRepository : IPresetRepository {
     public async Task<IReadOnlyList<FailurePreset>> GetAllAsync(PresetTypeEnum presetType, CancellationToken ct) {
         return await _dbContext.FailurePresets
             .Where(x => x.PresetType == presetType)
+            .Include(x => x.PresetFailureDefinitions)
+            .ThenInclude(x => x.FenixFailure)
             .ToListAsync(ct);
     }
 

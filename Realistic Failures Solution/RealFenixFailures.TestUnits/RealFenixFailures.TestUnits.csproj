@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RealFenixFailures.Domain\RealFenixFailures.Domain.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
   </ItemGroup>
 
   <ItemGroup>

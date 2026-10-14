@@ -1,0 +1,294 @@
+[
+  {
+    "Name": "Engine Failure Before V1",
+    "Description": "Falla de motor antes de V1. Requiere rejected takeoff.",
+    "TriggerDescription": "Se dispara antes de alcanzar V1. Procedimiento: RTO.",
+    "Phase": 3,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "Ias": "[70,130]"
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "Ias": "[70,130]"
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_1",
+        "ProbabilityGroup": 2,
+        "Probability": 0.4,
+        "Ias": "[20,70]"
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_2",
+        "ProbabilityGroup": 2,
+        "Probability": 0.4,
+        "Ias": "[20,70]"
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_3",
+        "ProbabilityGroup": 3,
+        "Probability": 0.4,
+        "Ias": "[20,70]"
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_4",
+        "ProbabilityGroup": 3,
+        "Probability": 0.4,
+        "Ias": "[20,70]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_MAIN_1",
+        "Probability": 0.3,
+        "Ias": "[20,50]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_LEFT_2",
+        "Probability": 0.3,
+        "Ias": "[20,50]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_RIGHT_1",
+        "Probability": 0.3,
+        "Ias": "[20,50]"
+      }
+    ]
+  },
+  {
+    "Name": "Engine Failure After V1",
+    "Description": "Falla de motor durante el roll de despegue, después de alcanzar V1.",
+    "TriggerDescription": "Se dispara automáticamente luego de detectar V1 durante el despegue.",
+    "Phase": 3,
+    "Difficulty": 4,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1_DAMAGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "AfterEvent": "V1",
+        "AfterEventSeconds": "[1,3]"
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2_DAMAGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "AfterEvent": "V1",
+        "AfterEventSeconds": "[1,3]"
+      }
+    ]
+  },
+  {
+    "Name": "Engine Birdstrike After V2",
+    "Description": "Engine Birdstrike en ascenso inicial.",
+    "TriggerDescription": "Se dispara luego de despegar en el ascenso inicial.",
+    "Phase": "Climb",
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1_BIRDSTRIKE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "AfterEvent": "takeoff",
+        "AfterEventSeconds": "[5,30]"
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2_BIRDSTRIKE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5,
+        "AfterEvent": "takeoff",
+        "AfterEventSeconds": "[5,30]"
+      }
+    ]
+  },
+  {
+    "Name": "Dual Hydraulic System Failure",
+    "Description": "Falla de dos sistemas hidráulicos aleatorios en vuelo.",
+    "TriggerDescription": "Se dispara de forma aleatoria al subir por encima de FL150",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_HYD_LOW_GREEN",
+        "ProbabilityGroup": 1,
+        "Probability": 0.32,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[250,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_BLUE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.32,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[250,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.32,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[250,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_BLUE",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[200,300]"
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_YELLOW",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[200,300]"
+      },
+      {
+        "FenixFailureId": "F_HYD_PTU",
+        "Probability": 0.2,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[180,260]"
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_OVERHEAT_BLUE",
+        "Probability": 0.35,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_OVERHEAT_YELLOW",
+        "Probability": 0.35,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_LEAK_GREEN",
+        "ProbabilityGroup": 3,
+        "Probability": 0.1,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_LEAK_BLUE",
+        "ProbabilityGroup": 3,
+        "Probability": 0.1,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_HYD_LEAK_YELLOW",
+        "ProbabilityGroup": 3,
+        "Probability": 0.1,
+        "Above_Altitude": "[15000,20000]",
+        "Ias": "[240,320]"
+      }
+    ]
+  },
+  {
+    "Name": "Bleed Failure",
+    "Description": "Falla de sangrado de aire en motores. Pérdida de presurización. Puede requerir descenso de emergencia.",
+    "TriggerDescription": "Se dispara en crucero. ",
+    "Phase": 0,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_HP_VALVE_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.06,
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_HP_VALVE_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.06,
+        "Ias": "[240,320]"
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_VALVE_1",
+        "ProbabilityGroup": 2,
+        "Probability": 0.18,
+        "Ias": "[200,300]"
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_VALVE_2",
+        "ProbabilityGroup": 2,
+        "Probability": 0.18,
+        "Ias": "[200,300]"
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_BMC_1",
+        "ProbabilityGroup": 3,
+        "Probability": 0.55,
+        "Ias": "[200,300]"
+      }
+    ]
+  },
+  {
+    "Name": "Gear Not Down on Final",
+    "Description": "Tren de aterrizaje no baja correctamente en la final.",
+    "TriggerDescription": "Se dispara al seleccionar gear down en la aproximación.",
+    "Phase": 7,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_GEAR_LOCKED_UP",
+        "Probability": 1,
+        "Ias": "[90,200]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_LEFT",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_NOSE",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_RIGHT",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      }
+    ]
+  },
+  {
+    "Name": "Test",
+    "Description": "Test",
+    "TriggerDescription": "test",
+    "Phase": 0,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_GEAR_LOCKED_UP",
+        "Probability": 1,
+        "Ias": "[90,200]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_LEFT",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_NOSE",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_RIGHT",
+        "ProbabilityGroup": 2,
+        "Probability": 0.25,
+        "Ias": "[90,180]"
+      }
+    ]
+  }
+]

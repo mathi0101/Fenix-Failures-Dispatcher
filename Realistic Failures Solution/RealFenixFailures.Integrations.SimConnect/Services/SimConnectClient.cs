@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.FlightSimulator.SimConnect;
+using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Models;
 
 namespace RealFenixFailures.Integrations.SimConnect.Services;
 
-public class SimConnectClient : ISimConnectClient, IDisposable {
+public class SimConnectClient : ISimConnectClient, IFlightSimulationController, IDisposable {
     private Microsoft.FlightSimulator.SimConnect.SimConnect? _simConnect;
     private readonly ILogger<SimConnectClient> _logger;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
@@ -40,6 +41,12 @@ public class SimConnectClient : ISimConnectClient, IDisposable {
     }
 
     #region Public Methods
+
+    public void StartFlightSimulation() {
+    }
+
+    public void StopFlightSimulation() {
+    }
 
     public async Task<bool> ConnectAsync(CancellationToken ct) {
         await _connectionLock.WaitAsync(ct);

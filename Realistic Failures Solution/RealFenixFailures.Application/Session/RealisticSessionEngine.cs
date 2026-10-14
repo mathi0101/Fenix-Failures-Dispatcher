@@ -2,6 +2,8 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.DTOs;
+using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.Domain.Interfaces;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Session;
@@ -33,6 +35,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
     private readonly ILogger<RealisticSessionEngine> _logger;
     private readonly IFlightSessionService _sessionService;
     private readonly IPresetService _presetService;
+    private readonly IFailureTrigger _failureTrigger;
+    private readonly IFlightEventDetector _flightEventDetector;
     private readonly Random _random = Random.Shared;
 
 
@@ -60,11 +64,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
         ISimulatorConnectionService simulator,
         ILogger<RealisticSessionEngine> logger,
         IFlightSessionService sessionService,
-        IPresetService presetService) {
+        IPresetService presetService,
+        IFailureTrigger failureTrigger,
+        IFlightEventDetector flightEventDetector) {
         _simulator = simulator ?? throw new ArgumentNullException(nameof(simulator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sessionService = sessionService;
         _presetService = presetService;
+        _failureTrigger = failureTrigger ?? throw new ArgumentNullException(nameof(failureTrigger));
+        _flightEventDetector = flightEventDetector ?? throw new ArgumentNullException(nameof(flightEventDetector));
     }
     #endregion
 
@@ -105,7 +113,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
         try {
             (SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures) = await GetSimulatorData(ct);
 
-            Session!.ProcessSimData(rawData, failures);
+            var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
+            Session!.ProcessSimData(rawData, failures, currentPhase);
 
         } catch (ExecutionEngineException ex) {
             _logger.LogWarning("Error al recibir datos en EvaluateAsync, Ex: {a}", ex.Message);
@@ -116,15 +125,72 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
             throw;
         }
 
-        return EvaluationResult.NoAction();
+        return await TryTriggerFailureAsync(ct);
     }
-
-
-
 
     #endregion
 
     #region Privates
+
+    private static double RiskProbabilityMultiplier(RiskLevel riskLevel) => riskLevel switch {
+        RiskLevel.Low => 0.5,
+        RiskLevel.Moderate => 1.0,
+        RiskLevel.High => 1.75,
+        _ => 1.0
+    };
+
+    private async Task<EvaluationResult> TryTriggerFailureAsync(CancellationToken ct) {
+        var session = Session!;
+        var now = DateTime.UtcNow;
+
+        if (session.LastTriggeredAtUtc is DateTime lastTriggered
+            && (now - lastTriggered).TotalSeconds < MinCooldownSeconds) {
+            _logger.LogDebug("Skipping trigger evaluation: cooldown active ({Elapsed}s < {MinCooldown}s)",
+                (now - lastTriggered).TotalSeconds, MinCooldownSeconds);
+            return EvaluationResult.NoAction();
+        }
+
+        if (session.ActiveFailureCount >= MaxSimultaneousActiveFailures) {
+            _logger.LogDebug("Skipping trigger evaluation: max simultaneous failures reached ({Count}/{Max})",
+                session.ActiveFailureCount, MaxSimultaneousActiveFailures);
+            return EvaluationResult.NoAction();
+        }
+
+        var candidatePresets = session.AvailablePresets
+            .Where(p => p.FlightPhase == session.CurrentFlightPhase)
+            .ToArray();
+        if (candidatePresets.Length == 0) {
+            _logger.LogDebug("No candidate presets for current phase {Phase}", session.CurrentFlightPhase);
+            return EvaluationResult.NoAction();
+        }
+
+        _random.Shuffle(candidatePresets);
+        var effectiveProbability = BaseProbability * RiskProbabilityMultiplier(session.RiskLevel);
+        var activeFenixFailureIds = session.ActiveFenixFailureIds;
+
+        foreach (var preset in candidatePresets) {
+            var chosen = _failureTrigger.TryTriggerFailure(preset, session.CurrentFlightPhase, session.RiskLevel, effectiveProbability, activeFenixFailureIds);
+            if (chosen == null) continue;
+
+            var armed = await _simulator.ExecuteFailureAsync(chosen, ct);
+            if (!armed) continue;
+
+            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen.FenixFailureId, session.CurrentFlightPhase, now, ct);
+            session.RecordTriggeredFailure(now);
+
+            _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
+                chosen.FenixFailureId, preset.Name, session.CurrentFlightPhase, session.Session.Id);
+
+            var info = new TriggeredFailureInfo(
+                chosen.FenixFailureId,
+                chosen.FenixFailure?.Name ?? chosen.FenixFailureId,
+                preset.Name,
+                now);
+            return EvaluationResult.Completed([info]);
+        }
+
+        return EvaluationResult.NoAction();
+    }
     private async Task<(SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures)> GetSimulatorData(CancellationToken ct) {
         const string msgSimConn = "Simulator connection unavailable (Fenix={Fenix}, SimConnect={SimConnect}). Pausing evaluation.";
         const string msgSimData = "Simulator data corrupted (Fenix={Fenix}, SimConnect={SimConnect}). Pausing evaluation.";

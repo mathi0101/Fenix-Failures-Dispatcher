@@ -1,10 +1,14 @@
 ﻿using RealFenixFailures.UI.ViewModels;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 
 namespace RealFenixFailures.UI.Views;
 
 public partial class MainWindow : Window {
+    // Reemplazar por el link de donación real (ej. Ko-fi: https://ko-fi.com/tuusuario)
+    private const string DonationUrl = "https://ko-fi.com/mathiasgonzalez0101";
+
     private readonly MainWindowViewModel _viewModel;
     public MainWindow(MainWindowViewModel viewModel) {
         InitializeComponent();
@@ -30,4 +34,14 @@ public partial class MainWindow : Window {
 
     private void CloseWindow(object sender, RoutedEventArgs e) =>
         Close();
+
+    private void OpenDonationPage(object sender, RoutedEventArgs e) {
+        try {
+            Process.Start(new ProcessStartInfo(DonationUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex) {
+            MessageBox.Show($"No se pudo abrir el navegador: {ex.Message}",
+                "Donar", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 }

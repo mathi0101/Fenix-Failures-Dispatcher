@@ -11,12 +11,29 @@ public class FailureRuleEvaluator : IFailureRuleEvaluator {
         _random = Random.Shared;
     }
 
-    public IReadOnlyList<PresetFailureDefinition> EvaluateEligibleFailures(IEnumerable<PresetFailureDefinition> candidates, ComplexFlightPhaseEnum currentPhase) {
-        throw new NotImplementedException();
+    public IReadOnlyList<PresetFailureDefinition> EvaluateEligibleFailures(
+        IEnumerable<PresetFailureDefinition> candidates,
+        ComplexFlightPhaseEnum currentPhase,
+        RiskLevel riskLevel,
+        IReadOnlyCollection<string> activeFenixFailureIds) {
+        return candidates
+            .Where(c => c.Preset == null || c.Preset.FlightPhase == currentPhase)
+            .Where(c => c.FenixFailure == null || IsSeverityAllowed(c.FenixFailure.Severity, riskLevel))
+            .Where(c => !activeFenixFailureIds.Contains(c.FenixFailureId))
+            .ToList();
     }
 
-    public IReadOnlyList<PresetFailureDefinition> EvaluateEligibleFailures(FailurePreset preset) {
-        throw new NotImplementedException();
-
+    public IReadOnlyList<PresetFailureDefinition> EvaluateEligibleFailures(
+        FailurePreset preset,
+        RiskLevel riskLevel,
+        IReadOnlyCollection<string> activeFenixFailureIds) {
+        return EvaluateEligibleFailures(preset.PresetFailureDefinitions, preset.FlightPhase, riskLevel, activeFenixFailureIds);
     }
+
+    private static bool IsSeverityAllowed(FailureSeverity severity, RiskLevel riskLevel) => riskLevel switch {
+        RiskLevel.Low => severity == FailureSeverity.Minor,
+        RiskLevel.Moderate => severity is FailureSeverity.Minor or FailureSeverity.Major,
+        RiskLevel.High => true,
+        _ => false
+    };
 }
