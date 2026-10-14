@@ -4,6 +4,59 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-14 — Paneles de modo translúcidos sobre el fondo de la ventana
+
+**Qué**
+
+- `Themes/DesignTokens.xaml` y `Themes/Brushes.xaml`: nuevos colores/pinceles translúcidos `Brush.Background.Glass.Card` (contenedor del modo, 40 % de transparencia) e `Brush.Background.Glass.Inner` (tarjetas internas, 55 %).
+- `Views/MainWindow.xaml`: el contenedor del modo usa `Glass.Card`.
+- `Views/Panels/{Training,Custom,Realistic}ModePanel.xaml`: las tarjetas internas (`#0D0F14`, incluido el `CardButtonStyle` de Realistic) usan `Glass.Inner`.
+- El log en tiempo real, la barra de título y la barra de estado siguen opacos a propósito.
+
+**Por qué**
+
+- Los paneles de los modos tapaban casi todo el fondo de la ventana; se quería que se viera más.
+
+**Áreas**
+
+- `RealFenixFailures.UI` — `Themes/`, `Views/MainWindow.xaml`, `Views/Panels/`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug --no-restore`: 0 errores, 0 advertencias.
+- Ejecución en Debug con captura de la ventana (modo Realista): el fondo se ve a través del contenedor y de las tarjetas. No verificado en Training ni Custom; no revisé legibilidad del texto sobre zonas claras del fondo.
+
+**Pendientes**
+
+- Ajustar los valores de transparencia si el texto pierde contraste en zonas claras.
+
+### 2026-10-14 — Identidad visual: icono de aplicación y fondo de ventana
+
+**Qué**
+
+- Icono de aplicación (`Assets/Branding/app-icon.ico`, multi-tamaño 16–256 px): avión en silueta con triángulo de advertencia ámbar, sobre el fondo `#0D0F14`.
+- `RealFenixFailures.UI.csproj`: `<ApplicationIcon>` (icono del `.exe`) y `<Resource>` para el icono y el fondo.
+- `Views/MainWindow.xaml`: `Icon=` de la ventana y `ImageBrush` (`Brush.Background.AppImage`, `Assets/Branding/background.png`) como fondo del borde raíz. Los paneles y la barra de estado siguen siendo opacos y tapan el fondo en sus zonas.
+
+**Por qué**
+
+- Dar identidad visual a la app. Primera propuesta para revisión; el diseño puede cambiar.
+
+**Áreas**
+
+- `RealFenixFailures.UI` — `RealFenixFailures.UI.csproj`, `Views/MainWindow.xaml`, `Assets/Branding/`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug --no-restore`: 0 errores, 0 advertencias.
+- Ejecución en Debug con captura de la ventana: el fondo se muestra y el layout se mantiene.
+- No verificado: icono en la barra de tareas y en el explorador de archivos (no se revisó en Windows Shell); el icono de la barra de título no se ve porque la ventana usa `WindowStyle="None"`; la barra de título personalizada todavía muestra el carácter ✈.
+
+**Pendientes**
+
+- Decidir si el icono reemplaza el ✈ de la barra de título personalizada.
+- Ajustar la intensidad del fondo si resulta demasiado azul frente a los paneles.
+
 ### 2026-10-14 — Correcciones finales de review del modo Realistic
 
 **Qué**
