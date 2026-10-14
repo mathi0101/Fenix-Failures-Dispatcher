@@ -29,6 +29,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\Branding\app-icon.ico" />
+    <Resource Include="Assets\Branding\background.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="Views\Panels\RealisticModePanel.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -44,6 +49,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
+    <ApplicationIcon>Assets\Branding\app-icon.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

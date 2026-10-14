@@ -4,6 +4,8 @@
     <!-- Background Colors -->
     <Color x:Key="Color.Background.Deep">#0D0F14</Color>
     <Color x:Key="Color.Background.Card">#13161E</Color>
+    <Color x:Key="Color.Background.Glass.Card">#6613161E</Color>
+    <Color x:Key="Color.Background.Glass.Inner">#8C0D0F14</Color>
     <Color x:Key="Color.Background.Card.Hover">#1A1E28</Color>
     <Color x:Key="Color.Background.TitleBar">#0A0C10</Color>
     <Color x:Key="Color.Background.StatusBar">#0F1117</Color>

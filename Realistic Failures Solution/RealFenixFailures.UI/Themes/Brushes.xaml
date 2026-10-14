@@ -8,6 +8,8 @@
     <!-- Background Brushes -->
     <SolidColorBrush x:Key="Brush.Background.Deep" Color="{StaticResource Color.Background.Deep}"/>
     <SolidColorBrush x:Key="Brush.Background.Card" Color="{StaticResource Color.Background.Card}"/>
+    <SolidColorBrush x:Key="Brush.Background.Glass.Card" Color="{StaticResource Color.Background.Glass.Card}"/>
+    <SolidColorBrush x:Key="Brush.Background.Glass.Inner" Color="{StaticResource Color.Background.Glass.Inner}"/>
     <SolidColorBrush x:Key="Brush.Background.Card.Hover" Color="{StaticResource Color.Background.Card.Hover}"/>
     <SolidColorBrush x:Key="Brush.Background.TitleBar" Color="{StaticResource Color.Background.TitleBar}"/>
     <SolidColorBrush x:Key="Brush.Background.StatusBar" Color="{StaticResource Color.Background.StatusBar}"/>

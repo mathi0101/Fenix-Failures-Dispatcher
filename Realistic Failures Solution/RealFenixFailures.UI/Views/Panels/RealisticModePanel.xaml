@@ -12,7 +12,7 @@
     <UserControl.Resources>
         <!-- Botón/tarjeta genérica seleccionable -->
         <Style x:Key="CardButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#0D0F14"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Background.Glass.Inner}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -202,7 +202,7 @@
                         </ItemsControl>
 
                         <!-- Formulario inline de creación -->
-                        <Border Background="#0D0F14" BorderBrush="{StaticResource Brush.Accent.Green.Primary}"
+                        <Border Background="{StaticResource Brush.Background.Glass.Inner}" BorderBrush="{StaticResource Brush.Accent.Green.Primary}"
                                 BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,6,0,0"
                                 Visibility="{Binding ShowCreateForm, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
@@ -262,7 +262,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="#0D0F14" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                            <Border Grid.Column="0" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                                 <StackPanel>
                                     <TextBlock Text="VUELOS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFlights}" FontSize="22" FontWeight="Bold"
@@ -270,7 +270,7 @@
                                     <TextBlock Text="registrados" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                 </StackPanel>
                             </Border>
-                            <Border Grid.Column="1" Background="#0D0F14" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                                 <StackPanel>
                                     <TextBlock Text="HORAS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFlightHours, StringFormat='{}{0:F1}'}" FontSize="22" FontWeight="Bold"
@@ -278,7 +278,7 @@
                                     <TextBlock Text="acumuladas" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                 </StackPanel>
                             </Border>
-                            <Border Grid.Column="2" Background="#0D0F14" CornerRadius="8" Padding="12">
+                            <Border Grid.Column="2" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12">
                                 <StackPanel>
                                     <TextBlock Text="FALLAS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFailures}" FontSize="22" FontWeight="Bold"
@@ -289,7 +289,7 @@
                         </Grid>
 
                         <!-- Desgaste -->
-                        <Border Background="#0D0F14" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                        <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,0,14">
                             <StackPanel>
                                 <TextBlock Text="DESGASTE ACUMULADO" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
@@ -326,7 +326,7 @@
                         <ItemsControl ItemsSource="{Binding Sessions}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type rvm:FlightSessionItemViewModel}">
-                                    <Border Background="#0D0F14" BorderBrush="{StaticResource Brush.Border.Default}"
+                                    <Border Background="{StaticResource Brush.Background.Glass.Inner}" BorderBrush="{StaticResource Brush.Border.Default}"
                                             BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,8">
                                         <StackPanel>
                                             <Button Command="{Binding DataContext.ToggleSessionCommand, ElementName=RealisticRoot}"
@@ -515,7 +515,7 @@
 
                 <StackPanel Grid.Row="1">
                     <!-- Resumen -->
-                    <Border Background="#0D0F14" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                    <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="RESUMEN" FontSize="10" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
@@ -533,7 +533,7 @@
                     </Border>
 
                     <!-- Estado de conexión / fase -->
-                    <Border Background="#0D0F14" CornerRadius="8" Padding="14">
+                    <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14">
                         <StackPanel>
                             <Grid Margin="0,0,0,6">
                                 <TextBlock Text="MSFS (SimConnect)" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" HorizontalAlignment="Left"/>
@@ -578,7 +578,7 @@
                     </Border>
 
                     <!-- Fallas de la sesión actual -->
-                    <Border Background="#0D0F14" CornerRadius="8" Padding="14" Margin="0,12,0,0"
+                    <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,12,0,0"
                             Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
                             <TextBlock Text="FALLAS DE LA SESIÓN ACTUAL" FontSize="10" FontWeight="Bold"
