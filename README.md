@@ -1,101 +1,57 @@
 # Realistic A320 Fenix Failures
 
-Realistic A320 Fenix Failures is a background application designed to improve failure realism for the Fenix A320 in Microsoft Flight Simulator 2024.
+Aplicación de escritorio **WPF (.NET 10)** que se ejecuta en segundo plano mientras volás el **Fenix A320** en **Microsoft Flight Simulator 2024**, para generar fallas más realistas, dinámicas y contextuales que las del simulador por defecto.
 
-The purpose of the project is to create a more immersive and believable failure system by combining simulator context with aircraft-specific system data, allowing failures to occur in a way that feels operationally coherent instead of purely random.
+## Qué hace
 
-## Vision
+- Corre en background junto al simulador.
+- Lee contexto general del vuelo (fase, altitud, velocidad, estado) desde MSFS.
+- Consulta y dispara fallas reales del Fenix A320 vía su API local.
+- Evalúa probabilidades por fase de vuelo y persistencia de sesiones y fallas en SQLite.
+- Tres modos: **Training** (presets armados), **Custom** (presets propios) y **Realistic** (motor probabilístico en desarrollo).
+- UI WPF + MVVM con log en tiempo real de eventos de vuelo.
 
-This project aims to bring a deeper level of realism to the Fenix A320 by generating failures that make sense in context, feel plausible during operation, and add meaningful challenge to each flight.
+## Arquitectura híbrida
 
-## Project Goal
+- **SimConnect** es la fuente de verdad del contexto del simulador (MSFS 2024).
+- **Fenix** es la fuente de verdad de sistemas internos del avión y el punto de inyección de fallas (`/fenix/failures/manual` y `/fenix/failures/saveManual`).
 
-The main goal is to develop a tool that can:
-- run in the background
-- read relevant simulator and aircraft data
-- understand the current flight context
-- trigger realistic failures in the Fenix A320
-- provide a more dynamic and authentic failure experience than the default options
+El Fenix modela muchos sistemas fuera del simulador nativo, por eso las variables del sim no alcanzan como única fuente. SimConnect se eligió sobre FSUIPC por ser la API oficial, estar alineada con MSFS 2020/2024 y evitar capas de terceros (ver [docs/project.md](docs/project.md)).
 
-## Core Concept
+## Stack
 
-The application is based on a hybrid approach:
+.NET 10 · WPF + MVVM · Clean Architecture (Domain / Application / Infrastructure / Integrations.Fenix / Integrations.SimConnect / UI) · EF Core + SQLite · Serilog · `IHost` + DI · xUnit.
 
-- **SimConnect** is used to read general simulator context
-- **Fenix integration** is used to access aircraft-specific systems and failure logic
+## Estado honesto
 
-This is necessary because the Fenix A320 does not rely entirely on the default simulator aircraft logic. Many important aircraft systems are simulated externally, so simulator variables alone are not always enough to reflect the real aircraft state.
+- Build Debug y Release pasan a fecha **2026-10-14** con **0 errores y 0 advertencias** en ambos; tests automatizados **29/29**; `dotnet list RealFenixFailures.slnx package --vulnerable --include-transitive` reporta **ningún paquete vulnerable**.
+- La integración **real** MSFS/Fenix **no está verificada** de punta a punta: en DEBUG la DI registra mocks de SimConnect y Fenix.
+- El modo **Realistic** está **en desarrollo**: el WIP base quedó committeado como `031a9e7` (branch `dev`) y la estabilización de 2026-10-14 (validación previa, null safety, scope por sesión, compensación, x64, paquetes actualizados) está aplicada en el árbol pero **aún sin commitear** (el commit queda a cargo del encargado principal).
 
-## Why SimConnect
+## Requisitos
 
-SimConnect is the official API for Microsoft Flight Simulator and is the preferred interface for this project.
+- Windows 10/11, .NET 10 SDK, MSFS 2024 con modo desarrollador y SDK oficial (SimConnect).
+- Fenix Simulations A320 corriendo con la API local habilitada (puerto predeterminado 8083).
+- MSFS SimConnect SDK (por defecto en `MSFS SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll`).
 
-It can be used to obtain information such as:
-- altitude
-- position
-- speed
-- heading
-- phase-of-flight context
-- environmental and general aircraft state data
+## Comandos mínimos (desde `Realistic Failures Solution`)
 
-For this project, SimConnect is a better fit than FSUIPC because:
-- it is the official Microsoft interface
-- it is better aligned with MSFS 2020 and MSFS 2024
-- it avoids unnecessary third-party dependency layers
-- it provides the simulator context needed by the failure engine
+```sh
+dotnet restore RealFenixFailures.slnx
+dotnet build RealFenixFailures.slnx -c Debug
+dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj
+dotnet run --project RealFenixFailures.UI/RealFenixFailures.UI.csproj
+```
 
-## Why Not Use Only SimConnect
+## Documentación
 
-Although SimConnect is very useful, it should not be treated as the only source of truth for the Fenix A320.
+- [docs/README.md](docs/README.md) — índice de toda la documentación.
+- [docs/arquitectura.md](docs/arquitectura.md) — capas, componentes y flujo vigente.
+- [docs/desarrollo.md](docs/desarrollo.md) — requisitos, comandos, migrations y commits.
+- [docs/realistic-mode/estado-y-diseno.md](docs/realistic-mode/estado-y-diseno.md) — estado del modo Realistic y limitaciones restantes.
+- [docs/integraciones/](docs/integraciones/) — SimConnect y Fenix API.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — bitácora técnica de cambios.
 
-The Fenix aircraft models many systems independently from the default simulator. Because of that, some values exposed by the simulator may not fully represent the actual internal aircraft state.
+## Licencia y donaciones
 
-For that reason, the intended architecture is:
-
-- **SimConnect** for simulator context
-- **Fenix-side integration** for real aircraft systems and failure control
-
-## Planned Features
-
-- Context-aware failure triggering
-- Failures based on flight phase
-- Probabilistic failure logic
-- More realistic operational scenarios
-- Support for configurable realism profiles
-- Possibility of progressive degradation and non-instant failures
-- Background monitoring with low user interaction
-
-## Technical Direction
-
-The current technical direction is centered around:
-- **C#**
-- **Microsoft Flight Simulator SDK**
-- **SimConnect**
-- background app or service architecture
-- modular logic for future rule expansion
-
-## SimConnect SDK
-
-The recommended way to work with SimConnect is through the official Microsoft Flight Simulator SDK.
-
-Typical managed DLL path:
-
-`MSFS SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll`
-
-To install the SDK:
-1. Open Microsoft Flight Simulator
-2. Enable Developer Mode
-3. Open the Developer menu
-4. Go to Help
-5. Launch the SDK Installer
-
-### Dependencias externas
-
-- Microsoft SimConnect (MSFS SDK) — no incluido. Obtenerlo desde el SDK oficial.  
-- Fenix Simulations — software comercial; no redistribuido ni incluido.
-
-## Licencia
-Este proyecto está bajo la Licencia Apache 2.0. Consulta el archivo [LICENSE](LICENSE) para más detalles.
-
-## Donaciones
-Si este software te resulta útil y quieres apoyar su mejora continua, puedes realizar una donación voluntaria.
+Proyecto bajo **Licencia Apache 2.0** (ver [LICENSE](LICENSE)). Si el software te resulta útil y querés apoyar su mejora, podés realizar una donación voluntaria.

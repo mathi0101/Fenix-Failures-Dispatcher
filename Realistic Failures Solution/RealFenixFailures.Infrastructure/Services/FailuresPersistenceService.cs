@@ -28,16 +28,27 @@ public class FailuresPersistenceService : IFailuresPersistenceService {
             throw new ArgumentException("Error al cargar fallas iniciales");
 
         var systems = failures.MajorGroups.Select(
-            x => new FenixFailureSystem {
-                Name = x.Title,
-                ShortName = x.ShortTitle,
-                FailureGroups = x.SystemGroups.Select(
-                x => new FenixFailureGroup {
-                    Name = x.Name,
-                    FailureDefinitions = x.Failures.Select(
-                    x => new FenixFailureDefinition { FenixFailureId = x.FenixId, Name = x.Description, Severity = FailureSeverity.Minor }
-                    ).ToList()
-                }).ToList()
+            major => {
+                var system = new FenixFailureSystem {
+                    Name = major.Title,
+                    ShortName = major.ShortTitle
+                };
+                system.FailureGroups = major.SystemGroups.Select(
+                    group => {
+                        var failureGroup = new FenixFailureGroup {
+                            Name = group.Name,
+                            System = system
+                        };
+                        failureGroup.FailureDefinitions = group.Failures.Select(
+                            failure => new FenixFailureDefinition {
+                                FenixFailureId = failure.FenixId,
+                                Name = failure.Description,
+                                Severity = FailureSeverity.Minor,
+                                Group = failureGroup
+                            }).ToList();
+                        return failureGroup;
+                    }).ToList();
+                return system;
             }
         ).ToList();
 

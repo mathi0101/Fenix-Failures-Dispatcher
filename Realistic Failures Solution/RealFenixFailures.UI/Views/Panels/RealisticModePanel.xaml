@@ -610,38 +610,57 @@
                         </StackPanel>
                     </Border>
 
-                    <Button Height="48"
-                            Command="{Binding ActivateCommand}"
-                            ToolTip="{Binding ActivationBlockReason}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SuccessButtonStyle}">
-                                <!-- Habilitado según validaciones; el trigger fuerza habilitado cuando está activo (para poder DETENER). -->
-                                <Setter Property="IsEnabled" Value="{Binding CanActivate}"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsEngineActive}" Value="True">
-                                        <Setter Property="Background" Value="#7F1D1D"/>
-                                        <Setter Property="IsEnabled" Value="True"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="⏵"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsEngineActive}" Value="True">
-                                                <Setter Property="Text" Value="⏹"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="{Binding ActivateButtonText}" VerticalAlignment="Center"
-                                       FontSize="13" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Button>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Reanudación manual: visible solo mientras la sesión esté pausada (sin auto-resume). -->
+                        <Button Grid.Column="0" Height="48" Margin="0,0,10,0" Padding="18,0"
+                                Command="{Binding ResumeSessionCommand}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Visibility="{Binding IsSessionPaused, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⏵" VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0"/>
+                                <TextBlock Text="REANUDAR SESIÓN" VerticalAlignment="Center"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Grid.Column="1" Height="48"
+                                Command="{Binding ActivateCommand}"
+                                ToolTip="{Binding ActivationBlockReason}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource SuccessButtonStyle}">
+                                    <!-- Habilitado según validaciones; el trigger fuerza habilitado cuando está activo (para poder DETENER). -->
+                                    <Setter Property="IsEnabled" Value="{Binding CanActivate}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEngineActive}" Value="True">
+                                            <Setter Property="Background" Value="#7F1D1D"/>
+                                            <Setter Property="IsEnabled" Value="True"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="⏵"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEngineActive}" Value="True">
+                                                    <Setter Property="Text" Value="⏹"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding ActivateButtonText}" VerticalAlignment="Center"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Grid>

@@ -7,6 +7,8 @@ namespace RealFenixFailures.Application.Interfaces;
 public interface IRealisticSessionManager : INotifyPropertyChanged {
     RealisticSession? SessionState { get; }
 
+    bool IsPaused { get; }
+
     Task<ServiceResult<string>> StartNewSessionAsync(RealisticModeContext context, CancellationToken ct);
     Task StopAsync(CancellationToken ct);
     Task PauseAsync(CancellationToken ct);

@@ -16,9 +16,12 @@ Agent Prompts/
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
-# Ignorar cualquier .json dentro de carpetas Resources (cualquier nivel)
+# Ignorar cualquier .json dentro de carpetas Resources (cualquier nivel),
+# salvo los EmbeddedResource indispensables del Domain, que sí deben versionarse
 **/Resources/*.json
 **/Resources/**/*.json
+!Realistic Failures Solution/RealFenixFailures.Domain/Resources/failures.json
+!Realistic Failures Solution/RealFenixFailures.Domain/Resources/training_presets.json
 
 # Mono auto generated files
 mono_crash.*

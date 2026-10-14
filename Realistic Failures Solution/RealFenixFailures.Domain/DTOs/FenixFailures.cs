@@ -954,7 +954,9 @@ public static class FenixFailures {
 
         foreach (var field in fields) {
             if (field.IsLiteral && !field.IsInitOnly) {
-                ids.Add(field.GetValue(null).ToString());
+                if (field.GetValue(null) is string id) {
+                    ids.Add(id);
+                }
             }
         }
 

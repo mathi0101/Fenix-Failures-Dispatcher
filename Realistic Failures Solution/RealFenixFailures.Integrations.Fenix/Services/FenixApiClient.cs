@@ -27,7 +27,7 @@ public class FenixApiClient : IFenixApiClient {
         } catch (HttpRequestException ex) {
             _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
             return false;
-        } catch (TaskCanceledException ex) {
+        } catch (TaskCanceledException) {
             _logger.LogDebug("Timeout while requesting if Fenix API is alive");
             return false;
         }
@@ -47,7 +47,7 @@ public class FenixApiClient : IFenixApiClient {
         } catch (HttpRequestException ex) {
             _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
             return null;
-        } catch (TaskCanceledException ex) {
+        } catch (TaskCanceledException) {
             _logger.LogDebug("Timeout while requesting Fenix API GET manual failures endpoint.");
             return null;
         }

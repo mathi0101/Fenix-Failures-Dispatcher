@@ -28,7 +28,7 @@ public class FlightSessionService : IFlightSessionService {
 
     public async Task<FlightSession> StopAsync(int sessionId, DateTime finishedAt, CancellationToken ct) {
         var session = await _sessionRepository.GetByIdAsync(sessionId, ct) ?? throw new KeyNotFoundException();
-        session.FinishedAt = DateTime.UtcNow;
+        session.FinishedAt = finishedAt;
         await _sessionRepository.SaveChangesAsync(ct);
 
         return session;

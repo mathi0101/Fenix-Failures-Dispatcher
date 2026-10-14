@@ -21,6 +21,8 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     #region Fields
 
+    private const int MaxLiveTriggeredFailures = 200;
+
     private readonly IUserAircraftService _aircraftService;
     private readonly IEngineOrchestrator _orchestrator;
     private readonly ILogger<RealisticModeViewModel> _logger;
@@ -46,6 +48,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     // Conexión / estado (reflejo del orchestrator)
     private bool _isSimConnected;
     private bool _isFenixConnected;
+    private bool _isSessionPaused;
     private ComplexFlightPhaseEnum currentFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private SimpleFlightPhaseEnum simpleFlightPhase = SimpleFlightPhaseEnum.Disconnected;
     #endregion
@@ -83,9 +86,12 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ToggleSessionCommand = new RelayCommand<FlightSessionItemViewModel>(ToggleSession);
 
         ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => CanActivate || IsEngineActive);
+        ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
+        _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
+        IsSessionPaused = _realisticSessionManager.IsPaused;
         SyncConnectionFromOrchestrator();
     }
     #endregion
@@ -105,6 +111,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand<string> SelectRiskCommand { get; }
     public RelayCommand<FlightSessionItemViewModel> ToggleSessionCommand { get; }
     public RelayCommand ActivateCommand { get; }
+    public RelayCommand ResumeSessionCommand { get; }
 
     #endregion
 
@@ -287,6 +294,18 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool IsOnGround => SimpleFlightPhase == SimpleFlightPhaseEnum.OnGround;
 
     /// <summary>
+    /// La sesión realista está pausada (p. ej. por pérdida de datos del simulador); habilita REANUDAR SESIÓN.
+    /// Refleja <c>IRealisticSessionManager.IsPaused</c> vía PropertyChanged.
+    /// </summary>
+    public bool IsSessionPaused {
+        get => _isSessionPaused;
+        private set {
+            if (SetProperty(ref _isSessionPaused, value))
+                ResumeSessionCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>
     /// El motor puede activarse cuando se cumplen TODAS las condiciones.
     /// Si ya está activo, se muestra el botón de detener (no se re-evalúa esto).
     /// </summary>
@@ -451,9 +470,28 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private void RealisticSessionManager_FailureTriggered(object? sender, FailureTriggeredEventArgs e) {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() => {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
             LiveTriggeredFailures.Insert(0, $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}  {e.Description}");
+            while (LiveTriggeredFailures.Count > MaxLiveTriggeredFailures) {
+                LiveTriggeredFailures.RemoveAt(LiveTriggeredFailures.Count - 1);
+            }
         });
+    }
+
+    private void RealisticSessionManager_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(IRealisticSessionManager.IsPaused)) {
+            IsSessionPaused = _realisticSessionManager.IsPaused;
+        }
+    }
+
+    private async Task ResumeSessionAsync() {
+        if (!IsSessionPaused) return;
+        try {
+            await _realisticSessionManager.ResumeAsync(CancellationToken.None);
+            _logger.LogInformation("Sesión Realista reanudada manualmente.");
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error al reanudar la sesión Realista.");
+        }
     }
 
     private void Orchestrator_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -489,6 +527,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public void Dispose() {
         _orchestrator.PropertyChanged -= Orchestrator_PropertyChanged;
+        _realisticSessionManager.PropertyChanged -= RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered -= RealisticSessionManager_FailureTriggered;
     }
 }

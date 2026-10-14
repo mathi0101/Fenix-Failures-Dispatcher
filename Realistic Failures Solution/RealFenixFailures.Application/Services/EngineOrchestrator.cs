@@ -6,7 +6,6 @@ using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Services;
-using System.Collections.Concurrent;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Services;
@@ -25,7 +24,9 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
     private readonly IFlightSimulationController _flightSimulationController;
     private readonly ILogger<EngineOrchestrator> _logger;
 
-    private readonly ConcurrentBag<FailureTriggerLogDto> _recentLogs = new();
+    private readonly object _recentLogsLock = new();
+    private readonly Queue<FailureTriggerLogDto> _recentLogs = new();
+    private const int MaxRecentLogs = 200;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
 
     private FailurePreset? _activePreset;
@@ -165,10 +166,10 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
                 // El modo Realista ya alimenta el detector con su propio loop de evaluación (30s);
                 // en los demás modos (o sin modo activo) lo alimentamos aquí para no perder eventos de vuelo.
-                if (CurrentMode != UserAppMode.Realistic && ConnectionStatus.IsSimConnectConnected) {
+                if ((CurrentMode != UserAppMode.Realistic || _realisticSessionManager.IsPaused) && ConnectionStatus.IsSimConnectConnected) {
                     var data = await _simulatorConnectionService.GetSimulatorData(ct);
-                    if (data.IsSuccess) {
-                        _flightEventDetector.ProcessSnapshot(data.Value!);
+                    if (data.IsSuccess && data.Value != null) {
+                        _flightEventDetector.ProcessSnapshot(data.Value);
                     }
                 }
             }
@@ -252,7 +253,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             if (!armedFailures.IsSuccess) {
                 _logger.LogError("Failed to arm training preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
-                _recentLogs.Add(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
+                AddRecentLog(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                 return;
             }
 
@@ -263,7 +264,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                     def.FenixFailure!.Name,
                     def.Preset!.FlightPhase,
                     _activePreset.Name);
-                _recentLogs.Add(log);
+                AddRecentLog(log);
             }
 
             CurrentMode = UserAppMode.Training;
@@ -309,7 +310,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
                 if (!armedFailures.IsSuccess) {
                     _logger.LogError("Failed to arm custom preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
-                    _recentLogs.Add(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
+                    AddRecentLog(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                     return;
                 }
 
@@ -320,7 +321,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                         def.FenixFailure!.Name,
                         def.Preset!.FlightPhase,
                         _activePreset.Name);
-                    _recentLogs.Add(log);
+                    AddRecentLog(log);
                 }
             }
 
@@ -344,27 +345,41 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                 return;
             }
 
-            if (CurrentMode == UserAppMode.Realistic) {
-                await _realisticSessionManager.StopAsync(ct);
+            try {
+                if (CurrentMode == UserAppMode.Realistic) {
+                    await _realisticSessionManager.StopAsync(ct);
+                }
+
+                await _simulatorConnectionService.ResetAllFailuresAsync(ct);
+            } finally {
+                _flightSimulationController.StopFlightSimulation();
+                _activePreset = null;
+                _activeScenarioFailures.Clear();
+                _flightEventDetector.Reset();
+
+                _logger.LogInformation("Mode {Mode} stopped.", CurrentMode);
+
+                CurrentMode = UserAppMode.None;
+                IsEngineActive = false;
             }
-
-            await _simulatorConnectionService.ResetAllFailuresAsync(ct);
-
-            _activePreset = null;
-            _activeScenarioFailures.Clear();
-            _flightEventDetector.Reset();
-
-            _logger.LogInformation("Mode {Mode} stopped.", CurrentMode);
-
-            CurrentMode = UserAppMode.None;
-            IsEngineActive = false;
         } finally {
             _operationLock.Release();
         }
     }
 
     public Task<List<FailureTriggerLogDto>> GetRecentFailuresAsync(CancellationToken ct) {
-        return Task.FromResult(_recentLogs.OrderByDescending(x => x.TriggeredAtUtc).Take(100).ToList());
+        lock (_recentLogsLock) {
+            return Task.FromResult(_recentLogs.OrderByDescending(x => x.TriggeredAtUtc).Take(100).ToList());
+        }
+    }
+
+    private void AddRecentLog(FailureTriggerLogDto log) {
+        lock (_recentLogsLock) {
+            _recentLogs.Enqueue(log);
+            while (_recentLogs.Count > MaxRecentLogs) {
+                _recentLogs.Dequeue();
+            }
+        }
     }
 
     #endregion

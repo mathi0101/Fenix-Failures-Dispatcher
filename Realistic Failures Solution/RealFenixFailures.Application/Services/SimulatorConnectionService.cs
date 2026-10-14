@@ -96,6 +96,12 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
 
         return await _fenixFailureApiDispatcher.ArmFailureAsync(def, ct);
     }
+
+    public async Task<bool> DisarmFailureAsync(string fenixFailureId, CancellationToken ct) {
+        if (string.IsNullOrWhiteSpace(fenixFailureId)) return false;
+        var def = new FenixArmFailureRequest(fenixFailureId, false, null);
+        return await _fenixFailureApiDispatcher.DisarmFailureAsync(def, ct);
+    }
     #endregion
 
     #region Privadas

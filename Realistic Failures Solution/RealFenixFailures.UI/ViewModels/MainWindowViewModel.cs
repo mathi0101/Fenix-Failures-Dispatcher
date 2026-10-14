@@ -17,6 +17,8 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     #region Fields
 
+    private const int MaxLogEntries = 200;
+
     private readonly IEngineOrchestrator _orchestrator;
     private readonly IPresetService _presetService;
     private readonly IFlightHistoryService _flightHistoryService;
@@ -311,8 +313,11 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     }
 
     private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() => {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
             LogEntries.Insert(0, $"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
+            while (LogEntries.Count > MaxLogEntries) {
+                LogEntries.RemoveAt(LogEntries.Count - 1);
+            }
             CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;
         });
     }

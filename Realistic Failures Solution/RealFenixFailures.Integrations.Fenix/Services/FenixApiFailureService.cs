@@ -42,6 +42,17 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
     }
 
+    public async Task<bool> DisarmFailureAsync(FenixArmFailureRequest def, CancellationToken ct) {
+        _logger.LogDebug("DisarmFailure Request: {@def}", def);
+        FenixSaveManualRequest rq = def.ToFenixSaveManualRequest();
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
+        using var stream = await _apiClient.SendFailureAsync(rq, cts.Token);
+        _logger.LogDebug("DisarmFailure Response: {@stream}", stream);
+        bool httpOk = stream is not null;
+        UpdateHealthState(httpOk);
+        return httpOk;
+    }
+
     #endregion
 
     public async Task<AllFenixFailuresResponseDto> GetAllFailuresAsync(CancellationToken ct) {

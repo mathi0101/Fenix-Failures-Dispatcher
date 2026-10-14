@@ -17,7 +17,7 @@ namespace RealFenixFailures.Application.Session;
 /// <remarks>
 /// Not sealed so it can be subclassed/mocked in tests.
 /// </remarks>
-public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
+public class RealisticSessionEngine : INotifyPropertyChanged {
 
     #region Constants
     /// <summary>Base probability that a given candidate failure is triggered on a tick where it is evaluated.</summary>
@@ -81,20 +81,26 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
     public async Task<StartSessionResult> TryStartSession(RealisticModeContext context, CancellationToken ct) {
         var conn = await _simulator.GetConnectionStatusAsync(ct);
         var data = await _simulator.GetSimulatorData(ct);
-        string msg = string.Empty;
-        bool isFullSimConnected = conn.IsSimConnectConnected && conn.IsFenixConnected && data.IsSuccess;
-        bool isAircraftParkedAndEnginesOff = data.Value!.IsOnGround && !(data.Value!.Engine1IsRunning || data.Value!.Engine2IsRunning);
-        if (!isFullSimConnected)
-            msg = "Simulator connection not detected yet";
-        else if (!isAircraftParkedAndEnginesOff)
-            msg = "Aircraft must be on gate with all engines off";
 
+        if (!conn.IsSimConnectConnected || !conn.IsFenixConnected)
+            return new StartSessionResult(false, "Simulator connection not detected yet");
+
+        if (!data.IsSuccess || data.Value is null)
+            return new StartSessionResult(false, "Simulator data unavailable");
+
+        var snapshot = data.Value;
+        bool isAircraftParkedAndEnginesOff = snapshot.IsOnGround && !(snapshot.Engine1IsRunning || snapshot.Engine2IsRunning);
+        if (!isAircraftParkedAndEnginesOff)
+            return new StartSessionResult(false, "Aircraft must be on gate with all engines off");
+
+        // Cargar presets ANTES de persistir la sesión: si la carga falla, no queda sesión persistida huérfana.
+        var presets = (await _presetService.GetRealisticPresetsAsync(ct)).ToList();
         var newSession = await _sessionService.StartNewAsync(context.RiskLevel, context.Aircraft, ct);
         Session = new RealisticSession(newSession, context.Aircraft) {
-            AvailablePresets = (await _presetService.GetRealisticPresetsAsync(ct)).ToList()
+            AvailablePresets = presets
         };
 
-        return new StartSessionResult(isFullSimConnected && isAircraftParkedAndEnginesOff, msg);
+        return new StartSessionResult(true, string.Empty);
     }
 
     public async Task StopSession(CancellationToken ct) {
@@ -116,9 +122,12 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             Session!.ProcessSimData(rawData, failures, currentPhase);
 
-        } catch (ExecutionEngineException ex) {
+        } catch (SimulatorDataUnavailableException ex) {
             _logger.LogWarning("Error al recibir datos en EvaluateAsync, Ex: {a}", ex.Message);
             return EvaluationResult.Disconnected();
+        } catch (OperationCanceledException) {
+            // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
+            throw;
         } catch (Exception ex) {
             _logger.LogCritical("Error fatal en EvaluateAsync. Finalizando sesion. Ex: {a}", ex.Message);
             await StopSession(CancellationToken.None);
@@ -175,7 +184,41 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
             var armed = await _simulator.ExecuteFailureAsync(chosen, ct);
             if (!armed) continue;
 
-            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen.FenixFailureId, session.CurrentFlightPhase, now, ct);
+            try {
+                await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen.FenixFailureId, session.CurrentFlightPhase, now, ct);
+            } catch (OperationCanceledException ex) {
+                // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token
+                // independiente (seguro pese a la cancelación) y recién después se propaga la cancelación.
+                _logger.LogWarning(ex, "Persistence of triggered failure {FenixFailureId} canceled; attempting disarm before propagating cancellation",
+                    chosen.FenixFailureId);
+                try {
+                    var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, CancellationToken.None);
+                    if (disarmed) {
+                        _logger.LogWarning("Persistence canceled but disarm succeeded for {FenixFailureId}; failure not recorded",
+                            chosen.FenixFailureId);
+                    } else {
+                        _logger.LogCritical("Compensation failed: persistence canceled AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                            chosen.FenixFailureId);
+                    }
+                } catch (Exception disarmEx) {
+                    _logger.LogCritical(disarmEx, "Compensation failed: disarm threw while compensating canceled persistence for {FenixFailureId}; failure may remain armed",
+                        chosen.FenixFailureId);
+                }
+                throw;
+            } catch (Exception ex) {
+                _logger.LogError(ex, "Failed to persist triggered failure {FenixFailureId} for session {SessionId}; attempting disarm",
+                    chosen.FenixFailureId, session.Session.Id);
+                var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, ct);
+                if (disarmed) {
+                    _logger.LogWarning("Persistence failed but disarm succeeded for {FenixFailureId}; failure not recorded",
+                        chosen.FenixFailureId);
+                } else {
+                    _logger.LogCritical("Compensation failed: persistence failed AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                        chosen.FenixFailureId);
+                }
+                return EvaluationResult.NoAction();
+            }
+
             session.RecordTriggeredFailure(now);
 
             _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
@@ -199,30 +242,29 @@ public class RealisticSessionEngine : INotifyPropertyChanged, IDisposable {
             _logger.LogWarning(
                 msgSimConn,
                 conn.IsFenixConnected, conn.IsSimConnectConnected);
-            throw new ExecutionEngineException(msgSimConn);
+            throw new SimulatorDataUnavailableException(msgSimConn);
         }
 
         var rawSimulatorDataResult = await _simulator.GetSimulatorData(ct);
         var fenixFailuresResult = await _simulator.GetCurrentFenixFailures(ct);
-        if (!rawSimulatorDataResult.IsSuccess || !fenixFailuresResult.IsSuccess) {
+        var rawDataValue = rawSimulatorDataResult.Value;
+        var fenixFailuresValue = fenixFailuresResult.Value;
+        if (!rawSimulatorDataResult.IsSuccess || rawDataValue is null
+            || !fenixFailuresResult.IsSuccess || fenixFailuresValue is null) {
             _logger.LogWarning(
                 msgSimData,
                 fenixFailuresResult.IsSuccess, rawSimulatorDataResult.IsSuccess);
-            throw new ExecutionEngineException(msgSimData);
+            throw new SimulatorDataUnavailableException(msgSimData);
         }
 
-        var rawData = rawSimulatorDataResult.Value!;
-        var failures = fenixFailuresResult.Value!.GetFailuresList();
-        return (rawData, failures);
+        var failures = fenixFailuresValue.GetFailuresList();
+        return (rawDataValue, failures);
     }
 
     #endregion
 
-    public async void Dispose() {
-        if (IsRunning) {
-            await StopSession(CancellationToken.None);
-        }
+    private sealed class SimulatorDataUnavailableException : Exception {
+        public SimulatorDataUnavailableException(string message) : base(message) { }
     }
-
 
 }
