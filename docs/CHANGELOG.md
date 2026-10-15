@@ -4,6 +4,43 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Telemetría SimConnect corregida + estabilización de fases con debounce
+
+**Qué**
+
+- `SimConnectClient` (Integrations.SimConnect) solicita `PLANE ALTITUDE` (se mapea a `AltitudeMSL`) en lugar de `PRESSURE ALTITUDE`, y agrega `AIRSPEED INDICATED` (knots, FLOAT64) como telemetría (el campo del struct se renombra a `PlaneAltitude`; el orden del struct y de `AddToDataDefinition` se mantiene sincronizado). `AirspeedIndicated` se propaga a `SimConnectAircraftState`, `SimulatorAircraftStateSnapshot`, clones, `SimulatorFlightDataProvider` y logs de diagnóstico. No se usan `L:Vars` ni se agrega captura de combustible (sin base).
+- Redondeo **solo** de la representación de diagnóstico en `SimulatorFlightDataProvider.GetAircraftRawData`: lat/lon a 5 decimales y N1/throttle a 1 decimal; los valores internos conservan su precisión.
+- Nuevo flag `SimulatorAircraftStateSnapshot.HasSimulatorData` (default `false`, `init`, copiado en `Clone`); `SimulatorFlightDataProvider` lo marca desde `SimConnectAircraftState.IsConnected`. `SimConnectClient` limpia el último estado (`new()` con `IsConnected=false`) y `_lastDataReceivedUtc = DateTime.MinValue` bajo `_stateReadWriteLock` al iniciar una conexión, al desconectar y al recibir Quit (no sobrevive una muestra obsoleta; contratos `ISimConnectClient` intactos).
+- `FlightEventDetector.ProcessSnapshot`: con `HasSimulatorData=false` no procesa transiciones/eventos/altitud, devuelve la fase confirmada actual y limpia el candidato de debounce. Bandas VS simétricas (debajo de 5000 ft AGL: `VS>200` Climb / `VS<-200` Approach / resto Cruise; a/por encima: `VS>200` Climb / `VS<-200` Descent / resto Cruise). Debounce temporal por `snapshot.ObservedAt` para transiciones aéreas: Cruise 60 s, Descent 45 s, Climb/Approach 10 s; primera fase conocida al instante; fases de tierra y Landing inmediatas; candidatos distintos limpian/reinician el tiempo; la pérdida de datos borra el candidato. En modo 30 s la confirmación cae en el tick que supera el límite (la cadencia de evaluación no cambia).
+- Carrera de despegue: estando en tierra, `throttle>80` y `GS>50` ⇒ Takeoff; si no, `GS>5` ⇒ Taxi (antes Takeoff requería `GS<=5` con throttle alto y era inalcanzable en carrera). Tras Landing, mientras `_hasLandedThisFlight` y no se observa Takeoff, una lectura aérea espuria de nivel bajo mantiene la fase terrestre confirmada; la fase Takeoff limpia el latch (se conserva el texto "Taxi final hacia el gate").
+- `RealisticSessionEngine.EvaluateAsync`: con `HasSimulatorData=false` no actualiza `RealisticSession` ni intenta disparar una falla en ese tick (log debug + `EvaluationResult.NoAction()`).
+
+**Por qué**
+
+- El usuario probó horas con MSFS 2024/Fenix y reportó altitud/velocidad en cero, precisión excesiva en algunos valores y fase oscilando Cruise/Descent que volvía a Cruise tras el aterrizaje. `PRESSURE ALTITUDE` es presión, no altitud de la aeronave (documentado por MSFS como `PLANE ALTITUDE`), faltaba la IAS, las conversiones a `int` truncaban, y `DeterminePhase` tenía bandas asimétricas sin estabilidad. El estado inicial conectado con datos inventados y la muestra obsoleta tras reconexión se corrigen con el flag `HasSimulatorData` y el reset bajo lock.
+
+**Áreas**
+
+- `RealFenixFailures.Integrations.SimConnect/Models/AircraftStateData.cs` (campo `PlaneAltitude`, `AirspeedIndicated`).
+- `RealFenixFailures.Integrations.SimConnect/Models/SimConnectAircraftState.cs` (`AirspeedIndicated` + Clone).
+- `RealFenixFailures.Integrations.SimConnect/Services/SimConnectClient.cs` (definiciones, mapeo, `ClearLastKnownState`).
+- `RealFenixFailures.Integrations.SimConnect/Services/MockSimConnectClient.cs` (IAS en keyframes/interpolación).
+- `RealFenixFailures.Integrations.SimConnect/Services/SimulatorFlightDataProvider.cs` (`HasSimulatorData`, IAS, redondeo del log de diagnóstico).
+- `RealFenixFailures.Application/DTOs/SimulatorAircraftStateSnapshot.cs` (`HasSimulatorData`, `AirspeedIndicated`, `ObservedAt` con `init`).
+- `RealFenixFailures.Application/Services/FlightEventDetector.cs` (gating, bandas VS, debounce, despegue y latch).
+- `RealFenixFailures.Application/Session/RealisticSessionEngine.cs` (NoAction sin datos).
+- `RealFenixFailures.TestUnits/Services/FlightEventDetectorTests.cs`, `RealFenixFailures.TestUnits/Session/RealisticSessionEngineTests.cs`, `RealFenixFailures.TestUnits/Services/RealisticSessionManagerTests.cs` (fixtures válidos con `HasSimulatorData=true` + tests deterministas con `ObservedAt` explícito, sin sleeps).
+- `docs/integraciones/simconnect.md`, `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: OK, 0 warnings, 0 errores.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: **49/49** passed. Tests nuevos: snapshot inválido inicial (Unknown, sin eventos) y entre muestras (preserva fase, sin eventos); `VS=+150` a >5000 ft AGL no es Descent; debounce Cruise 60 s y Descent 45 s con timestamps controlados; Landing inmediata; lectura aérea posterior al aterrizaje sin retorno a Cruise; Takeoff alcanzable; ciclo completo con Takeoff y segundo vuelo tras el latch; engine con snapshot sin datos (NoAction, sin tocar sesión ni disparar).
+
+**Pendiente / Limitación**
+
+- **MSFS/Fenix reales no verificados**: los cambios se validan con build/tests y mocks; el origen de posibles ceros de los SimVars estándar (`PLANE ALTITUDE`, `AIRSPEED INDICATED`) en el simulador real queda como **hipótesis** hasta revisar un log real de diagnóstico (`SimConnectDiagnostics:Enabled`).
+
 ### 2026-10-15 — Logs SimConnect separados: override Debug por categoría + tests de diagnóstico
 
 **Qué**

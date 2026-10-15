@@ -16,6 +16,7 @@ public class SimConnectAircraftState {
 
     public int GroundSpeed { get; set; } // nudos
     public int TrueAirspeed { get; set; } // nudos
+    public int AirspeedIndicated { get; set; } // nudos
 
     // Estado de vuelo
     public bool IsOnGround { get; set; }
@@ -46,6 +47,7 @@ public class SimConnectAircraftState {
             Heading = Heading,
             GroundSpeed = GroundSpeed,
             TrueAirspeed = TrueAirspeed,
+            AirspeedIndicated = AirspeedIndicated,
             VerticalSpeed = VerticalSpeed,
             IsOnGround = IsOnGround,
             FlapsHandleIndex = FlapsHandleIndex,

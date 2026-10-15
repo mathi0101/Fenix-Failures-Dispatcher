@@ -119,6 +119,11 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         try {
             (SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures) = await GetSimulatorData(ct);
 
+            if (!rawData.HasSimulatorData) {
+                _logger.LogDebug("Skipping realistic evaluation tick: no simulator data in snapshot (HasSimulatorData=false)");
+                return EvaluationResult.NoAction();
+            }
+
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             Session!.ProcessSimData(rawData, failures, currentPhase);
 

@@ -31,7 +31,7 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
         var now = DateTime.UtcNow;
 
         if (now - _lastHealthCheckAtUtc < TimeSpan.FromSeconds(intervalSeconds)) {
-            _logger.LogDebug("Returning cached health check result: {Result}", _lastHealthCheckResult);
+            //_logger.LogDebug("Returning cached health check result: {Result}", _lastHealthCheckResult);
             return _lastHealthCheckResult;
         }
 
@@ -69,14 +69,15 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
 
         _diagnosticsLogger.LogDebug(
             "SimConnect raw data: Lat={Latitude} Lon={Longitude} AltMSL={AltitudeMSL} IndAlt={IndicatedAltitude} AltAGL={RadioHeight} " +
-            "Heading={Heading} GS={GroundSpeed} TAS={TrueAirspeed} VS={VerticalSpeed} OnGround={IsOnGround} Flaps={FlapsHandleIndex} " +
+            "Heading={Heading} GS={GroundSpeed} TAS={TrueAirspeed} IAS={AirspeedIndicated} VS={VerticalSpeed} OnGround={IsOnGround} Flaps={FlapsHandleIndex} " +
             "Eng1Comb={Engine1Combustion} Eng1N1={Engine1N1Percent} Eng1Thr={ThrottlePercent1} Eng2Comb={Engine2Combustion} Eng2N1={Engine2N1Percent} Eng2Thr={ThrottlePercent2}",
-            s.Latitude, s.Longitude, s.AltitudeMSL, s.IndicatedAltitude, s.RadioHeight,
-            s.Heading, s.GroundSpeed, s.TrueAirspeed, s.VerticalSpeed, s.IsOnGround, s.FlapsHandleIndex,
-            s.Engine1Combustion, s.Engine1N1Percent, s.ThrottlePercent1, s.Engine2Combustion, s.Engine2N1Percent, s.ThrottlePercent2);
+            Math.Round(s.Latitude, 5), Math.Round(s.Longitude, 5), s.AltitudeMSL, s.IndicatedAltitude, s.RadioHeight,
+            s.Heading, s.GroundSpeed, s.TrueAirspeed, s.AirspeedIndicated, s.VerticalSpeed, s.IsOnGround, s.FlapsHandleIndex,
+            s.Engine1Combustion, Math.Round(s.Engine1N1Percent, 1), Math.Round(s.ThrottlePercent1, 1), s.Engine2Combustion, Math.Round(s.Engine2N1Percent, 1), Math.Round(s.ThrottlePercent2, 1));
 
         return new SimulatorAircraftStateSnapshot() {
             FlightPhase = s.IsOnGround ? SimpleFlightPhaseEnum.OnGround : SimpleFlightPhaseEnum.Flying,
+            HasSimulatorData = s.IsConnected,
             IsOnGround = s.IsOnGround,
             AltitudeMSL = s.AltitudeMSL,
             IndicatedAltitude = s.IndicatedAltitude,
@@ -87,6 +88,7 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
             Engine1N1Percent = s.Engine1N1Percent,
             Engine2N1Percent = s.Engine2N1Percent,
             TrueAirspeed = s.TrueAirspeed,
+            AirspeedIndicated = s.AirspeedIndicated,
             FlapsHandleIndex = s.FlapsHandleIndex,
             Heading = s.Heading,
             Latitude = s.Latitude,

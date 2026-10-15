@@ -27,6 +27,8 @@ public class FlightEventDetector : IFlightEventDetector {
     private int? _lastAltitudeMSL;
     private int _generation;
     private ComplexFlightPhaseEnum _currentPhase = ComplexFlightPhaseEnum.Unknown;
+    private ComplexFlightPhaseEnum? _pendingDebouncePhase;
+    private DateTimeOffset? _pendingDebounceSince;
     #endregion
 
     public ComplexFlightPhaseEnum CurrentPhase {
@@ -48,8 +50,15 @@ public class FlightEventDetector : IFlightEventDetector {
         ComplexFlightPhaseEnum newPhase;
         lock (_sync) {
             generation = _generation;
+            if (!snapshot.HasSimulatorData) {
+                _pendingDebouncePhase = null;
+                _pendingDebounceSince = null;
+                return _currentPhase;
+            }
+
             DetectEngineTransition(snapshot, events);
             newPhase = DeterminePhase(snapshot);
+            newPhase = ApplyPhaseDebounce(snapshot.ObservedAt, newPhase);
             DetectPhaseTransition(newPhase, events);
             DetectAltitudeCrossings(snapshot, events);
 
@@ -58,10 +67,10 @@ public class FlightEventDetector : IFlightEventDetector {
         }
 
         _diagnosticsLogger.LogDebug(
-            "Computed state: Phase={Phase} AltMSL={AltitudeMSL} AltAGL={AltitudeAGL} VS={VerticalSpeed} GS={GroundSpeed} TAS={TrueAirspeed} " +
+            "Computed state: Phase={Phase} AltMSL={AltitudeMSL} AltAGL={AltitudeAGL} VS={VerticalSpeed} GS={GroundSpeed} TAS={TrueAirspeed} IAS={AirspeedIndicated} " +
             "OnGround={IsOnGround} Eng1Running={Engine1IsRunning} Eng2Running={Engine2IsRunning} BothEnginesRunning={AreBothEnginesRunning}",
             newPhase, snapshot.AltitudeMSL, snapshot.AltitudeAGL, snapshot.VerticalSpeed, snapshot.GroundSpeed, snapshot.TrueAirspeed,
-            snapshot.IsOnGround, snapshot.Engine1IsRunning, snapshot.Engine2IsRunning, snapshot.AreBothEnginesRunning);
+            snapshot.AirspeedIndicated, snapshot.IsOnGround, snapshot.Engine1IsRunning, snapshot.Engine2IsRunning, snapshot.AreBothEnginesRunning);
 
         if (generation == _generation) {
             foreach (var flightEvent in events) {
@@ -79,6 +88,8 @@ public class FlightEventDetector : IFlightEventDetector {
             _hasLandedThisFlight = false;
             _lastAltitudeMSL = null;
             _currentPhase = ComplexFlightPhaseEnum.Unknown;
+            _pendingDebouncePhase = null;
+            _pendingDebounceSince = null;
         }
     }
 
@@ -90,25 +101,76 @@ public class FlightEventDetector : IFlightEventDetector {
                 return ComplexFlightPhaseEnum.Landing;
 
             if (state.Engine1IsRunning || state.Engine2IsRunning) {
+                if ((state.ThrottlePercent1 > 80 || state.ThrottlePercent2 > 80) && state.GroundSpeed > 50)
+                    return ComplexFlightPhaseEnum.Takeoff;
                 if (state.GroundSpeed > 5)
                     return ComplexFlightPhaseEnum.Taxi;
-                if (state.ThrottlePercent1 > 80 || state.ThrottlePercent2 > 80)
-                    return ComplexFlightPhaseEnum.Takeoff;
                 return ComplexFlightPhaseEnum.Parked;
             }
             return ComplexFlightPhaseEnum.OnGate;
         }
 
+        if (_hasLandedThisFlight)
+            return _previousPhase;
+
         if (state.AltitudeAGL < 5000) {
-            if (state.VerticalSpeed > 500) return ComplexFlightPhaseEnum.Climb;
-            if (state.VerticalSpeed < -500) return ComplexFlightPhaseEnum.Approach;
+            if (state.VerticalSpeed > 200) return ComplexFlightPhaseEnum.Climb;
+            if (state.VerticalSpeed < -200) return ComplexFlightPhaseEnum.Approach;
             return ComplexFlightPhaseEnum.Cruise;
         }
 
-        if (Math.Abs(state.VerticalSpeed) < 100) return ComplexFlightPhaseEnum.Cruise;
         if (state.VerticalSpeed > 200) return ComplexFlightPhaseEnum.Climb;
-        return ComplexFlightPhaseEnum.Descent;
+        if (state.VerticalSpeed < -200) return ComplexFlightPhaseEnum.Descent;
+        return ComplexFlightPhaseEnum.Cruise;
     }
+
+    private ComplexFlightPhaseEnum ApplyPhaseDebounce(DateTimeOffset observedAt, ComplexFlightPhaseEnum newPhase) {
+        if (!IsDebouncedPhase(newPhase)) {
+            _pendingDebouncePhase = null;
+            _pendingDebounceSince = null;
+            return newPhase;
+        }
+
+        if (_previousPhase == ComplexFlightPhaseEnum.Unknown) {
+            _pendingDebouncePhase = null;
+            _pendingDebounceSince = null;
+            return newPhase;
+        }
+
+        if (newPhase == _previousPhase) {
+            _pendingDebouncePhase = null;
+            _pendingDebounceSince = null;
+            return newPhase;
+        }
+
+        var debounce = DebounceFor(newPhase);
+        if (_pendingDebouncePhase == newPhase && _pendingDebounceSince is DateTimeOffset since) {
+            if (observedAt - since >= debounce) {
+                _pendingDebouncePhase = null;
+                _pendingDebounceSince = null;
+                return newPhase;
+            }
+            return _previousPhase;
+        }
+
+        _pendingDebouncePhase = newPhase;
+        _pendingDebounceSince = observedAt;
+        return _previousPhase;
+    }
+
+    private static bool IsDebouncedPhase(ComplexFlightPhaseEnum phase) =>
+        phase is ComplexFlightPhaseEnum.Climb
+            or ComplexFlightPhaseEnum.Cruise
+            or ComplexFlightPhaseEnum.Descent
+            or ComplexFlightPhaseEnum.Approach;
+
+    private static TimeSpan DebounceFor(ComplexFlightPhaseEnum phase) => phase switch {
+        ComplexFlightPhaseEnum.Cruise => TimeSpan.FromSeconds(60),
+        ComplexFlightPhaseEnum.Descent => TimeSpan.FromSeconds(45),
+        ComplexFlightPhaseEnum.Climb => TimeSpan.FromSeconds(10),
+        ComplexFlightPhaseEnum.Approach => TimeSpan.FromSeconds(10),
+        _ => TimeSpan.Zero
+    };
 
     private static bool IsAirbornePhase(ComplexFlightPhaseEnum phase) =>
         phase is ComplexFlightPhaseEnum.Climb
@@ -135,6 +197,7 @@ public class FlightEventDetector : IFlightEventDetector {
         }
 
         if (newPhase == ComplexFlightPhaseEnum.Landing) _hasLandedThisFlight = true;
+        if (newPhase == ComplexFlightPhaseEnum.Takeoff) _hasLandedThisFlight = false;
         if (newPhase == ComplexFlightPhaseEnum.OnGate) _hasLandedThisFlight = false;
 
         _previousPhase = newPhase;

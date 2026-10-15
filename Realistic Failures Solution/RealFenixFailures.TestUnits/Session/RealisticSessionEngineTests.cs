@@ -30,13 +30,14 @@ public class RealisticSessionEngineTests {
         new(RiskLevel.Moderate, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" });
 
     private static SimulatorAircraftStateSnapshot OnGate() =>
-        new() { IsOnGround = true, AltitudeMSL = 100, AltitudeAGL = 0 };
+        new() { IsOnGround = true, AltitudeMSL = 100, AltitudeAGL = 0, HasSimulatorData = true };
 
     private static SimulatorAircraftStateSnapshot EnginesRunningOnGround() =>
         new() {
             IsOnGround = true,
             AltitudeMSL = 100,
             AltitudeAGL = 0,
+            HasSimulatorData = true,
             Engine1Combustion = true,
             Engine2Combustion = false,
             Engine1N1Percent = 40,
@@ -198,6 +199,39 @@ public class RealisticSessionEngineTests {
 
         Assert.True(result.ShouldPauseSession);
         Assert.Empty(result.TriggeredFailures);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_SnapshotWithoutSimulatorData_ReturnsNoActionAndSkipsSessionAndTrigger() {
+        SetupConnected();
+        _simulator
+            .Setup(s => s.GetSimulatorData(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<SimulatorAircraftStateSnapshot>.Ok(new SimulatorAircraftStateSnapshot {
+                IsOnGround = true,
+                AltitudeMSL = 100,
+                AltitudeAGL = 0,
+                HasSimulatorData = false,
+            }));
+        SetupValidPersistence();
+        _simulator
+            .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(new AllFenixFailuresResponseDto()));
+        var engine = CreateEngine();
+
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.False(result.ShouldPauseSession);
+        Assert.Empty(result.TriggeredFailures);
+        _flightEventDetector.Verify(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()), Times.Never);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sessionService.Verify(
+            s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        Assert.Equal(ComplexFlightPhaseEnum.Unknown, engine.Session!.CurrentFlightPhase);
+        Assert.Null(engine.Session.LastTriggeredAtUtc);
     }
 
     private void SetupTriggerPath(PresetFailureDefinition chosen, bool disarmResult) {

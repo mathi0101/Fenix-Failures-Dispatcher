@@ -6,11 +6,12 @@ namespace RealFenixFailures.Integrations.SimConnect.Models;
 public struct AircraftStateData {
     public double Latitude;
     public double Longitude;
-    public double PressureAltitude;
+    public double PlaneAltitude;
     public double IndicatedAltitude;
     public double Heading;
     public double GroundSpeed;
     public double AirspeedTrue;
+    public double AirspeedIndicated;
     public double VerticalSpeed;
     public int IsOnGround;
     public double FlapsHandleIndex;

@@ -54,6 +54,7 @@ public class RealisticSessionManagerTests {
                 IsOnGround = true,
                 AltitudeMSL = 100,
                 AltitudeAGL = 0,
+                HasSimulatorData = true,
             }));
         _sessionService
             .Setup(s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()))

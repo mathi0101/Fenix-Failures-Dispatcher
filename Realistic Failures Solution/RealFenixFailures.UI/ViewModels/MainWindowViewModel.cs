@@ -316,9 +316,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-            LogEntries.Insert(0, $"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
+            LogEntries.Add($"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
             while (LogEntries.Count > MaxLogEntries) {
-                LogEntries.RemoveAt(LogEntries.Count - 1);
+                LogEntries.RemoveAt(0);
             }
             CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;
         });

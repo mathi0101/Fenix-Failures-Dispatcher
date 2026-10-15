@@ -5,6 +5,7 @@ namespace RealFenixFailures.Application.DTOs;
 public class SimulatorAircraftStateSnapshot {
 
     public SimpleFlightPhaseEnum FlightPhase { get; init; } = SimpleFlightPhaseEnum.Disconnected;
+    public bool HasSimulatorData { get; init; }
 
     // Datos de posición y movimiento
     public double Latitude { get; init; }
@@ -19,6 +20,7 @@ public class SimulatorAircraftStateSnapshot {
 
     public int GroundSpeed { get; init; } // nudos
     public int TrueAirspeed { get; init; } // nudos
+    public int AirspeedIndicated { get; init; } // nudos
 
     // Estado de vuelo
     public bool IsOnGround { get; init; }
@@ -39,7 +41,7 @@ public class SimulatorAircraftStateSnapshot {
     public bool Engine2IsRunning => Engine2Combustion && Engine2N1Percent >= N1_RUNNING_THRESHOLD;
     public bool AreBothEnginesRunning => Engine1IsRunning && Engine2IsRunning;
 
-    public DateTimeOffset ObservedAt { get; private set; }
+    public DateTimeOffset ObservedAt { get; init; }
 
 
     public SimulatorAircraftStateSnapshot() {
@@ -49,6 +51,7 @@ public class SimulatorAircraftStateSnapshot {
     // Método para clonar el estado (útil para evitar referencias compartidas)
     public SimulatorAircraftStateSnapshot Clone() {
         return new SimulatorAircraftStateSnapshot() {
+            HasSimulatorData = HasSimulatorData,
             Latitude = Latitude,
             Longitude = Longitude,
             AltitudeMSL = AltitudeMSL,
@@ -57,6 +60,7 @@ public class SimulatorAircraftStateSnapshot {
             Heading = Heading,
             GroundSpeed = GroundSpeed,
             TrueAirspeed = TrueAirspeed,
+            AirspeedIndicated = AirspeedIndicated,
             VerticalSpeed = VerticalSpeed,
             IsOnGround = IsOnGround,
             FlapsHandleIndex = FlapsHandleIndex,

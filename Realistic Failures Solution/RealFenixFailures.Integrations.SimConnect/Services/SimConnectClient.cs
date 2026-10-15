@@ -68,6 +68,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 _isConnected = true;
                 _logger.LogInformation("Successfully connected to SimConnect");
 
+                ClearLastKnownState();
                 StartMessagePump();
                 StartDataRequestLoop();
 
@@ -109,6 +110,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         if (!_isConnected) return;
 
         _isConnected = false;
+        ClearLastKnownState();
 
         _messagePumpCts?.Cancel();
         _dataRequestCts?.Cancel();
@@ -136,6 +138,16 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         Disconnect();
         _connectionLock.Dispose();
         _stateReadWriteLock.Dispose();
+    }
+
+    private void ClearLastKnownState() {
+        _stateReadWriteLock.EnterWriteLock();
+        try {
+            _lastKnownState = new SimConnectAircraftState();
+            _lastDataReceivedUtc = DateTime.MinValue;
+        } finally {
+            _stateReadWriteLock.ExitWriteLock();
+        }
     }
 
     #endregion
@@ -190,7 +202,10 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
     private void RegisterSimConnectHandlers() {
         if (_simConnect == null) return;
         _simConnect.OnRecvOpen += (s, d) => _logger.LogInformation("SimConnect Open");
-        _simConnect.OnRecvQuit += (s, d) => _isConnected = false;
+        _simConnect.OnRecvQuit += (s, d) => {
+            _isConnected = false;
+            ClearLastKnownState();
+        };
         _simConnect.OnRecvException += (s, d) => _logger.LogWarning("SimConnect Exception: {Id}", d.dwException);
         _simConnect.OnRecvSimobjectDataBytype += SimConnect_OnRecvSimobjectDataBytype;
     }
@@ -226,11 +241,12 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         // El ORDEN debe ser IDÉNTICO al AircraftStateData struct
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PRESSURE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "INDICATED ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
         _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "FLAPS HANDLE INDEX", "number", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
@@ -252,13 +268,14 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
             Longitude = data.Longitude,
 
             // Altitudes
-            AltitudeMSL = (int)data.PressureAltitude, // Alias para compatibilidad
+            AltitudeMSL = (int)data.PlaneAltitude, // Alias para compatibilidad
             IndicatedAltitude = data.IndicatedAltitude,
             RadioHeight = (int)data.RadioHeight,
 
             Heading = (int)data.Heading,
             GroundSpeed = (int)data.GroundSpeed,
             TrueAirspeed = (int)data.AirspeedTrue,
+            AirspeedIndicated = (int)data.AirspeedIndicated,
             VerticalSpeed = (int)data.VerticalSpeed,
             IsOnGround = data.IsOnGround == 1,
             FlapsHandleIndex = (int)data.FlapsHandleIndex,
