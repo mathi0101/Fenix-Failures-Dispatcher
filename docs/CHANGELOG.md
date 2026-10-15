@@ -64,6 +64,43 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 - Probar en vivo con el flag en `true` durante una sesión real y confirmar que el archivo se genera y contiene lo esperado (dato crudo + estado calculado) sin contaminar `logs/realfenix-.log`.
 
+### 2026-10-15 — Provisión de presets realistas (loader + seed del catálogo)
+
+**Qué**
+
+- Catálogo `RealFenixFailures.Domain/Resources/realistic_presets.json`: **44 presets** en el mismo esquema que `training_presets.json` (`Name`, `Description`, `TriggerDescription`, `Phase` numérico de `ComplexFlightPhaseEnum` 1–9, `Difficulty` 1–4, `Failures[]` con `FenixFailureId`, `ProbabilityGroup` opcional y `Probability`). Cobertura por fase: OnGate 7, Parked 1, Taxi 4, Takeoff 6, Climb 7, Cruise 8, Descent 2, Approach 5, Landing 4 (131 definiciones, 108 IDs únicos referenciados, todos existentes en `Resources/failures.json`).
+- Pesos neutrales: cada preset representa un escenario de falla; las alternativas de un mismo sistema/escenario llevan pesos iguales que suman 1 y `ProbabilityGroup=1`; los singletons usan `Probability=1`. `Probability` es **peso relativo de selección** entre las fallas elegibles del preset (`FailureTrigger.TryTriggerFailure` selecciona por acumulación ponderada sobre la suma de pesos), **no** la probabilidad de disparo de la sesión: esa es `BaseProbability` (0.10) × multiplicador de riesgo (Low 0.5 / Moderate 1.0 / High 1.75), aplicada por preset candidato en cada tick (`RealisticSessionEngine`). El multiplicador de riesgo no modifica los `Probability` individuales.
+- `Difficulty` es metadato de clasificación (Easy=1, Medium=2, Hard=3, Insane=4); no está conectado al filtro de riesgo del modo Realistic (el filtro real opera por severidad de la falla Fenix en `FailureRuleEvaluator`, no por `Difficulty` del preset).
+- El catálogo ya es `EmbeddedResource` en `RealFenixFailures.Domain.csproj` (con su `None Remove` por el patrón SDK); `FailureEngineSettings.RealisticPresetsJson` (default `string.Empty`) y `UI/appsettings.json` lo configuran como `realistic_presets.json`.
+- **Loader**: `IPresetsLoader` gana `GetRealisticPresetsAsync(CancellationToken)`; `PresetsLoader` (Infrastructure) refactoriza el mapper privado a `MapToFailurePreset(dto, PresetTypeEnum)` con el tipo argumentado (Training → `TrainingMode`, Realistic → `RealisticMode`) y lee `RealisticPresetsJson` vía `EmbeddedJsonLoader`.
+- **Seed**: `PresetService.InitializeAsync` siembra por tipo de forma **condicional e independiente**: primero Training (si no existe ningún `TrainingMode`), luego Realistic (si no existe ningún `RealisticMode`); idempotente por tipo y mantiene la secuencia Training → Realistic. `TestPresetsLoader` implementa `GetRealisticPresetsAsync` con un catálogo de ejemplo para conservar la interfaz.
+
+**Por qué**
+
+- Conectar el catálogo realista al ciclo de arranque para que la sesión Realistic arranque con candidatos sembrados por fase en lugar de depender solo de lo que ya haya en la base; el archivo anterior era una muestra de 8 presets sin cobertura sistemática.
+
+**Áreas**
+
+- `RealFenixFailures.Domain` — `Interfaces/IPresetsLoader.cs`, `Services/FailureEngineSettings.cs`, `Services/TestPresetsLoader.cs`, `RealFenixFailures.Domain.csproj` (EmbeddedResource), `Resources/realistic_presets.json`.
+- `RealFenixFailures.Infrastructure` — `Services/PresetsLoader.cs`.
+- `RealFenixFailures.Application` — `Services/PresetService.cs`.
+- `RealFenixFailures.UI` — `appsettings.json`.
+- `RealFenixFailures.TestUnits` — referencia a Infrastructure; nuevos `Services/PresetsLoaderTests.cs` y `Services/PresetServiceTests.cs`.
+- `.gitignore` — excepción específica para que el catálogo no quede excluido por la regla general de recursos JSON (ya existente).
+
+**Pruebas**
+
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: **38/38 OK**, incluidos los nuevos focalizados: `PresetsLoaderTests.GetRealisticPresetsAsync_LoadsCatalog_AllRealisticMode_WithFailuresAndFullPhaseCoverage` (loader de producción con `Options.Create(new FailureEngineSettings { RealisticPresetsJson = "realistic_presets.json" })`: 44 presets, todos `RealisticMode`, todos con definiciones de falla, cobertura de fases 1–9; abre el recurso embebido en runtime) y `PresetServiceTests` (orden Training→Realistic y omisión por tipo ya existente, con repositorio/loader mockeados; no se asserta nada sobre la base).
+- `dotnet build RealFenixFailures.slnx -c Debug`: 0 errores.
+- `git diff --check` sin errores.
+- JSON parseado con python; los 108 IDs únicos referenciados existen en `Resources/failures.json`; verificado conteo de presets/fases/definiciones y pesos.
+- No verificado: integración real MSFS/Fenix.
+
+**Pendientes**
+
+- Limitación del seed: si en la base ya existe **cualquier** preset `RealisticMode`, el catálogo no se mezcla ni se actualiza (no hay merge ni refresh del catálogo contra la DB).
+- Relación componente-desgaste: el catálogo no define desgaste; sigue pendiente.
+
 ### 2026-10-14 — Corrección de columna duplicada `PresetType` en `FailurePresets`
 
 **Qué**

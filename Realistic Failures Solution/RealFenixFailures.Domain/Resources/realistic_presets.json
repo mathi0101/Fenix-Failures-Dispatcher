@@ -1,0 +1,1047 @@
+[
+  {
+    "Name": "Falla del bus de batería en preflight",
+    "Description": "Falla del bus de batería durante la preparación inicial de la aeronave.",
+    "TriggerDescription": "Falla eléctrica compatible con la energización inicial en tierra.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_BUS_BAT",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Falla de bus eléctrico en preflight",
+    "Description": "Falla de un bus eléctrico de corriente alterna durante el preflight en frío, detectada antes de la puesta en marcha.",
+    "TriggerDescription": "Falla eléctrica razonable en rampa con la aeronave aún sin energizar por completo.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_BUS_AC_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_ELEC_BUS_AC_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de alineación de IR en preflight",
+    "Description": "Falla en la alineación de una unidad inercial durante el preflight; la IR correspondiente no queda operativa.",
+    "TriggerDescription": "Falla de navegación propia del arranque y la alineación en tierra.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_OH_NAV_IR_ALIGNMENT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_IR_ALIGNMENT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_IR_ALIGNMENT_3",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de indicación de puertas en rampa",
+    "Description": "Falla en la indicación de una puerta de la aeronave durante las operaciones en rampa.",
+    "TriggerDescription": "Falla de sistema en tierra, compatible con el proceso de embarque o desembarque.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_DOOR_FWD_CARGO",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_DOOR_AFT_CARGO",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_DOOR_FWD_ENTRY_LEFT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_DOOR_FWD_ENTRY_RIGHT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla del controlador del APU en preflight",
+    "Description": "Falla del controlador electrónico del APU durante su preparación en tierra.",
+    "TriggerDescription": "Falla del sistema de control del APU antes de iniciar el vuelo.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_APU_ECB",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Falla del generador del APU en preflight",
+    "Description": "El generador del APU no suministra energía eléctrica durante la preparación en tierra.",
+    "TriggerDescription": "Falla de generación eléctrica mientras la aeronave permanece en tierra.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_APU_GEN",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Falla de bomba de combustible en preflight",
+    "Description": "Falla de una bomba de combustible durante las verificaciones en tierra.",
+    "TriggerDescription": "Falla de bomba de alimentación detectada antes del despegue.",
+    "Phase": 1,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_FUEL_PUMP_LEFT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_FUEL_PUMP_LEFT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de rectificador con avión energizado",
+    "Description": "Falla de un rectificador (TR) con la aeronave energizada en tierra.",
+    "TriggerDescription": "Falla eléctrica estática, sin requerimiento de movimiento.",
+    "Phase": 9,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_TR1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_ELEC_TR2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_ELEC_TR_ESS",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de frenos durante el rodaje",
+    "Description": "Pérdida de capacidad de frenado en una rueda durante el rodaje.",
+    "TriggerDescription": "Falla de freno compatible con baja velocidad y operación en tierra.",
+    "Phase": 2,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_3",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_4",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de presión de neumáticos durante el rodaje",
+    "Description": "Pérdida de presión en un neumático durante el rodaje.",
+    "TriggerDescription": "Falla de tren de aterrizaje compatible con el movimiento a baja velocidad.",
+    "Phase": 2,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_MAIN_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_MAIN_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_LEFT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_LEFT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_RIGHT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_RIGHT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      }
+    ]
+  },
+  {
+    "Name": "Falla de dirección de rueda de morro durante el rodaje",
+    "Description": "Pérdida de la dirección de la rueda de morro (NWS) durante el rodaje.",
+    "TriggerDescription": "Falla de control en tierra, sensible durante el rodaje.",
+    "Phase": 2,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_BRAKE_NWS",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Falla del sistema hidráulico amarillo durante el rodaje",
+    "Description": "Pérdida de presión o fuga en el sistema hidráulico amarillo durante el rodaje.",
+    "TriggerDescription": "Falla de un sistema hidráulico en servicio durante la operación en tierra.",
+    "Phase": 2,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_HYD_LEAK_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de motor durante el despegue",
+    "Description": "Falla o daño de uno de los motores durante la carrera de despegue.",
+    "TriggerDescription": "Falla de motor asociada a la alta demanda de la fase de despegue.",
+    "Phase": 3,
+    "Difficulty": 4,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_1_DAMAGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2_DAMAGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Surge de motor durante el despegue",
+    "Description": "Surge de un motor durante la carrera de despegue.",
+    "TriggerDescription": "Falla de motor de alta carga, propia de la demanda del despegue.",
+    "Phase": 3,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1_SURGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2_SURGE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de FADEC durante el despegue",
+    "Description": "Falla de un canal FADEC de uno de los motores durante el despegue.",
+    "TriggerDescription": "Falla de control de motor, propia de la alta demanda del despegue.",
+    "Phase": 3,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_FADEC_LEFT_A",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_FADEC_LEFT_B",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_FADEC_RIGHT_A",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ENGINE_FADEC_RIGHT_B",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de flaps o slats durante el despegue",
+    "Description": "Falla de una computadora SFCC de flaps o slats durante la configuración de despegue.",
+    "TriggerDescription": "Falla de sistema de vuelo, asociada a la selección de configuración de despegue.",
+    "Phase": 3,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_SFCC_1_FLAP",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_2_FLAP",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_1_SLAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_2_SLAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de canal FAC durante el despegue",
+    "Description": "Falla de uno de los computadores FAC durante la fase de despegue.",
+    "TriggerDescription": "Falla de control de vuelo asociada a las operaciones de despegue.",
+    "Phase": 3,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_OH_FLT_CTL_FAC_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_OH_FLT_CTL_FAC_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de canal de autothrust durante el despegue",
+    "Description": "Falla de uno de los canales de autothrust durante el despegue.",
+    "TriggerDescription": "Falla del sistema A/THR durante la fase de despegue.",
+    "Phase": 3,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_AUTOFLIGHT_ATHR1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_AUTOFLIGHT_ATHR2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Impacto de ave en motor durante el ascenso",
+    "Description": "Impacto de ave en un motor durante el ascenso inicial.",
+    "TriggerDescription": "Evento externo propio del ascenso a baja altitud.",
+    "Phase": 4,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENGINE_1_BIRDSTRIKE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_ENGINE_2_BIRDSTRIKE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de controlador de presurización durante el ascenso",
+    "Description": "Falla de uno de los controladores de presurización de cabina durante el ascenso.",
+    "TriggerDescription": "Falla del control de presurización mientras aumenta la altitud de cabina.",
+    "Phase": 4,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_CPC_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_CPC_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Válvula de salida bloqueada durante el ascenso",
+    "Description": "La válvula de salida de aire de cabina queda atascada durante el ascenso.",
+    "TriggerDescription": "Falla del sistema de control de presión de cabina durante el ascenso.",
+    "Phase": 4,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_OUTFLOWVALVE_STUCK",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Obstrucción de pitot durante el ascenso",
+    "Description": "Obstrucción de uno de los tubos pitot durante el ascenso inicial.",
+    "TriggerDescription": "Falla de datos de aire que afecta una de las fuentes de velocidad indicada.",
+    "Phase": 4,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_OH_NAV_PITOT_BLOCKED_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_PITOT_BLOCKED_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_PITOT_BLOCKED_3",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de sangrado durante el ascenso",
+    "Description": "Falla de una válvula de sangrado o de control neumático durante el ascenso.",
+    "TriggerDescription": "Falla neumática que puede afectar la presurización durante el ascenso.",
+    "Phase": 4,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_HP_VALVE_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_HP_VALVE_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_BLEED_VALVE_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_BLEED_VALVE_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla hidráulica o PTU durante el ascenso",
+    "Description": "Falla de una bomba hidráulica o del PTU durante el ascenso.",
+    "TriggerDescription": "Falla de sistema hidráulico ante la alta demanda de potencia del ascenso.",
+    "Phase": 4,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_HYD_PUMP_BLUE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_PTU",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de generador durante el ascenso",
+    "Description": "Sobrecalentamiento o falla de accionamiento de un generador (IDG) durante el ascenso.",
+    "TriggerDescription": "Falla eléctrica ante la alta carga del ascenso.",
+    "Phase": 4,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_GEN_OVERHEAT_L",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ELEC_GEN_OVERHEAT_R",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ELEC_DRIVE_FAILURE_L",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_ELEC_DRIVE_FAILURE_R",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Fuga o baja presión hidráulica en crucero",
+    "Description": "Fuga o pérdida de presión en un sistema hidráulico durante el crucero.",
+    "TriggerDescription": "Falla de sistema hidráulico compatible con vuelo estabilizado.",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_HYD_LEAK_GREEN",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_HYD_LEAK_BLUE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_HYD_LEAK_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_GREEN",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_BLUE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      }
+    ]
+  },
+  {
+    "Name": "Fuga de combustible en crucero",
+    "Description": "Fuga de combustible en un tanque durante el crucero.",
+    "TriggerDescription": "Falla de sistema de combustible compatible con vuelo nivelado.",
+    "Phase": 5,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_FUEL_LEAK_LEFT_OUTER",
+        "ProbabilityGroup": 1,
+        "Probability": 0.2
+      },
+      {
+        "FenixFailureId": "F_FUEL_LEAK_LEFT_INNER",
+        "ProbabilityGroup": 1,
+        "Probability": 0.2
+      },
+      {
+        "FenixFailureId": "F_FUEL_LEAK_CENTER",
+        "ProbabilityGroup": 1,
+        "Probability": 0.2
+      },
+      {
+        "FenixFailureId": "F_FUEL_LEAK_RIGHT_INNER",
+        "ProbabilityGroup": 1,
+        "Probability": 0.2
+      },
+      {
+        "FenixFailureId": "F_FUEL_LEAK_RIGHT_OUTER",
+        "ProbabilityGroup": 1,
+        "Probability": 0.2
+      }
+    ]
+  },
+  {
+    "Name": "Falla de IR en crucero",
+    "Description": "Falla total de una unidad inercial (IR) durante el crucero.",
+    "TriggerDescription": "Falla de navegación compatible con vuelo estabilizado.",
+    "Phase": 5,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_OH_NAV_IR_TOTAL_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_IR_TOTAL_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_OH_NAV_IR_TOTAL_3",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Fuga de aceite de motor en crucero",
+    "Description": "Fuga de aceite en un motor durante el crucero.",
+    "TriggerDescription": "Falla de motor de evolución lenta, compatible con vuelo de larga duración.",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ENG1_OIL_LEAK",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_ENG2_OIL_LEAK",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Pérdida de GPS durante el crucero",
+    "Description": "Falla de uno de los receptores GPS durante el crucero.",
+    "TriggerDescription": "Falla de navegación compatible con una fase de vuelo estabilizada.",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_NAV_GPS1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_NAV_GPS2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de TR durante el crucero",
+    "Description": "Falla de uno de los transformadores rectificadores durante el crucero.",
+    "TriggerDescription": "Falla de conversión eléctrica durante el vuelo estabilizado.",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_ELEC_TR1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_ELEC_TR2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_ELEC_TR_ESS",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de acondicionamiento de aire en crucero",
+    "Description": "Sobrecalentamiento o falla de regulación en uno de los packs durante el crucero.",
+    "TriggerDescription": "Falla de acondicionamiento de aire durante el vuelo estabilizado.",
+    "Phase": 5,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_1_OVERHEAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_2_OVERHEAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_1_REG_FAULT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_PACK_2_REG_FAULT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de trim air en crucero",
+    "Description": "Falla del sistema de trim air durante el crucero.",
+    "TriggerDescription": "Falla de regulación térmica de cabina durante el vuelo estabilizado.",
+    "Phase": 5,
+    "Difficulty": 1,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_TRIM_AIR",
+        "Probability": 1
+      }
+    ]
+  },
+  {
+    "Name": "Descompresión durante el descenso",
+    "Description": "Descompresión (menor o mayor) de la cabina durante el descenso.",
+    "TriggerDescription": "Falla de presurización compatible con el cambio de altitud del descenso.",
+    "Phase": 6,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_PNEUMATIC_DECOMPRESSION_MINOR",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_PNEUMATIC_DECOMPRESSION_MAJOR",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de ELAC durante el descenso",
+    "Description": "Falla de una computadora ELAC de control de vuelo durante el descenso.",
+    "TriggerDescription": "Falla de sistema de control de vuelo compatible con las maniobras del descenso.",
+    "Phase": 6,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_OH_FLT_CTL_ELAC_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_OH_FLT_CTL_ELAC_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Tren de aterrizaje sin desplegar en aproximación",
+    "Description": "Falla de extensión o de traba del tren de aterrizaje en la aproximación.",
+    "TriggerDescription": "Falla de tren propia de la selección de gear down en la aproximación.",
+    "Phase": 7,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_GEAR_LOCKED_UP",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_LEFT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_NOSE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_GEAR_LOCK_RIGHT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de receptor ILS en aproximación",
+    "Description": "Falla del localizador o de la senda de planeo en uno de los receptores ILS.",
+    "TriggerDescription": "Falla de navegación instrumental durante una aproximación ILS.",
+    "Phase": 7,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_NAV_ILS1_LOC",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_NAV_ILS1_GS",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_NAV_ILS2_LOC",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_NAV_ILS2_GS",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de radioaltímetro en aproximación",
+    "Description": "Falla de uno de los radioaltímetros durante la aproximación.",
+    "TriggerDescription": "Falla de datos de altura radioeléctrica durante la aproximación final.",
+    "Phase": 7,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_NAV_RALT1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_NAV_RALT2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de flaps o slats en aproximación",
+    "Description": "Falla de una computadora SFCC de flaps o slats durante la configuración de aterrizaje.",
+    "TriggerDescription": "Falla de control de superficies hipersustentadoras durante la aproximación.",
+    "Phase": 7,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_SFCC_1_FLAP",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_2_FLAP",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_1_SLAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_SFCC_2_SLAT",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de autobrake en aproximación",
+    "Description": "Falla de la unidad ABCU o del sistema de autobrake en la aproximación.",
+    "TriggerDescription": "Falla de sistema de frenado asociada al armado del autobrake.",
+    "Phase": 7,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_BRAKE_AUTOBRAKE",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      },
+      {
+        "FenixFailureId": "F_BRAKE_ABCU",
+        "ProbabilityGroup": 1,
+        "Probability": 0.5
+      }
+    ]
+  },
+  {
+    "Name": "Falla de frenos durante el aterrizaje",
+    "Description": "Pérdida de capacidad de frenado en una rueda durante la carrera de aterrizaje.",
+    "TriggerDescription": "Falla de frenos durante la desaceleración posterior al toque.",
+    "Phase": 8,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_3",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_BRAKE_WHEEL_4",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla hidráulica amarilla durante el aterrizaje",
+    "Description": "Fuga, baja presión o falla de la bomba eléctrica del sistema hidráulico amarillo.",
+    "TriggerDescription": "Falla hidráulica durante la carrera de aterrizaje; no presupone efectos secundarios adicionales.",
+    "Phase": 8,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_HYD_LEAK_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_LOW_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      },
+      {
+        "FenixFailureId": "F_HYD_PUMP_YELLOW",
+        "ProbabilityGroup": 1,
+        "Probability": 0.3333333333
+      }
+    ]
+  },
+  {
+    "Name": "Falla de reversores durante el aterrizaje",
+    "Description": "Falla de presión o de desbloqueo de un reversor durante la carrera de aterrizaje.",
+    "TriggerDescription": "Falla de sistema de reversa, propia de la desaceleración posterior al toque.",
+    "Phase": 8,
+    "Difficulty": 3,
+    "Failures": [
+      {
+        "FenixFailureId": "F_REV_PRESS_ENG_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_REV_PRESS_ENG_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_REV_UNLOCK_ENG_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      },
+      {
+        "FenixFailureId": "F_REV_UNLOCK_ENG_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.25
+      }
+    ]
+  },
+  {
+    "Name": "Falla de presión de neumático durante el aterrizaje",
+    "Description": "Pérdida de presión en un neumático durante la carrera de aterrizaje.",
+    "TriggerDescription": "Falla de tren de aterrizaje compatible con el toque y la rodadura posterior.",
+    "Phase": 8,
+    "Difficulty": 2,
+    "Failures": [
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_MAIN_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_MAIN_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_LEFT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_LEFT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_RIGHT_1",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      },
+      {
+        "FenixFailureId": "F_GEAR_TYRE_PSI_RIGHT_2",
+        "ProbabilityGroup": 1,
+        "Probability": 0.1666666667
+      }
+    ]
+  }
+]

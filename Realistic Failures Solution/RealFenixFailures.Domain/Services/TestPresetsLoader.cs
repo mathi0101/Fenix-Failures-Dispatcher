@@ -8,6 +8,7 @@ namespace RealFenixFailures.Domain.Services;
 
 public class TestPresetsLoader : IPresetsLoader {
     private readonly List<FailurePreset> _trainingPresets;
+    private readonly List<FailurePreset> _realisticPresets;
 
     public TestPresetsLoader() {
         _trainingPresets = LoadTrainingPresets()
@@ -21,10 +22,26 @@ public class TestPresetsLoader : IPresetsLoader {
                 PresetFailureDefinitions = p.Failures?.ToList() ?? []
             })
             .ToList();
+
+        _realisticPresets = LoadRealisticPresets()
+            .Select(p => new FailurePreset {
+                Name = p.Name,
+                Description = p.Description,
+                TriggerDescription = p.TriggerDescription,
+                FlightPhase = p.Phase,
+                Difficulty = p.Difficulty,
+                PresetType = PresetTypeEnum.RealisticMode,
+                PresetFailureDefinitions = p.Failures?.ToList() ?? []
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<FailurePreset>> GetTrainingPresetsAsync(CancellationToken ct) {
         return await Task.FromResult<IReadOnlyList<FailurePreset>>(_trainingPresets);
+    }
+
+    public async Task<IReadOnlyList<FailurePreset>> GetRealisticPresetsAsync(CancellationToken ct) {
+        return await Task.FromResult<IReadOnlyList<FailurePreset>>(_realisticPresets);
     }
     #region Training
     private IReadOnlyCollection<PreloadedPresetDto> LoadTrainingPresets() {
@@ -189,6 +206,33 @@ public class TestPresetsLoader : IPresetsLoader {
                 {
                     // TODO: reemplazar por el ID real de gear cuando lo tengas
                 }
+            ),
+        };
+    }
+
+    #endregion
+    #region Realistic
+    private IReadOnlyCollection<PreloadedPresetDto> LoadRealisticPresets() {
+        return new List<PreloadedPresetDto>
+        {
+            new PreloadedPresetDto(
+                "Falla de motor en crucero",
+                "Ejemplo realista: falla de motor en fase de crucero.",
+                "Se dispara aleatoriamente durante el crucero.",
+                ComplexFlightPhaseEnum.Cruise,
+                DifficultyEnum.Medium,
+                [
+                    new() {
+                        FenixFailureId = FenixFailures.Power_plant.Engine_failure.Eng_1_failure,
+                        ProbabilityGroup = 1,
+                        Probability = 0.5,
+                    },
+                    new() {
+                        FenixFailureId = FenixFailures.Power_plant.Engine_failure.Eng_2_failure,
+                        ProbabilityGroup = 1,
+                        Probability = 0.5,
+                    }
+                ]
             ),
         };
     }

@@ -21,6 +21,12 @@ public class PresetService : IPresetService {
             var presets = await _presetsLoader.GetTrainingPresetsAsync(ct);
             await _presetRepository.AddAsync(presets, ct);
         }
+
+        var hasRealisticPresets = await _presetRepository.GetAnyAsync(PresetTypeEnum.RealisticMode, ct);
+        if (!hasRealisticPresets) {
+            var presets = await _presetsLoader.GetRealisticPresetsAsync(ct);
+            await _presetRepository.AddAsync(presets, ct);
+        }
     }
 
     public Task DeletePresetAsync(int id, CancellationToken ct) {

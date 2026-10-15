@@ -16,15 +16,20 @@ public class PresetsLoader : IPresetsLoader {
     }
 
     public async Task<IReadOnlyList<FailurePreset>> GetTrainingPresetsAsync(CancellationToken ct) {
-        List<FailurePreset> trainingPresets;
         var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(_settings.TrainingPresetsJson, ct);
-        trainingPresets = [.. jsonDtos!.Select(MapToFailurePreset)];
-
+        List<FailurePreset> trainingPresets = [.. jsonDtos!.Select(dto => MapToFailurePreset(dto, PresetTypeEnum.TrainingMode))];
 
         return trainingPresets;
     }
 
-    private FailurePreset MapToFailurePreset(JsonPreloadedPresetDto dto) {
+    public async Task<IReadOnlyList<FailurePreset>> GetRealisticPresetsAsync(CancellationToken ct) {
+        var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(_settings.RealisticPresetsJson, ct);
+        List<FailurePreset> realisticPresets = [.. jsonDtos!.Select(dto => MapToFailurePreset(dto, PresetTypeEnum.RealisticMode))];
+
+        return realisticPresets;
+    }
+
+    private FailurePreset MapToFailurePreset(JsonPreloadedPresetDto dto, PresetTypeEnum presetType) {
         var phase = JsonEnumParser.ParseEnum(dto.Phase, ComplexFlightPhaseEnum.Unknown);
         var difficulty = JsonEnumParser.ParseEnum(dto.Difficulty, DifficultyEnum.Easy);
 
@@ -34,7 +39,7 @@ public class PresetsLoader : IPresetsLoader {
             TriggerDescription = dto.TriggerDescription,
             FlightPhase = phase,
             Difficulty = difficulty,
-            PresetType = PresetTypeEnum.TrainingMode,
+            PresetType = presetType,
             PresetFailureDefinitions = dto.Failures?.Select(MapToPresetFailureDefinition).ToList() ?? []
         };
 

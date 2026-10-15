@@ -3,6 +3,7 @@
   <ItemGroup>
     <None Remove="Resources\failures.json" />
     <None Remove="Resources\training_presets.json" />
+    <None Remove="Resources\realistic_presets.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -10,6 +11,7 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\training_presets.json" />
+    <EmbeddedResource Include="Resources\realistic_presets.json" />
   </ItemGroup>
 
   <ItemGroup>
