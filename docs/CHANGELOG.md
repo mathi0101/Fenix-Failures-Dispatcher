@@ -4,6 +4,66 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Logs SimConnect separados: override Debug por categoría + tests de diagnóstico
+
+**Qué**
+
+- En `SerilogExtensions.ApplyDefaultConfiguration` (Infrastructure), cuando `SimConnectDiagnostics:Enabled` está en `true`, se agrega un `MinimumLevel.Override` a `Debug` solo para la categoría `SimConnect.Diagnostics` sobre el logger raíz (y el `using Serilog.Events` correspondiente). Así los eventos `Debug` de esa categoría llegan al sublogger/archivo de diagnóstico aun cuando el nivel mínimo general del logger raíz es más restrictivo (p. ej. `Information` de la configuración publicada, que eliminaba los `Debug` del archivo de diagnóstico aun con el flag activo). El override se limita a la categoría habilitada; los niveles generales y el `ReadFrom.Configuration` del logger principal no cambian.
+- Nuevo `RealFenixFailures.TestUnits/Logging/SerilogDiagnosticsTests.cs`: ejecuta el código real `ApplyDefaultConfiguration` con configuración en memoria y archivo principal temporal. Con el flag en `true` emite un `Debug` en la categoría `SimConnect.Diagnostics` con token único y verifica, tras disponer el logger, que el token aparece en `logs/simconnect-diagnostic-*.log` del cwd de tests y no en el log principal. Con el flag en `false` verifica que el token no aparece en ninguno de los dos y que `IsEnabled(Debug)` es `false`.
+
+**Por qué**
+
+- La configuración publicada usa `Debug` como nivel general del sublogger principal, pero el logger raíz (sin nivel fijado) aplica `Information` y filtraba los `Debug` de la categoría de diagnóstico antes de llegar a su sublogger: el archivo de diagnóstico podía quedar vacío aun con el flag activo. El override por categoría es el arreglo mínimo.
+
+**Áreas**
+
+- `RealFenixFailures.Infrastructure/Logging/SerilogExtensions.cs` (override de nivel mínimo `Debug` por categoría dentro del `if` de `SimConnectDiagnostics:Enabled` + `using Serilog.Events`).
+- `RealFenixFailures.UI/DependencyInjection/HostBuilderExtensions.cs` (permite que los eventos `Debug` lleguen al provider Serilog; el nivel efectivo de salida sigue gobernado por Serilog).
+- `RealFenixFailures.TestUnits/Logging/SerilogDiagnosticsTests.cs` (nuevo).
+- `docs/integraciones/simconnect.md` (nota de override por categoría y de reinicio para el flag).
+
+**Pruebas**
+
+- Estado previo al fix: `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj --filter FullyQualifiedName~SerilogDiagnosticsTests` → 1 passed / 1 failed (fallaba `EnabledTrue`: el token no aparecía en el archivo de diagnóstico).
+- Estado posterior al fix: mismo comando → 2 passed.
+- `dotnet build RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj -c Release` → OK, 0 warnings, 0 errores.
+
+**Pendiente**
+
+- Verificación en vivo con el flag en `true` durante una sesión con MSFS 2024 + Fenix: la generación efectiva del archivo de diagnóstico con dato crudo y estado calculado no se pudo comprobar con el simulador; no se afirma integración real verificada.
+
+### 2026-10-15 — Log de diagnóstico SimConnect activable por appsettings
+
+**Qué**
+
+- Nuevo flag `SimConnectDiagnostics:Enabled` en `appsettings.json` (default `false`). Al activarlo, se escribe un archivo de log separado `logs/simconnect-diagnostic-.log` (rolling diario) con: (a) todo el dato crudo recibido de SimConnect en cada poll (`SimulatorFlightDataProvider.GetAircraftRawData`) y (b) el estado/fase de vuelo calculado por la app en cada snapshot (`FlightEventDetector.ProcessSnapshot`), para comparar ambos en desarrollo.
+- `SerilogExtensions.ApplyDefaultConfiguration` (Infrastructure) divide el pipeline en dos `WriteTo.Logger`: el principal excluye la categoría `SimConnect.Diagnostics` (vía `Matching.FromSource`); el de diagnóstico la incluye exclusivamente y solo se registra si el flag está en `true`.
+- Los dos emisores usan `ILoggerFactory.CreateLogger("SimConnect.Diagnostics")` (no `ILogger<T>`) para no acoplar Integrations.SimConnect/Application a Infrastructure; la categoría es un literal duplicado en los tres archivos (documentado en el doc de integración).
+- Con el flag desactivado no se genera el archivo ni se ensucia el log principal (los `LogDebug` se siguen ejecutando pero no tienen sink destino).
+
+**Por qué**
+
+- Permitir, durante pruebas en vivo con MSFS 2024 + Fenix reales, capturar y comparar luego en desarrollo todo lo que SimConnect reporta contra lo que la app deriva (fase de vuelo, motores, AGL/MSL, etc.), sin mezclarlo con el log operativo normal ni dejarlo siempre activo.
+
+**Áreas**
+
+- `RealFenixFailures.Infrastructure/Logging/SerilogExtensions.cs`.
+- `RealFenixFailures.Integrations.SimConnect/Services/SimulatorFlightDataProvider.cs` (constructor ahora recibe `ILoggerFactory`).
+- `RealFenixFailures.Application/Services/FlightEventDetector.cs` (constructor ahora recibe `ILoggerFactory`).
+- `RealFenixFailures.UI/appsettings.json` (sección `SimConnectDiagnostics`).
+- `RealFenixFailures.TestUnits/Services/FlightEventDetectorTests.cs` (ajuste del constructor en `CreateDetector`).
+- `docs/integraciones/simconnect.md` — nueva sección "Log de diagnóstico (SimConnect + estados calculados)".
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: OK, 0 warnings, 0 errores.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: 38/38 passed.
+- **No verificado**: activación real del flag con MSFS 2024 + Fenix corriendo (generación efectiva de `logs/simconnect-diagnostic-*.log` en una sesión en vivo); falta probarlo manualmente en la máquina con el simulador.
+
+**Pendiente**
+
+- Probar en vivo con el flag en `true` durante una sesión real y confirmar que el archivo se genera y contiene lo esperado (dato crudo + estado calculado) sin contaminar `logs/realfenix-.log`.
+
 ### 2026-10-14 — Corrección de columna duplicada `PresetType` en `FailurePresets`
 
 **Qué**

@@ -8,7 +8,7 @@ namespace RealFenixFailures.TestUnits.Services;
 
 public class FlightEventDetectorTests {
     private static FlightEventDetector CreateDetector() =>
-        new(NullLogger<FlightEventDetector>.Instance);
+        new(NullLogger<FlightEventDetector>.Instance, NullLoggerFactory.Instance);
 
     private static SimulatorAircraftStateSnapshot OnGround(bool enginesOn, int groundSpeed = 0, int throttle = 0, int altMsl = 100) =>
         new() {

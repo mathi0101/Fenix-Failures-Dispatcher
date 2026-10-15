@@ -12,8 +12,13 @@ public class FlightEventDetector : IFlightEventDetector {
     private static readonly int[] AltitudeThresholdsFt = [10000, 18000, 24000, 35000];
     #endregion
 
+    // Debe coincidir con SerilogExtensions.SimConnectDiagnosticsSourceContext (Infrastructure),
+    // que rutea esta categoría al log de diagnóstico cuando "SimConnectDiagnostics:Enabled" es true.
+    private const string DiagnosticsSourceContext = "SimConnect.Diagnostics";
+
     #region Fields
     private readonly ILogger<FlightEventDetector> _logger;
+    private readonly ILogger _diagnosticsLogger;
     private readonly object _sync = new();
 
     private ComplexFlightPhaseEnum _previousPhase = ComplexFlightPhaseEnum.Unknown;
@@ -32,8 +37,9 @@ public class FlightEventDetector : IFlightEventDetector {
 
     public event EventHandler<FlightEventDto>? FlightEventDetected;
 
-    public FlightEventDetector(ILogger<FlightEventDetector> logger) {
+    public FlightEventDetector(ILogger<FlightEventDetector> logger, ILoggerFactory loggerFactory) {
         _logger = logger;
+        _diagnosticsLogger = loggerFactory.CreateLogger(DiagnosticsSourceContext);
     }
 
     public ComplexFlightPhaseEnum ProcessSnapshot(SimulatorAircraftStateSnapshot snapshot) {
@@ -50,6 +56,12 @@ public class FlightEventDetector : IFlightEventDetector {
             _lastAltitudeMSL = snapshot.AltitudeMSL;
             _currentPhase = newPhase;
         }
+
+        _diagnosticsLogger.LogDebug(
+            "Computed state: Phase={Phase} AltMSL={AltitudeMSL} AltAGL={AltitudeAGL} VS={VerticalSpeed} GS={GroundSpeed} TAS={TrueAirspeed} " +
+            "OnGround={IsOnGround} Eng1Running={Engine1IsRunning} Eng2Running={Engine2IsRunning} BothEnginesRunning={AreBothEnginesRunning}",
+            newPhase, snapshot.AltitudeMSL, snapshot.AltitudeAGL, snapshot.VerticalSpeed, snapshot.GroundSpeed, snapshot.TrueAirspeed,
+            snapshot.IsOnGround, snapshot.Engine1IsRunning, snapshot.Engine2IsRunning, snapshot.AreBothEnginesRunning);
 
         if (generation == _generation) {
             foreach (var flightEvent in events) {

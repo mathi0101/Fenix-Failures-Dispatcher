@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application;
 using RealFenixFailures.Domain;
 using RealFenixFailures.Infrastructure;
@@ -16,6 +17,7 @@ namespace RealFenixFailures.UI.DependencyInjection;
 public static class HostBuilderExtensions {
     public static IHostBuilder ConfigureRealFenixFailures(this IHostBuilder hostBuilder) {
         return hostBuilder
+            .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Trace))
             .UseSerilog((context, services, loggerConfiguration) => {
                 loggerConfiguration.ApplyDefaultConfiguration(context.Configuration);
             })

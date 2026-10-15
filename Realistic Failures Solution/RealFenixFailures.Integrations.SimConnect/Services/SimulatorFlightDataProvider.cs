@@ -7,16 +7,22 @@ using RealFenixFailures.Integrations.SimConnect.Interfaces;
 namespace RealFenixFailures.Integrations.SimConnect.Services;
 
 public class SimulatorFlightDataProvider : ISimFlightDataProvider {
+    // Debe coincidir con SerilogExtensions.SimConnectDiagnosticsSourceContext (Infrastructure),
+    // que rutea esta categoría al log de diagnóstico cuando "SimConnectDiagnostics:Enabled" es true.
+    private const string DiagnosticsSourceContext = "SimConnect.Diagnostics";
+
     private readonly ISimConnectClient _client;
     private readonly ILogger<SimulatorFlightDataProvider> _logger;
+    private readonly ILogger _diagnosticsLogger;
     private readonly SemaphoreSlim _healthLock = new(1, 1);
 
     private DateTime _lastHealthCheckAtUtc = DateTime.MinValue;
     private bool _lastHealthCheckResult;
 
-    public SimulatorFlightDataProvider(ISimConnectClient client, ILogger<SimulatorFlightDataProvider> logger) {
+    public SimulatorFlightDataProvider(ISimConnectClient client, ILogger<SimulatorFlightDataProvider> logger, ILoggerFactory loggerFactory) {
         _client = client;
         _logger = logger;
+        _diagnosticsLogger = loggerFactory.CreateLogger(DiagnosticsSourceContext);
         _logger.LogInformation("SimulatorFlightDataProvider initialized");
     }
 
@@ -60,6 +66,15 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
 
     public async Task<SimulatorAircraftStateSnapshot> GetAircraftRawData(CancellationToken ct) {
         var s = await _client.GetAircraftStateAsync(ct);
+
+        _diagnosticsLogger.LogDebug(
+            "SimConnect raw data: Lat={Latitude} Lon={Longitude} AltMSL={AltitudeMSL} IndAlt={IndicatedAltitude} AltAGL={RadioHeight} " +
+            "Heading={Heading} GS={GroundSpeed} TAS={TrueAirspeed} VS={VerticalSpeed} OnGround={IsOnGround} Flaps={FlapsHandleIndex} " +
+            "Eng1Comb={Engine1Combustion} Eng1N1={Engine1N1Percent} Eng1Thr={ThrottlePercent1} Eng2Comb={Engine2Combustion} Eng2N1={Engine2N1Percent} Eng2Thr={ThrottlePercent2}",
+            s.Latitude, s.Longitude, s.AltitudeMSL, s.IndicatedAltitude, s.RadioHeight,
+            s.Heading, s.GroundSpeed, s.TrueAirspeed, s.VerticalSpeed, s.IsOnGround, s.FlapsHandleIndex,
+            s.Engine1Combustion, s.Engine1N1Percent, s.ThrottlePercent1, s.Engine2Combustion, s.Engine2N1Percent, s.ThrottlePercent2);
+
         return new SimulatorAircraftStateSnapshot() {
             FlightPhase = s.IsOnGround ? SimpleFlightPhaseEnum.OnGround : SimpleFlightPhaseEnum.Flying,
             IsOnGround = s.IsOnGround,
