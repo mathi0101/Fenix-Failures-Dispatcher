@@ -5,12 +5,15 @@ using Microsoft.Extensions.Hosting;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.UI.DependencyInjection;
+using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.Views;
 
 namespace RealFenixFailures.UI;
 
 public partial class App : System.Windows.Application {
     private readonly IHost _host;
+    private readonly SingleInstanceGuard _singleInstanceGuard = new();
+    private TrayIconService? _trayIconService;
 
     public App() {
         _host = Host.CreateDefaultBuilder()
@@ -22,6 +25,12 @@ public partial class App : System.Windows.Application {
     }
 
     protected override async void OnStartup(System.Windows.StartupEventArgs e) {
+        if (!_singleInstanceGuard.TryAcquire()) {
+            _singleInstanceGuard.SignalExistingInstance();
+            Shutdown();
+            return;
+        }
+
         await _host.StartAsync();
 
         using var scope = _host.Services.CreateScope();
@@ -34,10 +43,24 @@ public partial class App : System.Windows.Application {
         var newWindow = _host.Services.GetRequiredService<MainWindow>();
         newWindow.Show();
 
+        _trayIconService = new TrayIconService(newWindow, RequestExit);
+        _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
+
         base.OnStartup(e);
     }
 
+    private void RequestExit() {
+        foreach (System.Windows.Window window in Windows) {
+            if (window is MainWindow mainWindow)
+                mainWindow.IsExitAllowed = true;
+        }
+
+        Shutdown();
+    }
+
     protected override async void OnExit(System.Windows.ExitEventArgs e) {
+        _trayIconService?.Dispose();
+        _singleInstanceGuard.Dispose();
         await _host.StopAsync();
         _host.Dispose();
         base.OnExit(e);

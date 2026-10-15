@@ -228,7 +228,7 @@ public class RealisticSessionEngineTests {
         _flightEventDetector.Verify(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()), Times.Never);
         _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
         _sessionService.Verify(
-            s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
         Assert.Equal(ComplexFlightPhaseEnum.Unknown, engine.Session!.CurrentFlightPhase);
         Assert.Null(engine.Session.LastTriggeredAtUtc);
@@ -245,7 +245,7 @@ public class RealisticSessionEngineTests {
             .Setup(s => s.DisarmFailureAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(disarmResult);
         _sessionService
-            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("db unavailable"));
         _presetService
             .Setup(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()))
@@ -285,7 +285,7 @@ public class RealisticSessionEngineTests {
         _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Once);
         _simulator.Verify(s => s.DisarmFailureAsync("F_ENGINE_1", It.IsAny<CancellationToken>()), Times.Once);
         _sessionService.Verify(
-            s => s.AddTriggeredFailureAsync(It.IsAny<int>(), "F_ENGINE_1", It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.Is<PresetFailureDefinition>(p => p.FenixFailureId == "F_ENGINE_1"), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -324,7 +324,7 @@ public class RealisticSessionEngineTests {
         SetupTriggerPath(chosen, disarmResult: true);
         // Cancelación de persistencia: se distingue del resto; se desarma igual y después se propaga.
         _sessionService
-            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new OperationCanceledException("persistence canceled"));
 
         var engine = CreateEngine();
@@ -335,5 +335,130 @@ public class RealisticSessionEngineTests {
 
         Assert.Null(engine.Session!.LastTriggeredAtUtc);
         _simulator.Verify(s => s.DisarmFailureAsync("F_ENGINE_1", CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryStartSession_ValidConditions_PersistsSessionStartedEvent() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var engine = CreateEngine();
+
+        var result = await engine.TryStartSession(Context(), CancellationToken.None);
+
+        Assert.True(result.Started);
+        Assert.NotNull(engine.Session);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.SessionStarted, "SESSION_STARTED", It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_DetectedFlightEvents_ArePersistedWithCodeCategoryPhase() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        _simulator
+            .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(new AllFenixFailuresResponseDto()));
+        var engine = CreateEngine();
+
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => {
+                _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object, new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos"));
+                _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object, new FlightEventDto(DateTime.UtcNow, FlightEventKind.PhaseChanged, "Despegue"));
+            })
+            .Returns(ComplexFlightPhaseEnum.Takeoff);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.False(result.ShouldPauseSession);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.EnginesStarted, "ENGINES_STARTED", "Motores encendidos", ComplexFlightPhaseEnum.Takeoff, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.PhaseChanged, "TAKEOFF", "Despegue", ComplexFlightPhaseEnum.Takeoff, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_TriggeredFailure_PassesChosenPresetToService() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var chosen = new PresetFailureDefinition {
+            FenixFailureId = "F_ENGINE_1",
+            FenixFailure = new FenixFailureDefinition {
+                FenixFailureId = "F_ENGINE_1",
+                Name = "Motor 1",
+                Severity = FailureSeverity.Major,
+                Group = new FenixFailureGroup {
+                    Name = "Engines",
+                    System = new FenixFailureSystem { Name = "Propulsion", ShortName = "PROP" }
+                }
+            },
+            Probability = 0.8,
+            ProbabilityGroup = 2,
+            Ias = "180",
+            Above_Altitude = "10000",
+            Below_Altitude = "30000",
+            Time = "120",
+            AfterEvent = "TAKEOFF",
+            AfterEventSeconds = "15"
+        };
+        SetupTriggerPath(chosen, disarmResult: true);
+        _sessionService
+            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var engine = CreateEngine();
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Single(result.TriggeredFailures);
+        Assert.NotNull(engine.Session!.LastTriggeredAtUtc);
+        _sessionService.Verify(
+            s => s.AddTriggeredFailureAsync(42, It.Is<PresetFailureDefinition>(p =>
+                    ReferenceEquals(p, chosen)
+                    && p.FenixFailure!.Name == "Motor 1"
+                    && p.Probability == 0.8
+                    && p.ProbabilityGroup == 2
+                    && p.Ias == "180"
+                    && p.AfterEventSeconds == "15"),
+                It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task StopSession_UnsubscribesAndIgnoresLaterFlightEvents() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var engine = CreateEngine();
+
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        await engine.StopSession(CancellationToken.None);
+
+        Assert.Null(engine.Session);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.SessionStopped, "SESSION_STOPPED", It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _sessionService.Verify(
+            s => s.StopAsync(42, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object, new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos"));
+
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.EnginesStarted, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

@@ -38,6 +38,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private readonly IFailureTrigger _failureTrigger;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly Random _random = Random.Shared;
+    private readonly object _eventQueueLock = new();
+    private readonly Queue<FlightEventDto> _pendingFlightEvents = new();
+    private bool _subscribedToFlightEvents;
 
 
     private RealisticSession? _session;
@@ -100,13 +103,39 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             AvailablePresets = presets
         };
 
+        try {
+            await _sessionService.AddEventLogAsync(newSession.Id, SessionEventCategory.SessionStarted, "SESSION_STARTED", "Sesión realista iniciada", ComplexFlightPhaseEnum.Unknown, DateTime.UtcNow, ct);
+        } catch (Exception) {
+            try {
+                await _sessionService.StopAsync(newSession.Id, DateTime.UtcNow, CancellationToken.None);
+            } catch (Exception stopEx) {
+                _logger.LogWarning(stopEx, "Failed to close session {SessionId} after start-event registration failure", newSession.Id);
+            }
+            Session = null;
+            throw;
+        }
+
+        SubscribeToFlightEvents();
+
         return new StartSessionResult(true, string.Empty);
     }
 
     public async Task StopSession(CancellationToken ct) {
         if (!IsRunning) return;
-        await _sessionService.StopAsync(Session!.Session.Id, DateTime.UtcNow, ct);
-        Session = null;
+        try {
+            if (Session!.Session.FinishedAt == null) {
+                try {
+                    await _sessionService.AddEventLogAsync(Session.Session.Id, SessionEventCategory.SessionStopped, "SESSION_STOPPED", "Sesión realista detenida", Session.CurrentFlightPhase, DateTime.UtcNow, ct);
+                } catch (Exception ex) {
+                    _logger.LogWarning(ex, "Failed to register stop event for session {SessionId}", Session.Session.Id);
+                }
+                await _sessionService.StopAsync(Session.Session.Id, DateTime.UtcNow, ct);
+            }
+            Session = null;
+        } finally {
+            ClearPendingFlightEvents();
+            UnsubscribeFromFlightEvents();
+        }
     }
 
     /// <summary>
@@ -125,6 +154,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             }
 
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
+            await DrainFlightEventsAsync(currentPhase, ct);
             Session!.ProcessSimData(rawData, failures, currentPhase);
 
         } catch (SimulatorDataUnavailableException ex) {
@@ -145,6 +175,54 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     #endregion
 
     #region Privates
+
+    private void SubscribeToFlightEvents() {
+        if (_subscribedToFlightEvents) return;
+        _flightEventDetector.FlightEventDetected += OnFlightEventDetected;
+        _subscribedToFlightEvents = true;
+    }
+
+    private void UnsubscribeFromFlightEvents() {
+        if (!_subscribedToFlightEvents) return;
+        _flightEventDetector.FlightEventDetected -= OnFlightEventDetected;
+        _subscribedToFlightEvents = false;
+    }
+
+    private void OnFlightEventDetected(object? sender, FlightEventDto flightEvent) {
+        lock (_eventQueueLock) {
+            _pendingFlightEvents.Enqueue(flightEvent);
+        }
+    }
+
+    private void ClearPendingFlightEvents() {
+        lock (_eventQueueLock) {
+            _pendingFlightEvents.Clear();
+        }
+    }
+
+    private async Task DrainFlightEventsAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
+        if (!IsRunning) return;
+
+        List<FlightEventDto> pending;
+        lock (_eventQueueLock) {
+            if (_pendingFlightEvents.Count == 0) return;
+            pending = [.. _pendingFlightEvents];
+            _pendingFlightEvents.Clear();
+        }
+
+        foreach (var flightEvent in pending) {
+            var (category, code) = flightEvent.Kind switch {
+                FlightEventKind.PhaseChanged => (SessionEventCategory.PhaseChanged, PhaseCode(phase)),
+                FlightEventKind.EnginesStarted => (SessionEventCategory.EnginesStarted, "ENGINES_STARTED"),
+                FlightEventKind.EnginesStopped => (SessionEventCategory.EnginesStopped, "ENGINES_STOPPED"),
+                FlightEventKind.AltitudeCrossed => (SessionEventCategory.AltitudeCrossed, "ALTITUDE_CROSSED"),
+                _ => (SessionEventCategory.SessionError, "UNKNOWN_EVENT")
+            };
+            await _sessionService.AddEventLogAsync(Session!.Session.Id, category, code, flightEvent.Message, phase, flightEvent.TimestampUtc, ct);
+        }
+    }
+
+    private static string PhaseCode(ComplexFlightPhaseEnum phase) => phase.ToString().ToUpperInvariant();
 
     private static double RiskProbabilityMultiplier(RiskLevel riskLevel) => riskLevel switch {
         RiskLevel.Low => 0.5,
@@ -190,7 +268,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             if (!armed) continue;
 
             try {
-                await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen.FenixFailureId, session.CurrentFlightPhase, now, ct);
+                await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, session.CurrentFlightPhase, now, ct);
             } catch (OperationCanceledException ex) {
                 // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token
                 // independiente (seguro pese a la cancelación) y recién después se propaga la cancelación.

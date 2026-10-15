@@ -34,14 +34,49 @@ public class FlightSessionService : IFlightSessionService {
         return session;
     }
 
-    public async Task AddTriggeredFailureAsync(int sessionId, string fenixFailureId, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct) {
+    public async Task AddTriggeredFailureAsync(int sessionId, PresetFailureDefinition chosen, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct) {
         var triggeredFailure = new TriggeredFailure {
             FlightSessionId = sessionId,
-            FenixFailureId = fenixFailureId,
+            FenixFailureId = chosen.FenixFailureId,
             TriggeredAt = triggeredAtUtc,
-            FlightPhase = flightPhase
+            FlightPhase = flightPhase,
+            FailureName = chosen.FenixFailure?.Name ?? chosen.FenixFailureId,
+            Severity = chosen.FenixFailure?.Severity,
+            PresetId = chosen.PresetId,
+            PresetName = chosen.Preset?.Name,
+            Probability = chosen.Probability,
+            ProbabilityGroup = chosen.ProbabilityGroup,
+            Ias = chosen.Ias,
+            AboveAltitude = chosen.Above_Altitude,
+            BelowAltitude = chosen.Below_Altitude,
+            Time = chosen.Time,
+            AfterEvent = chosen.AfterEvent,
+            AfterEventSeconds = chosen.AfterEventSeconds
+        };
+        var eventLog = new SessionEventLog {
+            FlightSessionId = sessionId,
+            OccurredAt = triggeredAtUtc,
+            EventCode = "FAILURE_TRIGGERED",
+            Category = SessionEventCategory.FailureTriggered,
+            Description = $"Falla disparada: {triggeredFailure.FailureName} ({triggeredFailure.FenixFailureId})",
+            FlightPhase = flightPhase,
+            TriggeredFailure = triggeredFailure
         };
         await _sessionRepository.AddTriggeredFailureAsync(triggeredFailure, ct);
+        await _sessionRepository.AddEventLogAsync(eventLog, ct);
+        await _sessionRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task AddEventLogAsync(int sessionId, SessionEventCategory category, string eventCode, string description, ComplexFlightPhaseEnum flightPhase, DateTime occurredAtUtc, CancellationToken ct) {
+        var eventLog = new SessionEventLog {
+            FlightSessionId = sessionId,
+            OccurredAt = occurredAtUtc,
+            EventCode = eventCode,
+            Category = category,
+            Description = description,
+            FlightPhase = flightPhase
+        };
+        await _sessionRepository.AddEventLogAsync(eventLog, ct);
         await _sessionRepository.SaveChangesAsync(ct);
     }
 }

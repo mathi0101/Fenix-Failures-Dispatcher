@@ -14,6 +14,7 @@
 | [realistic-mode/especificacion-funcional.md](realistic-mode/especificacion-funcional.md) | Especificación funcional **deseada** del modo Realistic (visión de producto): aeronaves, desgaste, niveles de riesgo y lógica de fallas, con brechas respecto a la implementación actual | Antes de diseñar o priorizar trabajo nuevo del modo Realistic | Vigente |
 | [integraciones/simconnect.md](integraciones/simconnect.md) | Cliente SimConnect real y mock, contratos, message pump, polling, thread safety y advertencias | Antes de tocar `Integrations.SimConnect` | Vigente |
 | [integraciones/fenix-api.md](integraciones/fenix-api.md) | Endpoints Fenix, configuración por claves, cliente real/mock, reset y verificaciones | Antes de tocar `Integrations.Fenix` | Vigente |
+| [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md) | Instancia única (Mutex) y icono de bandeja del sistema en `RealFenixFailures.UI` | Antes de tocar `App.xaml(.cs)`, `MainWindow` o los servicios de bandeja/instancia única | Vigente (pendiente de verificación manual) |
 
 ## Histórico
 

@@ -21,9 +21,7 @@ public class UserAircraftService : IUserAircraftService {
         var aircraft = new UserAircraft {
             Registration = request.Registration,
             IcaoTypeCode = request.IcaoTypeCode,
-            CreatedAt = DateTime.UtcNow,
-            TotalFlights = 0,
-            TotalFlightHours = 0
+            CreatedAt = DateTime.UtcNow
         };
 
         _dbContext.UserAircrafts.Add(aircraft);
@@ -50,14 +48,18 @@ public class UserAircraftService : IUserAircraftService {
     // -------------------------------------------------------------------------
 
     public async Task<IReadOnlyList<UserAircraftDto>> GetAllAsync(CancellationToken ct) {
-        return await _dbContext.UserAircrafts
-            .Select(x => ToDto(x))
+        var aircrafts = await _dbContext.UserAircrafts
+            .AsNoTracking()
+            .Include(x => x.FlightSessions)
             .ToListAsync(ct);
+
+        return aircrafts.Select(ToDto).ToArray();
     }
 
     public async Task<UserAircraftDto?> GetByIdAsync(int id, CancellationToken ct) {
         var aircraft = await _dbContext.UserAircrafts
             .Include(x => x.SystemWears)
+            .Include(x => x.FlightSessions)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return aircraft is null ? null : ToDto(aircraft);
@@ -91,13 +93,16 @@ public class UserAircraftService : IUserAircraftService {
     // -------------------------------------------------------------------------
 
     public async Task<IReadOnlyList<FlightSessionDto>> GetAircraftSessionsAsync(int userAircraftId, CancellationToken ct) {
-        return await _dbContext.FlightSessions
+        var sessions = await _dbContext.FlightSessions
+            .AsNoTracking()
             .Where(s => s.UserAircraftId == userAircraftId)
             .OrderByDescending(s => s.StartedAt)
             .Include(s => s.TriggeredFailures)
             .ThenInclude(s => s.FenixFailure)
-            .Select(s => ToSessionDto(s))
+            .Include(s => s.EventLogs)
             .ToListAsync(ct);
+
+        return sessions.Select(ToSessionDto).ToArray();
     }
 
     // -------------------------------------------------------------------------
@@ -119,8 +124,10 @@ public class UserAircraftService : IUserAircraftService {
         Id = aircraft.Id,
         Registration = aircraft.Registration,
         IcaoTypeCode = aircraft.IcaoTypeCode,
-        TotalFlightHours = aircraft.TotalFlightHours,
-        TotalFlights = aircraft.TotalFlights,
+        TotalFlightHours = aircraft.FlightSessions
+            .Where(s => s.FinishedAt != null)
+            .Sum(s => (s.FinishedAt!.Value - s.StartedAt).TotalHours),
+        TotalFlights = aircraft.FlightSessions.Count(s => s.FinishedAt != null),
         CreatedAt = aircraft.CreatedAt,
         SystemsWear = aircraft.SystemWears.Select(ToSystemWearDto).ToArray(),
         FlightSessions = aircraft.FlightSessions.Select(ToSessionDto).ToArray()
@@ -146,9 +153,31 @@ public class UserAircraftService : IUserAircraftService {
         TriggeredFailures = f.TriggeredFailures.Select(f => new TriggeredFailureDto {
             Id = f.Id,
             FenixFailureId = f.FenixFailureId,
-            FailureName = f.FenixFailure!.Name,
+            FailureName = f.FailureName ?? f.FenixFailure?.Name ?? f.FenixFailureId,
             TriggeredAt = f.TriggeredAt,
-            FlightPhase = f.FlightPhase
+            FlightPhase = f.FlightPhase,
+            Severity = f.Severity,
+            PresetId = f.PresetId,
+            PresetName = f.PresetName,
+            Probability = f.Probability,
+            ProbabilityGroup = f.ProbabilityGroup,
+            Ias = f.Ias,
+            AboveAltitude = f.AboveAltitude,
+            BelowAltitude = f.BelowAltitude,
+            Time = f.Time,
+            AfterEvent = f.AfterEvent,
+            AfterEventSeconds = f.AfterEventSeconds
         }).ToArray(),
+        EventLogs = f.EventLogs.Select(ToEventLogDto).ToArray(),
+    };
+
+    private static SessionEventLogDto ToEventLogDto(SessionEventLog e) => new() {
+        Id = e.Id,
+        OccurredAt = e.OccurredAt,
+        EventCode = e.EventCode,
+        Category = e.Category,
+        Description = e.Description,
+        FlightPhase = e.FlightPhase,
+        TriggeredFailureId = e.TriggeredFailureId
     };
 }

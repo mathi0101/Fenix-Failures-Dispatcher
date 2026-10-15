@@ -8,6 +8,18 @@ public class TriggeredFailure {
     public required string FenixFailureId { get; set; }
     public DateTime TriggeredAt { get; set; }
     public ComplexFlightPhaseEnum FlightPhase { get; set; }
+    public string? FailureName { get; set; }
+    public FailureSeverity? Severity { get; set; }
+    public int? PresetId { get; set; }
+    public string? PresetName { get; set; }
+    public double? Probability { get; set; }
+    public int? ProbabilityGroup { get; set; }
+    public string? Ias { get; set; }
+    public string? AboveAltitude { get; set; }
+    public string? BelowAltitude { get; set; }
+    public string? Time { get; set; }
+    public string? AfterEvent { get; set; }
+    public string? AfterEventSeconds { get; set; }
 
     public FlightSession? FlightSession { get; set; }
     public FenixFailureDefinition? FenixFailure { get; set; }

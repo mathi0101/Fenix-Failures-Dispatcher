@@ -21,7 +21,7 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     #region Fields
 
-    private const int MaxLiveTriggeredFailures = 200;
+    private const int MaxLiveTriggeredFailures = 50;
 
     private readonly IUserAircraftService _aircraftService;
     private readonly IEngineOrchestrator _orchestrator;
