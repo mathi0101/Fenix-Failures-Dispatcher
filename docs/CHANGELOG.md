@@ -4,6 +4,40 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Instancia única + icono de bandeja del sistema
+
+**Qué**
+
+- `SingleInstanceGuard` (nuevo, `RealFenixFailures.UI/Services`): Mutex con nombre fijo tomado en `App.OnStartup` antes de iniciar el host/migraciones; si ya hay una instancia corriendo, la nueva señala (vía `EventWaitHandle`) y cierra sin tocar infraestructura. La instancia primaria escucha esa señal (`ThreadPool.RegisterWaitForSingleObject`) y restaura su ventana.
+- `TrayIconService` (nuevo, `RealFenixFailures.UI/Services`): icono en la bandeja del sistema usando `System.Windows.Forms.NotifyIcon` (sin paquete NuGet nuevo; se habilitó `UseWindowsForms` en el `.csproj`). Menú contextual con "Abrir" (restaura la ventana) y "Salir" (cierra la app de verdad). Doble click también restaura.
+- `App.xaml`: `ShutdownMode="OnExplicitShutdown"` para que ocultar la ventana no cierre la app.
+- `MainWindow`: nueva propiedad `IsExitAllowed` (default `false`) + handler `Closing` que cancela el cierre y hace `Hide()` si no está permitido salir. El botón X de la barra de título custom ahora minimiza a la bandeja en vez de cerrar la app; la única salida real es "Salir" desde el tray.
+- `.csproj` de UI: `UseWindowsForms=true` más `<Using Remove="System.Drawing" />` y `<Using Remove="System.Windows.Forms" />` para evitar la ambigüedad de tipos (`UserControl`, `Color`, `Brush`) que ese flag introduce por sus global usings implícitos frente a WPF.
+
+**Por qué**
+
+- Pedido explícito del usuario: evitar procesos duplicados de la app (y que al reabrir se muestre la instancia ya corriendo) y poder dejarla en segundo plano con un indicador en la bandeja, con salida definitiva desde ahí.
+
+**Áreas**
+
+- `RealFenixFailures.UI/Services/SingleInstanceGuard.cs` (nuevo).
+- `RealFenixFailures.UI/Services/TrayIconService.cs` (nuevo).
+- `RealFenixFailures.UI/App.xaml`, `RealFenixFailures.UI/App.xaml.cs`.
+- `RealFenixFailures.UI/Views/MainWindow.xaml.cs`.
+- `RealFenixFailures.UI/RealFenixFailures.UI.csproj`.
+- `docs/ui/instancia-unica-y-bandeja.md` (nuevo), `docs/arquitectura.md`, `docs/README.md`.
+
+**Pruebas**
+
+- `dotnet build`: se corrigieron en el camino dos errores de compilación (ambigüedad de tipos por `UseWindowsForms`, y `CS1503` en `RegisterWaitForSingleObject` por pasar `int` en vez de `Timeout.InfiniteTimeSpan`). **No se pudo re-verificar el build final**: la herramienta de shell del agente quedó bloqueada por su propio sistema de permisos antes de poder confirmar el último build en verde. **No verificado.**
+- No se probó manualmente el flujo (dos instancias, minimizar a bandeja, restaurar, salir desde el tray). **No verificado.**
+
+**Pendiente / Limitación**
+
+- Correr `dotnet build RealFenixFailures.slnx -c Debug` para confirmar que compila tras el último fix.
+- Probar a mano: abrir dos instancias (la segunda debe activar la primera y cerrarse), minimizar a bandeja con el botón X, restaurar desde "Abrir"/doble click, y cerrar de verdad con "Salir".
+- Mutex `Local\`: si una copia corre elevada y otra no, no se detectan entre sí (ver [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md)).
+
 ### 2026-10-15 — Telemetría SimConnect corregida + estabilización de fases con debounce
 
 **Qué**

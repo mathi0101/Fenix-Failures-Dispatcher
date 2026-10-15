@@ -42,7 +42,7 @@ Selección de integraciones por configuración de compilación (DEBUG/Release):
 
 ## Componentes y flujo vigente
 
-1. **Arranque**: `App` aplica migraciones de EF y corre el initializer; `MainWindowViewModel.InitializeAsync` carga escenarios Training, Realistic y Custom, y arranca `StartAutomaticTimerAsync`.
+1. **Arranque**: `App.OnStartup` primero toma `SingleInstanceGuard` (Mutex con nombre fijo); si ya hay una instancia corriendo, señala a esa instancia (`EventWaitHandle`) y cierra el proceso nuevo sin tocar el host ni la base. Si es la primera instancia, recién ahí aplica migraciones de EF y corre el initializer; `MainWindowViewModel.InitializeAsync` carga escenarios Training, Realistic y Custom, y arranca `StartAutomaticTimerAsync`. Tras mostrar `MainWindow`, `App` crea `TrayIconService` (icono de bandeja) y registra el listener de la señal de instancia única para restaurar la ventana. Detalle completo: [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md).
 2. **Timer automático** (`EngineOrchestrator`): cada `FailureEngine:CheckConnectionIntervalSeconds` (5 s) actualiza `ConnectionStatus` y, fuera del modo Realistic, alimenta al detector de eventos para no perder transiciones.
 3. **Modo Realistic**:
    - `EngineOrchestrator.StartRealisticModeAsync(aircraftId, risk, ct)` valida conexión y arranca `RealisticSessionManager.StartNewSessionAsync`.
