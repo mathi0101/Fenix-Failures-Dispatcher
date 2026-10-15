@@ -15,6 +15,7 @@ public class RealFenixDbContext : DbContext {
     public DbSet<PresetFailureDefinition> PresetFailureDefinitions => Set<PresetFailureDefinition>();
     public DbSet<FlightSession> FlightSessions => Set<FlightSession>();
     public DbSet<TriggeredFailure> TriggeredFailures => Set<TriggeredFailure>();
+    public DbSet<SessionEventLog> SessionEventLogs => Set<SessionEventLog>();
     public DbSet<UserAircraft> UserAircrafts => Set<UserAircraft>();
     public DbSet<AircraftWearableSystem> AircraftWearableSystems => Set<AircraftWearableSystem>();
     public DbSet<AircraftSystemWear> AircraftSystemWears => Set<AircraftSystemWear>();
@@ -148,12 +149,39 @@ public class RealFenixDbContext : DbContext {
         modelBuilder.Entity<FlightSession>(entity => {
             entity.HasKey(x => x.Id);
             entity.HasOne(x => x.UserAircraft).WithMany(a => a.FlightSessions).HasForeignKey(x => x.UserAircraftId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(x => x.EventLogs)
+                  .WithOne(e => e.FlightSession)
+                  .HasForeignKey(e => e.FlightSessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<TriggeredFailure>(entity => {
             entity.HasKey(x => x.Id);
             entity.HasOne(x => x.FlightSession).WithMany(x => x.TriggeredFailures).HasForeignKey(x => x.FlightSessionId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.FenixFailure).WithMany().HasForeignKey(x => x.FenixFailureId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(x => x.FailureName).HasMaxLength(200);
+            entity.Property(x => x.PresetName).HasMaxLength(120);
+            entity.Property(x => x.Ias).HasMaxLength(10);
+            entity.Property(x => x.AboveAltitude).HasMaxLength(10);
+            entity.Property(x => x.BelowAltitude).HasMaxLength(10);
+            entity.Property(x => x.Time).HasMaxLength(10);
+            entity.Property(x => x.AfterEvent).HasMaxLength(50);
+            entity.Property(x => x.AfterEventSeconds).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<SessionEventLog>(entity => {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.EventCode).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(500).IsRequired();
+            entity.HasIndex(x => new { x.FlightSessionId, x.OccurredAt });
+            entity.HasOne(x => x.FlightSession)
+                  .WithMany(s => s.EventLogs)
+                  .HasForeignKey(x => x.FlightSessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.TriggeredFailure)
+                  .WithMany()
+                  .HasForeignKey(x => x.TriggeredFailureId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         SeedData.Apply(modelBuilder);

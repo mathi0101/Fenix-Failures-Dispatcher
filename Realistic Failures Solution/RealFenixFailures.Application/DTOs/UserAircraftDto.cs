@@ -46,6 +46,28 @@ public sealed record TriggeredFailureDto {
     public ComplexFlightPhaseEnum FlightPhase { get; init; }
     public string FailureName { get; init; } = string.Empty;
     public DateTime TriggeredAt { get; init; }
+    public FailureSeverity? Severity { get; init; }
+    public int? PresetId { get; init; }
+    public string? PresetName { get; init; }
+    public double? Probability { get; init; }
+    public int? ProbabilityGroup { get; init; }
+    public string? Ias { get; init; }
+    public string? AboveAltitude { get; init; }
+    public string? BelowAltitude { get; init; }
+    public string? Time { get; init; }
+    public string? AfterEvent { get; init; }
+    public string? AfterEventSeconds { get; init; }
+}
+
+/// <summary>Evento de sesión persistido dentro del historial (Paso 2).</summary>
+public sealed record SessionEventLogDto {
+    public int Id { get; init; }
+    public DateTime OccurredAt { get; init; }
+    public string EventCode { get; init; } = string.Empty;
+    public SessionEventCategory Category { get; init; }
+    public string Description { get; init; } = string.Empty;
+    public ComplexFlightPhaseEnum FlightPhase { get; init; }
+    public int? TriggeredFailureId { get; init; }
 }
 
 /// <summary>Sesión de vuelo del historial (Paso 2), con sus fallas.</summary>
@@ -56,6 +78,7 @@ public sealed record FlightSessionDto {
     /// <summary>1 = Bajo, 2 = Moderado, 3 = Alto.</summary>
     public RiskLevel RiskLevel { get; init; }
     public IReadOnlyList<TriggeredFailureDto> TriggeredFailures { get; init; } = Array.Empty<TriggeredFailureDto>();
+    public IReadOnlyList<SessionEventLogDto> EventLogs { get; init; } = Array.Empty<SessionEventLogDto>();
 
     public int FailureCount => TriggeredFailures.Count;
     public TimeSpan? Duration => FinishedAt.HasValue ? FinishedAt.Value - StartedAt : null;

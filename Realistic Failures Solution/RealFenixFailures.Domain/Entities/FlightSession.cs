@@ -11,4 +11,5 @@ public class FlightSession {
 
     public UserAircraft? UserAircraft { get; set; }
     public ICollection<TriggeredFailure> TriggeredFailures { get; set; } = new List<TriggeredFailure>();
+    public ICollection<SessionEventLog> EventLogs { get; set; } = new List<SessionEventLog>();
 }

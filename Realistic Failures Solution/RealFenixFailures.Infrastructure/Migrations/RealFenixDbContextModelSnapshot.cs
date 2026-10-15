@@ -340,11 +340,71 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.SessionEventLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FlightPhase")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FlightSessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("TriggeredFailureId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TriggeredFailureId");
+
+                    b.HasIndex("FlightSessionId", "OccurredAt");
+
+                    b.ToTable("SessionEventLogs");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.TriggeredFailure", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("AboveAltitude")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AfterEvent")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AfterEventSeconds")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BelowAltitude")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FailureName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("FenixFailureId")
                         .IsRequired()
@@ -355,6 +415,30 @@ namespace RealFenixFailures.Infrastructure.Migrations
 
                     b.Property<int>("FlightSessionId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ias")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PresetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PresetName")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("Probability")
+                        .HasColumnType("REAL");
+
+                    b.Property<int?>("ProbabilityGroup")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Severity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Time")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("TriggeredAt")
                         .HasColumnType("TEXT");
@@ -386,12 +470,6 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
-
-                    b.Property<double>("TotalFlightHours")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("TotalFlights")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -481,6 +559,24 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.Navigation("Preset");
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.SessionEventLog", b =>
+                {
+                    b.HasOne("RealFenixFailures.Domain.Entities.FlightSession", "FlightSession")
+                        .WithMany("EventLogs")
+                        .HasForeignKey("FlightSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RealFenixFailures.Domain.Entities.TriggeredFailure", "TriggeredFailure")
+                        .WithMany()
+                        .HasForeignKey("TriggeredFailureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("FlightSession");
+
+                    b.Navigation("TriggeredFailure");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.TriggeredFailure", b =>
                 {
                     b.HasOne("RealFenixFailures.Domain.Entities.FenixFailureDefinition", "FenixFailure")
@@ -527,6 +623,8 @@ namespace RealFenixFailures.Infrastructure.Migrations
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightSession", b =>
                 {
+                    b.Navigation("EventLogs");
+
                     b.Navigation("TriggeredFailures");
                 });
 

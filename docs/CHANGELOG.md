@@ -4,6 +4,43 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Historial de sesiones (SessionEventLog), snapshot de fallas y totales de aeronave derivados
+
+**Qué**
+
+- Nueva entidad `SessionEventLog` (`Domain/Entities/SessionEventLog.cs`) y enum `SessionEventCategory` (`Domain/Enums/SessionEventCategory.cs`). Tabla **`SessionEventLogs`** append-only por sesión: `SESSION_STARTED`, `SESSION_STOPPED`, eventos de motores (`ENGINES_STARTED`/`ENGINES_STOPPED`), cambios de fase (código = nombre de la fase en mayúsculas, p. ej. `TAXI`, `LANDING`), cruces de altitud (`ALTITUDE_CROSSED`) y fallas disparadas (`FAILURE_TRIGGERED`), cada uno con `OccurredAt`, categoría, descripción y fase. `EventCode` es un identificador **semántico** string que puede repetirse entre eventos/sesiones; la identidad de fila es `Id`.
+- `FlightSessionService` (`Application/Services/FlightSessionService.cs`) persiste los eventos (`AddEventLogAsync`), y `AddTriggeredFailureAsync` guarda la falla y su evento enlazado en **una unidad de trabajo** (un único `SaveChangesAsync`, atómico).
+- `RealisticSessionEngine` (`Application/Session/RealisticSessionEngine.cs`) se suscribe al `FlightEventDetector` **solo mientras la sesión está activa**; los eventos llegan **síncronos** a una cola (`_pendingFlightEvents`, con lock) y se **persisten async en cada tick** (`DrainFlightEventsAsync` dentro de `EvaluateAsync`). El `SESSION_STARTED` se registra al iniciar (si falla, la sesión se cierra y no queda activa) y el `SESSION_STOPPED` al detener, antes de `StopAsync`.
+- `TriggeredFailure` **enriquecida con snapshot histórico** del preset/condición al disparar (nombre y severidad de la falla, `PresetId`/`PresetName`, `Probability`/`ProbabilityGroup`, `Ias`, altitudes superior/inferior, `Time`, `AfterEvent`/`AfterEventSeconds`); el historial no depende del catálogo mutable.
+- `UserAircraft.TotalFlights` / `TotalFlightHours` **eliminadas de la tabla**: los DTOs los calculan al vuelo desde las sesiones **finalizadas** de cada aeronave (`UserAircraftService.ToDto`); las sesiones abiertas no cuentan.
+- Migración nueva `20261015182532_AddSessionEventHistoryAndDerivedAircraftTotals` (`RealFenixFailures.Infrastructure/Migrations/`): `Up` elimina las dos columnas de `UserAircrafts`, agrega los snapshots nullable en `TriggeredFailures` y crea `SessionEventLogs` con FKs (`FlightSessions` cascade, `TriggeredFailures` restrict) e índice `(FlightSessionId, OccurredAt)`; `Down` revierte todo.
+
+**Por qué**
+
+- No existía historial por sesión: las fallas se veían por sesión pero sin el contexto de la condición que las disparó, y los totales persistidos en `UserAircraft` quedaban siempre en 0 porque nadie los actualizaba. Con el volumen de esta app, calcular los totales al vuelo desde las sesiones finalizadas es trivial y elimina la inconsistencia entre columnas derivadas y datos reales.
+
+**Áreas**
+
+- `RealFenixFailures.Domain` — `Entities/SessionEventLog.cs` (nuevo), `Enums/SessionEventCategory.cs` (nuevo), `Entities/TriggeredFailure.cs` (snapshot), `Entities/FlightSession.cs` (`EventLogs`), `Entities/UserAircraft.cs` (sin totales).
+- `RealFenixFailures.Application` — `Services/FlightSessionService.cs`, `Interfaces/IFlightSessionService.cs`, `Session/RealisticSessionEngine.cs`, `DTOs/UserAircraftDto.cs`.
+- `RealFenixFailures.Infrastructure` — `Persistence/RealFenixDbContext.cs`, `Repositories/FlightSessionRepository.cs`, `Services/UserAircraftService.cs` (totales derivados), `Migrations/20261015182532_AddSessionEventHistoryAndDerivedAircraftTotals.cs` (nueva) y `Migrations/RealFenixDbContextModelSnapshot.cs`.
+- `RealFenixFailures.TestUnits` — `Session/RealisticSessionEngineTests.cs` (persistencia de eventos de sesión y drain), `Services/UserAircraftServiceTests.cs` (nuevo).
+- `docs/` — `realistic-mode/estado-y-diseno.md`, `arquitectura.md`, `CHANGELOG.md`.
+
+**Pruebas**
+
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj -c Debug --no-restore`: **55/55**.
+- `dotnet build RealFenixFailures.slnx -c Debug --no-restore`: 0 errores, 0 advertencias.
+- `dotnet build RealFenixFailures.slnx -c Release --no-restore`: 0 errores, 0 advertencias.
+- La migración `AddSessionEventHistoryAndDerivedAircraftTotals` fue revisada y aplicada sobre una base temporal; se verificaron `Up`, `Down` hasta `FixFailurePresetDuplicateColumn` y una nueva aplicación de `Up`. EF advierte que el rebuild de SQLite usa `PRAGMA foreign_keys` fuera de transacción; la base real no se modificó.
+- Sin verificación manual real MSFS/Fenix.
+
+**Pendiente / Limitación**
+
+- El historial persistente aplica al **modo Realistic**; Training/Custom todavía no crean `FlightSession` ni historial persistido (igual que antes).
+- Las sesiones abiertas no suman a los totales de la aeronave (por diseño: solo sesiones finalizadas).
+- Integración real MSFS/Fenix sin verificación manual; la migración no se aplicó sobre la base real (la app la aplicará en el próximo arranque).
+
 ### 2026-10-15 — Instancia única + icono de bandeja del sistema
 
 **Qué**

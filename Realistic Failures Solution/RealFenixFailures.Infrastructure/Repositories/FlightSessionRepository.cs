@@ -16,6 +16,7 @@ public class FlightSessionRepository : IFlightSessionRepository {
     public async Task<FlightSession?> GetByIdAsync(int id, CancellationToken ct) {
         return await _dbContext.FlightSessions
             .Include(x => x.TriggeredFailures)
+            .Include(x => x.EventLogs)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
@@ -26,6 +27,10 @@ public class FlightSessionRepository : IFlightSessionRepository {
 
     public async Task AddTriggeredFailureAsync(TriggeredFailure triggeredFailure, CancellationToken ct) {
         await _dbContext.TriggeredFailures.AddAsync(triggeredFailure, ct);
+    }
+
+    public async Task AddEventLogAsync(SessionEventLog eventLog, CancellationToken ct) {
+        await _dbContext.SessionEventLogs.AddAsync(eventLog, ct);
     }
 
     public async Task DeleteAsync(int id, CancellationToken ct) {
