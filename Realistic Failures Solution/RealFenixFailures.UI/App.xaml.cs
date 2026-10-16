@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.UI.DependencyInjection;
+using RealFenixFailures.UI.Diagnostics;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.Views;
 
@@ -25,26 +26,51 @@ public partial class App : System.Windows.Application {
     }
 
     protected override async void OnStartup(System.Windows.StartupEventArgs e) {
+        if (Program.StartupFailed)
+            return;
+
+        CrashReporter.AttachGlobalHandlers(this);
+
         if (!_singleInstanceGuard.TryAcquire()) {
             _singleInstanceGuard.SignalExistingInstance();
+            Program.CloseSplash();
             Shutdown();
             return;
         }
 
-        await _host.StartAsync();
+        try {
+            await _host.StartAsync();
 
-        using var scope = _host.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
-        await dbContext.Database.MigrateAsync();
+            using var scope = _host.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
+            await dbContext.Database.MigrateAsync();
 
-        var initializer = scope.ServiceProvider.GetRequiredService<IInitializerService>();
-        await initializer.InitializeAsync(CancellationToken.None);
+            var initializer = scope.ServiceProvider.GetRequiredService<IInitializerService>();
+            await initializer.InitializeAsync(CancellationToken.None);
+        }
+        catch (Exception startupException) {
+            Program.CloseSplash();
+            CrashReporter.ReportFatal(
+                startupException,
+                "La aplicación no pudo iniciarse (error al inicializar servicios, conexión o base de datos). Se generó un registro de crash.",
+                shutdown: true);
+            return;
+        }
 
-        var newWindow = _host.Services.GetRequiredService<MainWindow>();
-        newWindow.Show();
-
-        _trayIconService = new TrayIconService(newWindow, RequestExit);
-        _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
+        try {
+            var newWindow = _host.Services.GetRequiredService<MainWindow>();
+            _trayIconService = new TrayIconService(newWindow, RequestExit);
+            _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
+            newWindow.Show();
+        }
+        catch (Exception startupException) {
+            Program.CloseSplash();
+            CrashReporter.ReportFatal(
+                startupException,
+                "La aplicación no pudo iniciarse (error al crear la ventana principal). Se generó un registro de crash.",
+                shutdown: true);
+            return;
+        }
 
         base.OnStartup(e);
     }
