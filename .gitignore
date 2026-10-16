@@ -10,7 +10,6 @@
 *.userosscache
 *.sln.docstates
 *.env
-.abacusai/
 Agent Prompts/
 
 # DB Files
@@ -440,3 +439,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Abacus.ai — artefactos temporales de la herramienta (no se versionan)
+**/.abacusai/tmp/

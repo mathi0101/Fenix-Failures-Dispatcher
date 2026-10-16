@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "strictness": "strict",
+    "allow": [
+      "Bash(Get-ChildItem *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)",
+      "Edit(source/repos/**)",
+      "Bash(cd *)",
+      "Bash(find *)",
+      "Bash(dir *)",
+      "Bash(find *)",
+      "Bash(dir *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(cd *)",
+      "Bash(cd \"C:\\Users\\mathi\\OneDrive\\Documentos\\Stash\\repos\\FNX Realistic Failures System\\RF\\.agents\\skills\" && powershell -Command \"\nGet-ChildItem -Directory | ForEach-Object {\n  $f = Join-Path $_.FullName 'SKILL.md'\n  if (-not (Test-Path $f)) {\n    Write-Output ($_.Name + ': MISSING SKILL.md')\n  } else {\n    $content = Get-Content $f -Raw\n    $hasFrontmatter = $content -match '(?s)^---\\r?\\n(.*?)\\r?\\n---'\n    if (-not $hasFrontmatter) {\n      Write-Output ($_.Name + ': NO FRONTMATTER')\n    } else {\n      $fm = $matches[1]\n      $hasName = $fm -match 'name:'\n      $hasDesc = $fm -match 'description:'\n      if (-not $hasName -or -not $hasDesc) {\n        Write-Output ($_.Name + ': INCOMPLETE FRONTMATTER (name=' + $hasName + ' desc=' + $hasDesc + ')')\n      }\n    }\n  }\n}\nWrite-Output 'DONE CHECK'\n\")",
+      "Bash(git diff --check -- \"RealFenixFailures.Application/Interfaces/IFlightSimulationController.cs\" \"RealFenixFailures.Application/Services/EngineOrchestrator.cs\" \"RealFenixFailures.Integrations.SimConnect/Services/MockSimConnectClient.cs\" \"RealFenixFailures.Integrations.SimConnect/Services/SimConnectClient.cs\" \"RealFenixFailures.Integrations.SimConnect/DependencyInjection.cs\" \"RealFenixFailures.TestUnits/Integrations/MockSimConnectClientTests.cs\" \"RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj\" 2>&1 || true)"
+    ]
+  }
+}
