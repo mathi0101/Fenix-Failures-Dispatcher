@@ -1,0 +1,85 @@
+<Window x:Class="RealFenixFailures.UI.Diagnostics.FatalErrorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Real Fenix Failures — Error inesperado"
+        Width="620"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#0D0F14"
+        Foreground="#F1F5F9"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        ShowInTaskbar="True"
+        UseLayoutRounding="True">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#1E2433"/>
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+            <Setter Property="BorderBrush" Value="#3B82F6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+            <Setter Property="Background" Value="#13161E"/>
+            <Setter Property="BorderBrush" Value="#1E2433"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </Window.Resources>
+    <StackPanel Margin="24,20,24,20">
+        <Rectangle Height="4"
+                   Margin="0,0,0,16"
+                   Fill="#EF4444"
+                   HorizontalAlignment="Left"
+                   Width="72"/>
+        <TextBlock Text="Ocurrió un error inesperado"
+                   FontSize="21"
+                   FontWeight="SemiBold"/>
+        <TextBlock x:Name="MessageText"
+                   Margin="0,12,0,0"
+                   TextWrapping="Wrap"
+                   Foreground="#CBD5E1"/>
+        <Border x:Name="LogInfoBorder"
+                Margin="0,16,0,0"
+                Background="#13161E"
+                BorderBrush="#1E2433"
+                BorderThickness="1"
+                Padding="12">
+            <TextBlock x:Name="LogInfoText"
+                       TextWrapping="Wrap"
+                       FontSize="12"
+                       Foreground="#64748B"/>
+        </Border>
+        <Expander x:Name="DetailsExpander"
+                  Header="Detalle técnico (stack trace completo)"
+                  Margin="0,16,0,0"
+                  IsExpanded="False">
+            <TextBox x:Name="DetailsBox"
+                     Margin="0,8,0,0"
+                     Height="220"
+                     IsReadOnly="True"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     Background="#0A0C10"
+                     Foreground="#CBD5E1"
+                     BorderBrush="#1E2433"/>
+        </Expander>
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button x:Name="OpenLogButton"
+                    Content="Ver registro de crash"
+                    Margin="0,0,10,0"
+                    Click="OpenLog_Click"/>
+            <Button Content="Cerrar"
+                    IsDefault="True"
+                    IsCancel="True"
+                    Click="Close_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -4,6 +4,38 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-16 — Manejo global de excepciones, log de crash y splash de arranque (UI)
+
+**Qué**
+
+- Cambio de **comportamiento** en `RealFenixFailures.UI`: las excepciones no controladas ya no matan la app en silencio. Se mantiene la bitácora de errores en `docs/ui/manejo-de-errores-y-arranque.md`.
+- **Handlers globales** en `Diagnostics/CrashReporter.cs` (`AttachGlobalHandlers` como primer paso de `App.OnStartup`): `DispatcherUnhandledException` (hilo de UI → log + cartel + cierre controlado), `AppDomain.UnhandledException` (hilos de fondo, fatal → log + cartel best-effort en hilo STA dedicado; el proceso igual termina, comportamiento del CLR) y `TaskScheduler.UnobservedTaskException` (fire-and-forget → **solo log**, no fatal; decisión documentada en el doc de estado).
+- **Crash log** en `Diagnostics/CrashLogWriter.cs`: escribe `<AppContext.BaseDirectory>\logs\crash\crash-YYYYMMDD-HHmmss-fff.log` (UTF-8) con fecha local/UTC, contexto, versión app, runtime, SO, máquina, usuario, PID, rutas, procesadores y **trace completo por nivel** (inner exceptions recursivas + `AggregateException` aplanada). `Write()` nunca lanza y devuelve `null` si falla.
+- **Cartel de error** en `Diagnostics/FatalErrorDialog.xaml(.cs)`: autocontenido (sin depender de los recursos de la app), mensaje general + ruta del log + botón "Ver registro de crash" + expander con el stack trace + botón Cerrar; se muestra en hilo STA dedicado si la llamada no viene del hilo de UI.
+- **Entrada manual + splash**: `<StartupObject>RealFenixFailures.UI.Program</StartupObject>` en el `.csproj`; `Program.Main` muestra un `SplashScreen` (imagen `Assets/Branding/splash-screen.png`, 560×340, generada con la marca del proyecto; sin bordes, se cierra sola al renderizarse la ventana principal) antes de crear la app y envuelve `new App()` + `InitializeComponent()` + `Run()` en try/catch → fallo de arranque previo al host = log + cartel.
+- **`App.OnStartup` reforzado**: try/catch alrededor de `_host.StartAsync()` + `MigrateAsync` + `InitializeAsync`, y alrededor de la creación de `MainWindow`; ambas ramas cierran el splash y reportan con `shutdown: true`. La rama de instancia única (segunda instancia) cierra el splash y sale en silencio (no es un crash). Flag `Program.StartupFailed` evita un segundo reporte espurio cuando WPF invoca `OnStartup` con `_host` null tras fallar el ctor de `App` (verificado en el smoke test).
+
+**Por qué**
+
+- El usuario reportó que los crashes no controlados y los fallos de arranque eran silenciosos e invisibles (cerraba la app sin rastro), y que el arranque lento dejaba la duda de si la app estaba abriendo o colgada. Pedido explícito: manejo global de excepciones con cartel en pantalla + log de crash con trace completo en `/logs`, lo mismo para fallos de arranque, y un splash de carga sin bordes (imagen) que los cubra.
+
+**Áreas**
+
+- `RealFenixFailures.UI/Program.cs` — entrada manual con splash y try/catch de arranque (nuevo).
+- `RealFenixFailures.UI/Diagnostics/` — `CrashReporter.cs`, `CrashLogWriter.cs`, `FatalErrorDialog.xaml(.cs)` (nuevos).
+- `RealFenixFailures.UI/App.xaml.cs` — attach de handlers globales, try/catch de arranque, cierre de splash.
+- `RealFenixFailures.UI/RealFenixFailures.UI.csproj` — `<StartupObject>` + recurso `splash-screen.png`.
+- `RealFenixFailures.UI/Assets/Branding/splash-screen.png` — imagen de splash (nueva).
+- `docs/ui/manejo-de-errores-y-arranque.md` — doc de estado nuevo; `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: **0 errores, 0 warnings**.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: **80/80 pass**.
+- **Smoke test del binario** (copia temporal del output): (a) arranque con `appsettings.json` faltante → `logs/crash/crash-*.log` escrito con trace completo (`FileNotFoundException` de config, versión, runtime, SO, PID) y **proceso vivo con el cartel bloqueando** (no cierre silencioso); (b) arranque normal desde su propia carpeta → proceso vivo 15 s, ventana abierta, **sin** entradas nuevas en `logs/crash`. Queda **pendiente la verificación manual en pantalla real** (cartel visible; splash durante un arranque lento; crash de hilo de fondo con cartel best-effort).
+
+
+
 ### 2026-10-16 — Ventana de configuración con pestañas, preferencias de usuario (ID SimBrief) y eliminación del botón Refresh
 
 **Qué**
