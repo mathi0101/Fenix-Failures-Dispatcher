@@ -161,7 +161,7 @@ public class FlightEventDetectorTests {
     }
 
     [Fact]
-    public void ProcessSnapshot_InvalidSnapshotBetweenSamples_PreservesConfirmedPhaseAndRaisesNoEvents() {
+    public void ProcessSnapshot_InvalidSnapshotBetweenSamples_ResetsToUnknownAndRaisesNoEvents() {
         var detector = CreateDetector();
         var events = new List<FlightEventDto>();
         detector.FlightEventDetected += (_, e) => events.Add(e);
@@ -169,17 +169,28 @@ public class FlightEventDetectorTests {
         Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.ProcessSnapshot(OnGround(enginesOn: false)));
         events.Clear();
 
-        Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.ProcessSnapshot(new SimulatorAircraftStateSnapshot()));
-        Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.CurrentPhase);
+        Assert.Equal(ComplexFlightPhaseEnum.Unknown, detector.ProcessSnapshot(new SimulatorAircraftStateSnapshot()));
+        Assert.Equal(ComplexFlightPhaseEnum.Unknown, detector.CurrentPhase);
         Assert.Empty(events);
+    }
 
-        Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.ProcessSnapshot(Airborne(altAgl: 6000, verticalSpeed: 1500, altMsl: 6000, observedAt: AtSeconds(0))));
-        Assert.Equal(ComplexFlightPhaseEnum.Climb, detector.ProcessSnapshot(Airborne(altAgl: 6000, verticalSpeed: 1500, altMsl: 6000, observedAt: AtSeconds(10))));
+    [Fact]
+    public void ProcessSnapshot_AfterInvalidSnapshot_NextValidSnapshotDoesNotRaiseGhostPhaseEvents() {
+        var detector = CreateDetector();
+        var events = new List<FlightEventDto>();
+        detector.FlightEventDetected += (_, e) => events.Add(e);
+
+        Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.ProcessSnapshot(OnGround(enginesOn: false)));
         events.Clear();
 
-        Assert.Equal(ComplexFlightPhaseEnum.Climb, detector.ProcessSnapshot(new SimulatorAircraftStateSnapshot()));
-        Assert.Equal(ComplexFlightPhaseEnum.Climb, detector.CurrentPhase);
+        Assert.Equal(ComplexFlightPhaseEnum.Unknown, detector.ProcessSnapshot(new SimulatorAircraftStateSnapshot()));
         Assert.Empty(events);
+
+        Assert.Equal(ComplexFlightPhaseEnum.OnGate, detector.ProcessSnapshot(OnGround(enginesOn: false, observedAt: AtSeconds(10))));
+        Assert.DoesNotContain(events, e => e.Kind == FlightEventKind.PhaseChanged);
+
+        Assert.Equal(ComplexFlightPhaseEnum.Taxi, detector.ProcessSnapshot(OnGround(enginesOn: true, groundSpeed: 12, observedAt: AtSeconds(11))));
+        Assert.Single(events, e => e.Kind == FlightEventKind.PhaseChanged && e.Message == "Iniciando rodaje (taxi)");
     }
 
     [Fact]

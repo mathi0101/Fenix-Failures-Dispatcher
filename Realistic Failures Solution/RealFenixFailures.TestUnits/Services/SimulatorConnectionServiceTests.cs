@@ -4,6 +4,7 @@ using Moq;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Services;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 
 namespace RealFenixFailures.TestUnits.Services;
@@ -41,5 +42,62 @@ public class SimulatorConnectionServiceTests {
 
         Assert.False(result);
         _dispatcher.Verify(d => d.DisarmFailureAsync(It.IsAny<FenixArmFailureRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetConnectionStatusAsync_HandleConnectedWithoutAircraftData_PhaseIsDisconnected() {
+        var sim = new Mock<ISimFlightDataProvider>();
+        sim.Setup(s => s.IsConnectedAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        sim.Setup(s => s.GetAircraftRawData(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SimulatorAircraftStateSnapshot { HasSimulatorData = false });
+        var service = new SimulatorConnectionService(
+            NullLogger<SimulatorConnectionService>.Instance,
+            _dispatcher.Object,
+            new Mock<IFailureTrigger>().Object,
+            sim.Object);
+
+        var status = await service.GetConnectionStatusAsync(CancellationToken.None);
+
+        Assert.True(status.IsSimConnectConnected);
+        Assert.False(status.HasAircraftData);
+        Assert.Equal(SimpleFlightPhaseEnum.Disconnected, status.CurrentFlightPhase);
+    }
+
+    [Fact]
+    public async Task GetConnectionStatusAsync_AircraftDataOnGround_PhaseIsOnGround() {
+        var sim = new Mock<ISimFlightDataProvider>();
+        sim.Setup(s => s.IsConnectedAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        sim.Setup(s => s.GetAircraftRawData(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SimulatorAircraftStateSnapshot { HasSimulatorData = true, IsOnGround = true });
+        var service = new SimulatorConnectionService(
+            NullLogger<SimulatorConnectionService>.Instance,
+            _dispatcher.Object,
+            new Mock<IFailureTrigger>().Object,
+            sim.Object);
+
+        var status = await service.GetConnectionStatusAsync(CancellationToken.None);
+
+        Assert.True(status.IsSimConnectConnected);
+        Assert.True(status.HasAircraftData);
+        Assert.Equal(SimpleFlightPhaseEnum.OnGround, status.CurrentFlightPhase);
+    }
+
+    [Fact]
+    public async Task GetConnectionStatusAsync_AircraftDataAirborne_PhaseIsFlying() {
+        var sim = new Mock<ISimFlightDataProvider>();
+        sim.Setup(s => s.IsConnectedAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        sim.Setup(s => s.GetAircraftRawData(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SimulatorAircraftStateSnapshot { HasSimulatorData = true, IsOnGround = false });
+        var service = new SimulatorConnectionService(
+            NullLogger<SimulatorConnectionService>.Instance,
+            _dispatcher.Object,
+            new Mock<IFailureTrigger>().Object,
+            sim.Object);
+
+        var status = await service.GetConnectionStatusAsync(CancellationToken.None);
+
+        Assert.True(status.IsSimConnectConnected);
+        Assert.True(status.HasAircraftData);
+        Assert.Equal(SimpleFlightPhaseEnum.Flying, status.CurrentFlightPhase);
     }
 }

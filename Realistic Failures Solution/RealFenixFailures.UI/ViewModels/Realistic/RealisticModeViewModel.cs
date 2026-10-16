@@ -48,6 +48,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     // Conexión / estado (reflejo del orchestrator)
     private bool _isSimConnected;
     private bool _isFenixConnected;
+    private bool _hasAircraftData;
     private bool _isSessionPaused;
     private ComplexFlightPhaseEnum currentFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private SimpleFlightPhaseEnum simpleFlightPhase = SimpleFlightPhaseEnum.Disconnected;
@@ -244,7 +245,10 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool IsSimConnected {
         get => _isSimConnected;
         private set {
-            if (SetProperty(ref _isSimConnected, value)) RaiseActivationState();
+            if (SetProperty(ref _isSimConnected, value)) {
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                RaiseActivationState();
+            }
         }
     }
 
@@ -252,6 +256,16 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         get => _isFenixConnected;
         private set {
             if (SetProperty(ref _isFenixConnected, value)) RaiseActivationState();
+        }
+    }
+
+    public bool HasAircraftData {
+        get => _hasAircraftData;
+        private set {
+            if (SetProperty(ref _hasAircraftData, value)) {
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                RaiseActivationState();
+            }
         }
     }
     public SimpleFlightPhaseEnum SimpleFlightPhase {
@@ -274,6 +288,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string CurrentFlightPhaseDisplay {
         get {
+            if (!IsSimConnected) return "Disconnected";
+            if (!HasAircraftData) return "No aircraft data";
             return CurrentFlightPhase switch {
                 ComplexFlightPhaseEnum.OnGate => "Cold and Dark",
                 ComplexFlightPhaseEnum.Taxi => "Taxing",
@@ -315,6 +331,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         SelectedRiskLevel.HasValue &&
         IsSimConnected &&
         IsFenixConnected &&
+        HasAircraftData &&
         IsOnGround;
 
     /// <summary>Mensaje explicativo del motivo por el que el botón está deshabilitado.</summary>
@@ -324,6 +341,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (SelectedAircraft is null) return "Seleccioná una aeronave para continuar.";
             if (!SelectedRiskLevel.HasValue) return "Seleccioná un nivel de riesgo.";
             if (!IsSimConnected || !IsFenixConnected) return "Conectá MSFS 2024 y el sistema Fenix A320.";
+            if (!HasAircraftData) return "MSFS conectado pero sin datos de aeronave disponibles.";
             if (!IsOnGround) return $"Solo se puede activar en tierra (fase actual: {CurrentFlightPhaseDisplay}).";
             return string.Empty;
         }
@@ -516,6 +534,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
             IsSimConnected = status.IsSimConnectConnected;
             IsFenixConnected = status.IsFenixConnected;
+            HasAircraftData = status.HasAircraftData;
             SimpleFlightPhase = status.CurrentFlightPhase;
             CurrentFlightPhase = phase;
         });

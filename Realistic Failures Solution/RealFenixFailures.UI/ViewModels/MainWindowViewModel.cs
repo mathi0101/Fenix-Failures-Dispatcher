@@ -34,6 +34,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     // Connection state
     private ComplexFlightPhaseEnum currentComplexFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private bool isSimConnected = false;
+    private bool hasAircraftData = false;
     private bool isFenixConnected = false;
 
     // Panel selection (qué panel muestra la UI para configurar)
@@ -144,7 +145,26 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsSimConnected));
                 OnPropertyChanged(nameof(SimConnectDotColor));
                 OnPropertyChanged(nameof(SimConnectStatus));
-                OnPropertyChanged(nameof(CurrentComplexFlightPhase));
+                OnPropertyChanged(nameof(SimConnectStatusBrush));
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
+            }
+        }
+    }
+
+    public bool HasAircraftData {
+        get => hasAircraftData;
+        private set {
+            if (hasAircraftData != value) {
+                hasAircraftData = value;
+                OnPropertyChanged(nameof(HasAircraftData));
+                OnPropertyChanged(nameof(SimConnectDotColor));
+                OnPropertyChanged(nameof(SimConnectStatus));
+                OnPropertyChanged(nameof(SimConnectStatusBrush));
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
             }
         }
     }
@@ -157,11 +177,18 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsFenixConnected));
                 OnPropertyChanged(nameof(FenixDotColor));
                 OnPropertyChanged(nameof(FenixStatus));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
             }
         }
     }
 
-    public string SimConnectStatus => isSimConnected ? "Connected" : "Disconnected";
+    public string SimConnectStatus {
+        get {
+            if (!isSimConnected) return "Disconnected";
+            return hasAircraftData ? "Connected · Aircraft data" : "Connected · No aircraft data";
+        }
+    }
     public string FenixStatus => isFenixConnected ? "Connected" : "Disconnected";
 
 
@@ -175,6 +202,8 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     public string CurrentFlightPhaseDisplay {
         get {
+            if (!isSimConnected) return "Disconnected";
+            if (!hasAircraftData) return "No aircraft data";
             return CurrentComplexFlightPhase switch {
                 ComplexFlightPhaseEnum.OnGate => "Cold and Dark",
                 ComplexFlightPhaseEnum.Taxi => "Taxing",
@@ -191,20 +220,30 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     }
 
     // Dot colors (binding antiguo en XAML)
-    public Color SimConnectDotColor => isSimConnected ? Color.FromRgb(34, 197, 94) : Color.FromRgb(100, 116, 139);
+    public Color SimConnectDotColor {
+        get {
+            if (!isSimConnected) return Color.FromRgb(100, 116, 139);
+            return hasAircraftData ? Color.FromRgb(34, 197, 94) : Color.FromRgb(245, 158, 11);
+        }
+    }
     public Color FenixDotColor => isFenixConnected ? Color.FromRgb(34, 197, 94) : Color.FromRgb(100, 116, 139);
 
     // Status brushes (puede usarse directamente en XAML)
-    public Brush SimConnectStatusBrush => isSimConnected
-        ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
-        : new SolidColorBrush(Color.FromRgb(100, 116, 139));
+    public Brush SimConnectStatusBrush {
+        get {
+            if (!isSimConnected) return new SolidColorBrush(Color.FromRgb(100, 116, 139));
+            return hasAircraftData
+                ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
+                : new SolidColorBrush(Color.FromRgb(245, 158, 11));
+        }
+    }
 
     public Brush FenixStatusBrush => isFenixConnected
         ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
         : new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
     // Si el orchestrator indica que hay conexión en ambos servicios (puede arrancar "engine" realista)
-    public bool CanStartEngine => isSimConnected && isFenixConnected;
+    public bool CanStartEngine => isSimConnected && hasAircraftData && isFenixConnected;
 
     public bool ShowConnectionWarning => !CanStartEngine && ActiveMode == UserAppMode.Realistic;
 
@@ -327,6 +366,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             var status = _orchestrator.ConnectionStatus;
             IsSimConnected = status.IsSimConnectConnected;
             IsFenixConnected = status.IsFenixConnected;
+            HasAircraftData = status.HasAircraftData;
 
             OnPropertyChanged(nameof(SimConnectDotColor));
             OnPropertyChanged(nameof(FenixDotColor));

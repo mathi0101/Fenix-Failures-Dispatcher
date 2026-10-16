@@ -18,6 +18,7 @@ Cliente de SimConnect para MSFS 2024 en `RealFenixFailures.Integrations.SimConne
 - **Message pump**: `RunMessagePumpAsync` procesa `ReceiveMessage()` cada 10 ms en un hilo separado; sin esto SimConnect no dispara `OnRecvSimobjectDataBytype` (problema histórico, ver `docs/historial/2026-simconnect-fixes.md`).
 - **Data request loop**: `RunDataRequestLoopAsync` pide datos cada 100 ms (10 Hz) con `RequestDataOnSimObjectType` sobre el objeto `USER`.
 - El orden de las definiciones de datos debe coincidir exactamente con el struct `AircraftStateData` (`RegisterDataDefinitions`).
+- `RegisterDataDefinitions` asigna a cada `AddToDataDefinition` un ID de datum único (`uint datumId` con `datumId++`, 0..17) en el orden del struct. Antes las 18 definiciones pasaban `0` explícito como último argumento (DatumID), lo que repetía el mismo ID: SimConnect devolvía `SIMCONNECT_EXCEPTION_DUPLICATE_ID` (29) al registrar y el mapeo de campos quedaba corrupto (longitud/altitudes/velocidades fuera de rango, combustión con enteros enormes, N1/throttle absurdos). Con IDs únicos la excepción queda eliminada por construcción.
 
 ## Thread safety
 
@@ -28,7 +29,7 @@ Cliente de SimConnect para MSFS 2024 en `RealFenixFailures.Integrations.SimConne
 
 `AircraftStateData` (struct sequential): latitud, longitud, altitud de la aeronave (SimVar `PLANE ALTITUDE`, que se mapea a `AltitudeMSL`), altitud indicada, heading, ground velocity, `AIRSPEED TRUE` y `AIRSPEED INDICATED`, vertical speed, `SIM ON GROUND` (INT32), flaps, combustión motores (INT32), N1 y throttle (double), radio altitud. Se mapea a `SimConnectAircraftState` (con algunas conversiones a `int`, por ejemplo `AltitudeMSL`, `Heading`, `GroundSpeed`). El orden del struct debe coincidir exactamente con el de `AddToDataDefinition`.
 
-`SimConnectClient` arranca con `_lastKnownState = new()` (`IsConnected=false`) y lo limpia a un estado nuevo (`IsConnected=false`, `_lastDataReceivedUtc=DateTime.MinValue`) bajo `_stateReadWriteLock` al iniciar una nueva conexión, al desconectar y al recibir el evento Quit de SimConnect, para que una muestra obsoleta de un vuelo anterior no sobreviva a la reconexión. `SimulatorFlightDataProvider` marca `SimulatorAircraftStateSnapshot.HasSimulatorData` desde `SimConnectAircraftState.IsConnected` (el cliente real lo pone en `true` al mapear una respuesta; el mock ya representa snapshots conectados).
+`SimConnectClient` arranca con `_lastKnownState = new()` (`IsConnected=false`) y lo limpia a un estado nuevo (`IsConnected=false`, `_lastDataReceivedUtc=DateTime.MinValue`) bajo `_stateReadWriteLock` al iniciar una nueva conexión, al desconectar y al recibir el evento Quit de SimConnect, para que una muestra obsoleta de un vuelo anterior no sobreviva a la reconexión. `SimulatorFlightDataProvider` marca `SimulatorAircraftStateSnapshot.HasSimulatorData` desde `SimConnectAircraftState.IsConnected`. En el cliente real `IsConnected` ya no se pone en `true` incondicionalmente al recibir un paquete: `AircraftStateDataValidator.IsValid` valida rangos físicos razonables (posición, altitudes MSL/AGL, heading, velocidades, VS, flaps, N1, throttle), booleanos int estrictos 0/1 (`SIM ON GROUND`, combustión), rechaza NaN/Infinity/denormales y un frame completamente en cero (permite aeronave estacionada a altitud 0 si posición y otros campos identifican datos reales). Un paquete inválido conserva sus valores crudos en el objeto para diagnóstico pero con `IsConnected=false`. El callback `OnRecvSimobjectDataBytype` actualiza `_lastDataReceivedUtc` por cualquier paquete recibido (no reconecta en bucle cuando SimConnect responde sin avión cargado) y sobrescribe siempre el último estado, de modo que una muestra inválida nunca deja la telemetría anterior como actual. El mock (DEBUG) ya representa snapshots conectados.
 
 ## Reset de datos en ciclos de conexión
 
@@ -53,11 +54,13 @@ La referencia se resuelve contra `MSFS 2024 SDK\SimConnect SDK\lib\managed\Micro
 ## Advertencias verificadas
 
 - **MSB3270 (AMD64 vs MSIL)**: **resuelto** al fijar `PlatformTarget=x64` en el csproj de la integración (y en UI/TestUnits); los builds actuales no lo reportan (0 advertencias). Al tocar la integración, no volver a MSIL ni desalinear la arquitectura objetivo.
+- **DuplicateID 29 en `AddToDataDefinition`**: **corregido y verificado manualmente en producción**. La firma del SDK toma `DatumID` opcional (default `SIMCONNECT_UNUSED`); el cliente pasaba `0` como último argumento en las 18 definiciones y SimConnect devolvía `SIMCONNECT_EXCEPTION_DUPLICATE_ID` (29) al registrar, con el mapeo de campos corrupto (log de diagnóstico con `Lon=6.8e38`, `AltAGL=-2147483648`, `Flaps=2147483647`, combustión con enteros enormes, `IndAlt≈1e-313`, N1/throttle absurdos). Con IDs únicos (0..17) la excepción queda eliminada por construcción. El usuario probó la publicación en producción y reporta que la telemetría corregida funciona; la revisión directa de los logs posteriores muestra datos coherentes.
+
 - **Reconexión**: `IsConnectedAsync` detecta timeout de datos (> 10 s) y **dispara un intento** de reconexión, pero esto **no está verificado manualmente**; no afirmar reconexión automática garantizada sin prueba real.
 
 ## Pruebas manuales pendientes
 
-- Conexión real con MSFS 2024 corriendo.
+- Publicación en producción con el fix de datum IDs (DuplicateID 29): el usuario comprobó telemetría coherente (posición, altitudes, velocidades y motores) y reportó que funciona correctamente.
 - Recepción periódica de datos ("Aircraft state updated" en logs).
 - Transiciones de fase reales (Parked → Taxi → Takeoff → Climb, etc.).
 - Reconexión tras cerrar/abrir MSFS.

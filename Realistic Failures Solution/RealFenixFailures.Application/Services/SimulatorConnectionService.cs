@@ -28,11 +28,14 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
         var fenixConnected = await _fenixFailureApiDispatcher.IsApiAvailableAsync(ct);
         var rawData = await _simFlightDataProvider.GetAircraftRawData(ct);
 
-        var phase = simConnected
+        var hasAircraftData = simConnected && rawData.HasSimulatorData;
+        var phase = hasAircraftData
             ? (rawData.IsOnGround ? SimpleFlightPhaseEnum.OnGround : SimpleFlightPhaseEnum.Flying)
             : SimpleFlightPhaseEnum.Disconnected;
 
-        return new ConnectionStatusDto(simConnected, fenixConnected, phase);
+        return new ConnectionStatusDto(simConnected, fenixConnected, phase) {
+            HasAircraftData = hasAircraftData
+        };
     }
     #endregion
 

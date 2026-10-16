@@ -215,7 +215,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
         try {
             var aircraftData = (AircraftStateData)data.dwData[0];
-            var newState = MapToAircraftState(aircraftData);
+            var newState = MapToAircraftState(aircraftData, AircraftStateDataValidator.IsValid(aircraftData));
 
             _stateReadWriteLock.EnterWriteLock();
             try {
@@ -239,31 +239,32 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         if (_simConnect == null) return;
 
         // El ORDEN debe ser IDÉNTICO al AircraftStateData struct
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "INDICATED ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "FLAPS HANDLE INDEX", "number", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:1", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:2", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALT ABOVE GROUND", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
+        uint datumId = 0;
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "INDICATED ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "FLAPS HANDLE INDEX", "number", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:1", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:2", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALT ABOVE GROUND", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
 
         _simConnect.RegisterDataDefineStruct<AircraftStateData>(DATA_DEFINITION.AircraftState);
     }
 
-    private SimConnectAircraftState MapToAircraftState(AircraftStateData data) {
+    private SimConnectAircraftState MapToAircraftState(AircraftStateData data, bool isValid) {
         return new SimConnectAircraftState {
-            IsConnected = true,
+            IsConnected = isValid,
             Latitude = data.Latitude,
             Longitude = data.Longitude,
 
