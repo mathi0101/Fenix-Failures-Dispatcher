@@ -45,7 +45,17 @@ Activable con el flag `SimConnectDiagnostics:Enabled` en `appsettings.json` (def
   - `FlightEventDetector.ProcessSnapshot` (Application) — loguea la fase de vuelo calculada (`ComplexFlightPhaseEnum`) y el estado derivado (motores corriendo, AGL/MSL, VS, GS/TAS/IAS).
 - Si el flag está en `false`, los `LogDebug` igual se ejecutan (costo mínimo) pero no tienen sink de destino, así que no generan archivo ni ruido en el log principal.
 - La categoría `"SimConnect.Diagnostics"` está duplicada como literal en Infrastructure, Integrations.SimConnect y Application (no hay dependencia compartida entre esas capas); si se renombra, actualizar los tres lugares.
-- No reemplaza los logs operativos existentes de `SimConnectClient`/`SimulatorFlightDataProvider` (conexión, errores, timeouts), que siguen yendo al log principal.
+- No reemplaza los logs operativos de `SimConnectClient`/`SimulatorFlightDataProvider` (estado de conexión, errores no previstos), que siguen yendo al log principal (ver sección siguiente).
+
+## Logs operativos de conexión (niveles y transiciones)
+
+Desde 2026-10-15 el estado de conexión se informa una sola vez por transición, no por intento:
+
+- `SimulatorFlightDataProvider.IsConnectedAsync` emite una única línea `Information` corta por cambio de estado: **`SimConnect conectado`** al pasar a conectado y **`SimConnect desconectado`** al pasar a desconectado. El primer chequeo con resultado `false` no se loguea como desconexión (todavía no hubo conexión) y los resultados repetidos (incluida la ventana de caché de 10 s) no generan líneas. La inicialización del provider es `Debug` y la comparación de transición se hace contra el estado previo **antes** de actualizarlo.
+- Timeout esperado del health check (2 s) o simulator fuera de servicio: no emiten `Warning` ni stacktrace por intento; se convierten en la notificación de transición. Solo las excepciones auténticamente no previstas loguean `Error` (`Error during health check`).
+- `SimConnectClient.ConnectAsync` silencia el `COMException` esperado con HRESULT `0x80004005` al intentar conectar (el simulador no está disponible; sin mensaje repetido ni stacktrace — la transición la reporta el provider). `Successfully connected to SimConnect`, `Disconnected from SimConnect`, `SimConnect Open` y `Timeout: Reconnecting SimConnect` son `Debug`, para no duplicar la transición INFO única del provider.
+- Se conservan el `Error` del message pump (`Exception in SimConnect Message Pump`) y del procesamiento de datos (`Error processing SimConnect data`), el `Warning` de `OnRecvException` (con `dwException`, `dwSendID`, `dwIndex`) y el `Debug` del data request loop (`Error requesting data`). No esconder `OnRecvException`: registraciones inusuales tienen que seguir visibles.
+- Los overrides de appsettings (`Microsoft: Warning`, `System: Warning`, `System.Net.Http.HttpClient: Warning`) se aplican en el logger raíz (ver `SerilogExtensions`), de modo que el chatter INFO del framework HTTP queda suprimido en el archivo principal.
 
 ## Obtención de la DLL del SDK
 

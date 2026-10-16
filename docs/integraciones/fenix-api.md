@@ -29,9 +29,16 @@ Sección `FenixApi` (los valores concretos son locales; no se copian acá):
 
 ## Cliente real y mock
 
-- **`FenixApiClient`** (Release): `HttpClient` configurado por DI; implementa `IFenixApiClient` (`IsApiAlive`, `GetManualFailuresAsync`, `SendFailureAsync`); maneja `HttpRequestException`/timeouts devolviendo `false`/`null` y logueando.
+- **`FenixApiClient`** (Release): `HttpClient` configurado por DI; implementa `IFenixApiClient` (`IsApiAlive`, `GetManualFailuresAsync`, `SendFailureAsync`); maneja `HttpRequestException`/timeouts devolviendo `false`/`null` y logueando en `Debug` sin stacktrace (son fallos de conectividad esperables ya reportados como cambio de estado).
 - **`MockFenixApiClient`** (DEBUG): mantiene estado en memoria de 10 fallas de ejemplo; responde el mismo contrato.
 - **`FenixApiFailureService`** (`Services/FenixApiFailureService.cs`) implementa `IFenixFailureApiDispatcher`: `ArmFailureAsync`, `GetAllFailuresAsync`, `ResetAllFailuresAsync`, `IsApiAvailableAsync` (health check cacheado con `SemaphoreSlim`).
+
+## Logs y transiciones (niveles)
+
+Desde 2026-10-15 el estado de la API se informa una sola vez por transición, no por intento:
+
+- `FenixApiFailureService.UpdateHealthState` emite una única línea `Information` corta por cambio de estado: **`API Fenix conectada`** al pasar a conectada y **`API Fenix desconectada`** al pasar a desconectada, con un `lock` simple que hace seguro el chequeo ante llamadas concurrentes (armado/desarme, `GetAllFailuresAsync` y `IsApiAvailableAsync` actualizan el mismo estado). El primer resultado `false` no se loguea como desconexión inicial y los resultados repetidos no generan líneas.
+- `FenixApiClient`: los fallos de conectividad/timeout esperables en la consulta de disponibilidad (`IsApiAlive`) y en las llamadas HTTP ya reportadas como cambio de estado (`GetManualFailuresAsync`, `SendFailureAsync`) loguean `Debug` sin stacktrace (`HttpRequestException`/`TaskCanceledException`); los errores HTTP con respuesta no-success (p. ej. 4xx/5xx) siguen siendo `Warning` y las excepciones no esperadas no se silencian.
 
 El DTO de armado/desarme es `FenixArmFailureRequest(Id, Failed, FailureCondition)` — **no existe un campo `armed`**. Una falla se considera activa/armada cuando `FailureCondition != null` (derivado en `FenixFailureDto.IsArmed`) o cuando `Failed == true`.
 

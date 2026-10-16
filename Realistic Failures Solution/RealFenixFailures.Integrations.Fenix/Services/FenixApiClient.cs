@@ -24,8 +24,8 @@ public class FenixApiClient : IFenixApiClient {
             var response = await _httpClient.GetAsync(endpoint, ct);
 
             return response.IsSuccessStatusCode;
-        } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
+        } catch (HttpRequestException) {
+            _logger.LogDebug("Unable to connect to Fenix API GET manual failures endpoint.");
             return false;
         } catch (TaskCanceledException) {
             _logger.LogDebug("Timeout while requesting if Fenix API is alive");
@@ -44,8 +44,8 @@ public class FenixApiClient : IFenixApiClient {
             }
             var stream = await response.Content.ReadAsStreamAsync(ct);
             return stream;
-        } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
+        } catch (HttpRequestException) {
+            _logger.LogDebug("Unable to connect to Fenix API GET manual failures endpoint.");
             return null;
         } catch (TaskCanceledException) {
             _logger.LogDebug("Timeout while requesting Fenix API GET manual failures endpoint.");
@@ -63,11 +63,11 @@ public class FenixApiClient : IFenixApiClient {
                 return null;
             }
             return await response.Content.ReadAsStreamAsync(ct);
-        } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
+        } catch (HttpRequestException) {
+            _logger.LogDebug("Unable to connect to Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
             return null;
-        } catch (TaskCanceledException ex) {
-            _logger.LogWarning(ex, "Timeout while calling Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
+        } catch (TaskCanceledException) {
+            _logger.LogDebug("Timeout while calling Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
             return null;
         }
     }

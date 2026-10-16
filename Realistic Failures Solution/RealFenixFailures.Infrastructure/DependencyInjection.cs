@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,7 +21,8 @@ public static class DependencyInjection {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             options.UseSqlite(connectionString)
                 .UseLoggerFactory(loggerFactory)
-                .EnableDetailedErrors();
+                .EnableDetailedErrors()
+                .ConfigureWarnings(w => w.Log((RelationalEventId.CommandExecuted, LogLevel.Debug)));
 #if DEBUG
             options.EnableSensitiveDataLogging();
 #endif

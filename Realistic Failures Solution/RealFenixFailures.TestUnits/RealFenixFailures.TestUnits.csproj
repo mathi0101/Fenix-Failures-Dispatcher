@@ -20,6 +20,7 @@
     <ProjectReference Include="..\RealFenixFailures.Application\RealFenixFailures.Application.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Domain\RealFenixFailures.Domain.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Infrastructure\RealFenixFailures.Infrastructure.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.Fenix\RealFenixFailures.Integrations.Fenix.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
   </ItemGroup>
 

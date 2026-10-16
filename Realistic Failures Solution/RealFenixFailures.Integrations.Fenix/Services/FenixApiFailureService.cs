@@ -16,9 +16,11 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
     private readonly IOptionsMonitor<FenixApiOptions> _optionsMonitor;
     private readonly ILogger<FenixApiFailureService> _logger;
     private readonly SemaphoreSlim _healthLock = new(1, 1);
+    private readonly object _stateLock = new();
 
     private DateTimeOffset _lastHealthCheckAtUtc = DateTimeOffset.MinValue;
     private bool _lastHealthCheckResult;
+    private bool _hasEverConnected;
 
     public FenixApiFailureService(IFenixApiClient apiClient, IFenixStreamFailuresReaderService jsonReader, IOptionsMonitor<FenixApiOptions> optionsMonitor, ILogger<FenixApiFailureService> logger) {
         _apiClient = apiClient;
@@ -115,8 +117,20 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
     }
 
     private void UpdateHealthState(bool isAvailable) {
-        _lastHealthCheckResult = isAvailable;
-        _lastHealthCheckAtUtc = DateTimeOffset.UtcNow;
+        lock (_stateLock) {
+            var previous = _lastHealthCheckResult;
+            _lastHealthCheckResult = isAvailable;
+            _lastHealthCheckAtUtc = DateTimeOffset.UtcNow;
+
+            if (isAvailable == previous) return;
+
+            if (isAvailable) {
+                _hasEverConnected = true;
+                _logger.LogInformation("API Fenix conectada");
+            } else if (_hasEverConnected) {
+                _logger.LogInformation("API Fenix desconectada");
+            }
+        }
     }
 
 

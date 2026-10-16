@@ -4,6 +4,44 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Reducción de ruido de logs: niveles raíz Serilog y transiciones INFO únicas (SimConnect / API Fenix)
+
+**Qué**
+
+- `SerilogExtensions.ApplyDefaultConfiguration` (`RealFenixFailures.Infrastructure/Logging/SerilogExtensions.cs`) ahora aplica `MinimumLevel` **Default y Override** del appsettings al **logger raíz** (antes `ReadFrom.Configuration` se invocaba dentro del `WriteTo.Logger` hijo y los overrides Microsoft/System no filtraban INFO en el archivo). El sink principal sigue excluyendo la categoría `SimConnect.Diagnostics` y el sink de diagnóstico separado solo existe si `SimConnectDiagnostics:Enabled`. Path, `outputTemplate` y `rollingInterval` del sink principal se siguen leyendo de appsettings.
+- `appsettings.json` (UI): override nuevo `System.Net.Http.HttpClient: Warning` (suprime el chatter INFO del framework HTTP) y `Microsoft.EntityFrameworkCore.Database.Command` pasa de `Warning` a `Debug` (override más específico que `Microsoft: Warning`, aplicado en el logger raíz).
+- `AddInfrastructure` (`RealFenixFailures.Infrastructure/DependencyInjection.cs`) re-mapea `RelationalEventId.CommandExecuted` de Information a Debug con `ConfigureWarnings(w => w.Log((RelationalEventId.CommandExecuted, LogLevel.Debug)))`; el resto de eventos/warnings/errores y `EnableDetailedErrors`/sensitive logging se conservan.
+- `SimulatorFlightDataProvider.IsConnectedAsync`: la transición se compara contra el estado previo **antes** de actualizarlo (antes se comparaba después, por lo que nunca se notificaba); emite INFO cortos únicos `SimConnect conectado`/`SimConnect desconectado` solo en cambios de estado; el primer `false` no se considera desconexión; timeout esperado o API caída no emiten WRN ni stacktrace por intento (ERR solo ante excepción no prevista) e inicialización pasa a Debug. Se mantienen caché de 10 s, formato y ritmo de los logs de diagnóstico.
+- `SimConnectClient`: se silencia el `COMException` esperado con HRESULT `0x80004005` al intentar conectar (sin mensaje repetido ni stacktrace; la transición INFO la reporta el provider); `Successfully connected`, `Disconnected`, `SimConnect Open` y `Timeout: Reconnecting` pasan a Debug. Se conservan ERR en message pump y procesamiento de datos, WRN en `OnRecvException` y la corrección de datum IDs únicos (`datumId++`).
+- `FenixApiClient`: los fallos de conectividad/timeout esperables (`HttpRequestException`/`TaskCanceledException`) en la consulta de disponibilidad y en llamadas HTTP ya reportadas como cambio de estado pasan a Debug sin stacktrace; los errores HTTP no-success inesperados siguen en Warning y las excepciones inesperadas no se silencian.
+- `FenixApiFailureService.UpdateHealthState`: con `lock` simple (seguro ante llamadas concurrentes de armado/desarme/health check) emite INFO cortos `API Fenix conectada`/`API Fenix desconectada` solo en transiciones; el primer `false` no cuenta como desconexión inicial y resultados repetidos no loguean. Se mantienen caché y comportamiento de API.
+- Tests: se amplía `SerilogDiagnosticsTests` (overrides por categoría, filtrado de INFO EF/HttpClient, Debug propio conservado, separación diagnóstica y override específico `Database.Command=Debug`); nuevos tests de transiciones para `SimulatorFlightDataProvider` (primer false sin línea, INFO único por conexión, timeout sin WRN, ERR solo inesperado) y `FenixApiFailureService` (sin línea en fallo inicial, una línea por transición, concurrencia) con loggers de captura (`Logging/RecordingLoggers.cs`); 11 tests nuevos, el resto intacto.
+
+**Por qué**
+
+- En la sesión de producción del 2026-10-15 (`realfenix-20261015_003.log`) había ≈2.168 INFO de `System.Net.Http.HttpClient`, 989 INFO de `Microsoft.EntityFrameworkCore.Database.Command` y errores repetidos de conexión a SimConnect (COM `0x80004005`) con stacktrace cada intento, mientras el host fijaba Microsoft logging en Trace y los overrides no filtraban: `ReadFrom.Configuration` corría en el sublogger hijo. El usuario pidió notificar información solo en cambios de estado conectado/desconectado (mensajes cortos `API Fenix Conectada`/`SimConnect conectado`), suprimir el chatter del framework HTTP, mover SQL/EF `CommandExecuted` de INF a DBG y dejar visibles solo los errores auténticamente inesperados.
+
+**Áreas**
+
+- `RealFenixFailures.Infrastructure` — `Logging/SerilogExtensions.cs`, `DependencyInjection.cs`.
+- `RealFenixFailures.UI` — `appsettings.json`.
+- `RealFenixFailures.Integrations.SimConnect` — `Services/SimulatorFlightDataProvider.cs`, `Services/SimConnectClient.cs`.
+- `RealFenixFailures.Integrations.Fenix` — `Services/FenixApiClient.cs`, `Services/FenixApiFailureService.cs`.
+- `RealFenixFailures.TestUnits` — `Logging/SerilogDiagnosticsTests.cs`, `Logging/RecordingLoggers.cs` (nuevo), `Integrations/SimulatorFlightDataProviderLoggingTests.cs` (nuevo), `Services/FenixApiFailureServiceLoggingTests.cs` (nuevo), referencia de proyecto a `Integrations.Fenix`.
+- `docs/` — `integraciones/simconnect.md`, `integraciones/fenix-api.md`, `CHANGELOG.md`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: 0 errores, 0 advertencias.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj --no-restore`: **80/80**.
+- `git diff --check`: sin errores.
+
+**Pendiente / Limitación**
+
+- Los niveles, overrides, path y template del sink principal se leen de appsettings; un `WriteTo` adicional agregado a settings (p. ej. consola) no se refleja porque el sink principal se configura en código (necesario para excluir `SimConnect.Diagnostics` por sink). Indicado como limitación; no se agregaron dependencias nuevas.
+- Por la ventana de caché de 10 s del provider, la transición `conectado → desconectado` de SimConnect no se cubre con esperas de 10 s en unit tests (el primer `false` sin conexión previa, el INFO único por conexión y el timeout sin WRN sí); la dirección completa quedó cubierta en los tests del dispatcher Fenix, que actualiza el health state por llamadas de API sin esperas.
+- El nivel de ruido final en el archivo real requiere una sesión de producción; builds/tests no reemplazan la prueba manual.
+
 ### 2026-10-15 — Datos de aeronave coherentes (HasAircraftData) + fix de DuplicateID 29 en AddToDataDefinition
 
 **Qué**

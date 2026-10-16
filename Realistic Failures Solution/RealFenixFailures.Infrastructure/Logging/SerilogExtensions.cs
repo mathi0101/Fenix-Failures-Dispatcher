@@ -14,11 +14,18 @@ public static class SerilogExtensions {
     public const string SimConnectDiagnosticsSourceContext = "SimConnect.Diagnostics";
 
     public static LoggerConfiguration ApplyDefaultConfiguration(this LoggerConfiguration loggerConfiguration, IConfiguration configuration) {
+        var serilogSection = configuration.GetSection("Serilog");
+
+        ApplyMinimumLevel(loggerConfiguration, serilogSection.GetSection("MinimumLevel"));
+
         loggerConfiguration
             .Enrich.FromLogContext()
             .WriteTo.Logger(mainLogger => mainLogger
                 .Filter.ByExcluding(Matching.FromSource(SimConnectDiagnosticsSourceContext))
-                .ReadFrom.Configuration(configuration));
+                .WriteTo.File(
+                    serilogSection["WriteTo:0:Args:path"] ?? "logs/realfenix-.log",
+                    rollingInterval: Enum.TryParse<RollingInterval>(serilogSection["WriteTo:0:Args:rollingInterval"], ignoreCase: true, out var rollingInterval) ? rollingInterval : RollingInterval.Infinite,
+                    outputTemplate: serilogSection["WriteTo:0:Args:outputTemplate"] ?? "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] <s:{SourceContext}> {Message:lj} {NewLine}{Exception}"));
 
         if (configuration.GetValue<bool>("SimConnectDiagnostics:Enabled")) {
             loggerConfiguration.MinimumLevel.Override(SimConnectDiagnosticsSourceContext, LogEventLevel.Debug);
@@ -32,5 +39,17 @@ public static class SerilogExtensions {
         }
 
         return loggerConfiguration;
+    }
+
+    private static void ApplyMinimumLevel(LoggerConfiguration loggerConfiguration, IConfigurationSection minimumLevelSection) {
+        if (Enum.TryParse<LogEventLevel>(minimumLevelSection["Default"], ignoreCase: true, out var defaultLevel)) {
+            loggerConfiguration.MinimumLevel.Is(defaultLevel);
+        }
+
+        foreach (var overrideSection in minimumLevelSection.GetSection("Override").GetChildren()) {
+            if (Enum.TryParse<LogEventLevel>(overrideSection.Value, ignoreCase: true, out var overrideLevel)) {
+                loggerConfiguration.MinimumLevel.Override(overrideSection.Key, overrideLevel);
+            }
+        }
     }
 }

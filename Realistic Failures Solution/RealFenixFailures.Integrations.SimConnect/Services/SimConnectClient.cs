@@ -3,6 +3,7 @@ using Microsoft.FlightSimulator.SimConnect;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Models;
+using System.Runtime.InteropServices;
 
 namespace RealFenixFailures.Integrations.SimConnect.Services;
 
@@ -66,7 +67,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 RegisterDataDefinitions();
 
                 _isConnected = true;
-                _logger.LogInformation("Successfully connected to SimConnect");
+                _logger.LogDebug("Successfully connected to SimConnect");
 
                 ClearLastKnownState();
                 StartMessagePump();
@@ -75,7 +76,9 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 OnConnectionStateChanged?.Invoke(true);
                 return true;
             } catch (Exception ex) {
-                _logger.LogError(ex, "Error connecting to SimConnect");
+                if (ex is not COMException { HResult: unchecked((int)0x80004005) }) {
+                    _logger.LogError(ex, "Error connecting to SimConnect");
+                }
                 Disconnect();
                 return false;
             }
@@ -89,7 +92,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
         var timeSinceLastData = DateTime.UtcNow - _lastDataReceivedUtc;
         if (timeSinceLastData > TimeSpan.FromSeconds(10)) {
-            _logger.LogWarning("Timeout: Reconnecting SimConnect");
+            _logger.LogDebug("Timeout: Reconnecting SimConnect");
             Disconnect();
             return await ConnectAsync(ct);
         }
@@ -130,7 +133,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         _simConnect?.Dispose();
         _simConnect = null;
 
-        _logger.LogInformation("Disconnected from SimConnect");
+        _logger.LogDebug("Disconnected from SimConnect");
         OnConnectionStateChanged?.Invoke(false);
     }
 
@@ -201,12 +204,12 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
     private void RegisterSimConnectHandlers() {
         if (_simConnect == null) return;
-        _simConnect.OnRecvOpen += (s, d) => _logger.LogInformation("SimConnect Open");
+        _simConnect.OnRecvOpen += (s, d) => _logger.LogDebug("SimConnect Open");
         _simConnect.OnRecvQuit += (s, d) => {
             _isConnected = false;
             ClearLastKnownState();
         };
-        _simConnect.OnRecvException += (s, d) => _logger.LogWarning("SimConnect Exception: {Id}", d.dwException);
+        _simConnect.OnRecvException += (s, d) => _logger.LogWarning("SimConnect Exception: {Id} (SendID: {SendId}, Index: {Index})", d.dwException, d.dwSendID, d.dwIndex);
         _simConnect.OnRecvSimobjectDataBytype += SimConnect_OnRecvSimobjectDataBytype;
     }
 
