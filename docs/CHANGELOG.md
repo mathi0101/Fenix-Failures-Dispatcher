@@ -4,6 +4,51 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-16 — Ventana de configuración con pestañas, preferencias de usuario (ID SimBrief) y eliminación del botón Refresh
+
+**Qué**
+
+- La UI crece con **botón ⚙** en la **status bar** de `MainWindow` (en la posición exacta donde estaba el botón Refresh) que abre la ventana de configuración (`Views/SettingsWindow.xaml` + `SettingsWindowViewModel`), sin bordes, con pestañas: **General** (primera; campo **ID de SimBrief**), **Ayuda**, **Documentación**, **Actualizaciones** y **Reportar un fallo**.
+- Nuevo servicio **`UI/Services/UserPreferencesService.cs`** (singleton): persiste preferencias de usuario en `%AppData%\RealFenixFailures\userprefs.json` (por ahora `SimbriefUserId`), con carga tolerante a errores y guardado con debounce (400 ms) + guardado forzado al cerrar la ventana; el ID se muestra/edita en la pestaña General.
+- **El botón "↻ Refresh" se eliminó por completo** (XAML + `RefreshCommand` + `RefreshAsync` en `MainWindowViewModel`): la app queda a cargo del autorefresco del orquestador (timer automático cada `CheckConnectionIntervalSeconds`); `InitializeAsync` hace un `UpdateConnection` inicial y carga los presets custom una vez.
+- Links de la ventana (repo GitHub `mathi0101/Fenix-Failures-Dispatcher`, issues, releases, docs SimBrief) centralizados como constantes en el ViewModel y abiertos con `Process.Start` + `UseShellExecute` (patrón de la donación). La versión mostrada en "Actualizaciones" sale del ensamblado.
+- Docs: nuevo `docs/ui/configuracion-y-preferencias.md` + entrada en `docs/CHANGELOG.md`.
+
+**Por qué**
+
+- El usuario pidió una puerta de configuración de la app con las pestañas típicas (ayuda, documentación, repo, versión, actualizaciones, reportar un fallo) y el ID de SimBrief como primer campo de la pestaña General; en el mismo trabajo pidió quitar el botón Refresh porque el refresco ya es automático.
+
+**Áreas**
+
+- `RealFenixFailures.UI/Views/MainWindow.xaml(.cs)` — botón ⚙ en la status bar (posición del viejo Refresh); inyección de `SettingsWindow`.
+- `RealFenixFailures.UI/ViewModels/MainWindowViewModel.cs` — eliminados `RefreshCommand`/`RefreshAsync`; `LoadCustomPresetsAsync` en `InitializeAsync`.
+- `RealFenixFailures.UI/Views/SettingsWindow.xaml(.cs)` y `RealFenixFailures.UI/ViewModels/SettingsWindowViewModel.cs` — nuevos.
+- `RealFenixFailures.UI/Services/UserPreferencesService.cs` — nuevo.
+- `RealFenixFailures.UI/DependencyInjection/HostBuilderExtensions.cs` — registros DI.
+- `docs/ui/configuracion-y-preferencias.md` (nuevo) y `docs/CHANGELOG.md` (esta entrada).
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: **0 errores, 0 warnings**.
+- `dotnet test RealFenixFailures.TestUnits`: **80/80 pasados**.
+- Smoke test con `dotnet run` desde el directorio del proyecto UI: la app arranca y queda corriendo sin excepciones (valida el wiring de DI de la nueva ventana). No verificado: interacción visual manual de la ventana de configuración (abrir, escribir el ID, ver "✓ Guardado", abrir URLs).
+
+**Pendiente / Limitación**
+
+- El ID de SimBrief todavía no se consume (integración SimBrief como fuente del plan de vuelo queda para un paso siguiente).
+- El fallo de `dotnet run` desde la raíz de la solución (appsettings.json no encontrado) es pre-existente y no relacionado con este cambio.
+- "Buscar actualizaciones" abre GitHub Releases (no hay auto-update); el usuario lo confirmó como alcance para versiones con descarga manual.
+
+**Seguimiento (mismo día, mismo trabajo sin publicar) — el panel pasó a ser overlay interno**
+
+- A pedido del usuario, la configuración **ya no es una ventana independiente**: `Views/SettingsWindow.xaml(.cs)` fue reemplazada por el UserControl `Views/Panels/SettingsPanel.xaml(.cs)` **embebido en `MainWindow`**.
+- El engranaje de la status bar ahora dispara `OpenSettingsCommand` (`MainWindowViewModel.IsSettingsOpen = true`): aparece un **overlay sobre la fila de contenido** (todo lo que está debajo de la status bar) con fondo `#C0080A0F` que **opaca y bloquea** el contenido, y el panel queda **fijo en el centro** (780×620). La title bar y la status bar quedan visibles e intactas.
+- Cierre por **✕** del header del panel o **ESC** (evento `CloseRequested` del panel → `IsSettingsOpen = false`); al cerrar se persisten las preferencias (`Settings.SaveNow()` via setter del VM).
+- `MainWindowViewModel` ahora recibe `SettingsWindowViewModel` por DI y expone `Settings`; `MainWindow` ya no depende de `SettingsWindow`; se eliminó el registro de `SettingsWindow` en `HostBuilderExtensions`.
+- Áreas extra tocadas: `Views/Panels/SettingsPanel.xaml(.cs)` (nuevos), `Views/MainWindow.xaml(.cs)`, `ViewModels/MainWindowViewModel.cs`, `DependencyInjection/HostBuilderExtensions.cs`, `docs/ui/configuracion-y-preferencias.md`.
+- Pruebas repetidas tras el cambio: build 0 errores/0 warnings, tests 80/80, smoke test de arranque sin excepciones (el panel se parsea al construir `MainWindow`, así que el XAML quedó validado en runtime). Sigue pendiente la verificación visual manual del overlay.
+
+
 ### 2026-10-15 — Historial de sesiones (SessionEventLog), snapshot de fallas y totales de aeronave derivados
 
 **Qué**

@@ -28,6 +28,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     // ViewModel del flujo de 4 pasos del Modo Realista (Paso 1..4).
     public RealisticModeViewModel Realistic { get; }
 
+    // ViewModel del panel de configuración (overlay centrado sobre el contenido).
+    public SettingsWindowViewModel Settings { get; }
+
     // Connection state
     private ComplexFlightPhaseEnum currentComplexFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private bool isSimConnected = false;
@@ -37,6 +40,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private bool _isRealisticModeSelected;
     private bool _isTrainingModeSelected = true;
     private bool _isCustomModeSelected;
+
+    // Overlay de configuración
+    private bool _isSettingsOpen;
 
     // Training
     private TrainingScenarioViewModel? _selectedTrainingScenario;
@@ -54,12 +60,14 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         IFlightHistoryService flightHistoryService,
         RealisticModeViewModel realisticModeViewModel,
         IFlightEventDetector flightEventDetector,
+        SettingsWindowViewModel settings,
         ILogger<MainWindowViewModel> logger) {
         _orchestrator = orchestrator;
         _presetService = presetService;
         _flightHistoryService = flightHistoryService;
         _flightEventDetector = flightEventDetector;
         Realistic = realisticModeViewModel;
+        Settings = settings;
         _logger = logger;
 
         // Suscribirse a los eventos del orquestador
@@ -71,9 +79,10 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         LogEntries = new ObservableCollection<string>();
 
         // Commands with canExecute where it makes sense
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
-
         ApplySettingsCommand = new RelayCommand(ApplySettings);
+
+        OpenSettingsCommand = new RelayCommand(() => IsSettingsOpen = true);
+        CloseSettingsCommand = new RelayCommand(() => IsSettingsOpen = false);
 
         SelectTrainingScenarioCommand = new RelayCommand<TrainingScenarioViewModel>(SelectTrainingScenario);
         StartTrainingScenarioCommand = new RelayCommand(async () => await StartOrStopTrainingScenarioAsync(), () => CanStartTraining);
@@ -94,8 +103,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     #region Commands
 
     // Commands
-    public RelayCommand RefreshCommand { get; }
     public RelayCommand ApplySettingsCommand { get; }
+    public RelayCommand OpenSettingsCommand { get; }
+    public RelayCommand CloseSettingsCommand { get; }
     public RelayCommand<TrainingScenarioViewModel> SelectTrainingScenarioCommand { get; }
     public RelayCommand StartTrainingScenarioCommand { get; }
     public RelayCommand CreateCustomPresetCommand { get; }
@@ -110,6 +120,19 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public ObservableCollection<TrainingScenarioViewModel> TrainingScenarios { get; }
     public ObservableCollection<CustomPresetViewModel> CustomPresets { get; }
     public ObservableCollection<string> LogEntries { get; }
+
+    // Settings overlay (centrado sobre el contenido; el fondo queda opaco y bloqueado)
+    public bool IsSettingsOpen {
+        get => _isSettingsOpen;
+        set {
+            if (SetProperty(ref _isSettingsOpen, value)) {
+                if (!value) {
+                    // Al cerrar el overlay se persisten las preferencias pendientes.
+                    Settings.SaveNow();
+                }
+            }
+        }
+    }
 
     // Connection status
 
@@ -276,7 +299,10 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public async Task InitializeAsync() {
         await LoadTrainingScenarios();
         await Realistic.InitializeAsync();
-        await RefreshAsync();
+        // Estado inicial de conexión; el timer automático del orquestador
+        // se encarga del autorefresco en todo momento.
+        await _orchestrator.UpdateConnection(CancellationToken.None);
+        await LoadCustomPresetsAsync();
         await _orchestrator.StartAutomaticTimerAsync(CancellationToken.None);
     }
 
@@ -416,9 +442,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         });
     }
 
-    private async Task RefreshAsync() {
-        // Load custom presets
-        await _orchestrator.UpdateConnection(CancellationToken.None);
+    private async Task LoadCustomPresetsAsync() {
         var presets = await _presetService.GetCustomPresetsAsync(CancellationToken.None);
         CustomPresets.Clear();
         foreach (var p in presets) {
@@ -433,7 +457,6 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     // ----- Helpers -----
     private void UpdateCommandStates() {
         // Asumo que tu RelayCommand tiene RaiseCanExecuteChanged(); si tu implementación tiene otro nombre, ajustalo.
-        RefreshCommand?.RaiseCanExecuteChanged();
         StartTrainingScenarioCommand?.RaiseCanExecuteChanged();
         ActivateCustomPresetCommand?.RaiseCanExecuteChanged();
         CreateCustomPresetCommand?.RaiseCanExecuteChanged();

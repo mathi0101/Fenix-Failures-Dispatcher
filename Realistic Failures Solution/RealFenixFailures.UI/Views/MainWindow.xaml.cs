@@ -25,6 +25,7 @@ public partial class MainWindow : Window {
         DataContext = _viewModel;
         Loaded += async (_, _) => await _viewModel.InitializeAsync();
         Closing += MainWindow_Closing;
+        SettingsPanelHost.CloseRequested += (_, _) => _viewModel.IsSettingsOpen = false;
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e) {

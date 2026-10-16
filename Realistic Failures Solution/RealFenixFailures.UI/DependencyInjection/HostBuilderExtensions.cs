@@ -7,6 +7,7 @@ using RealFenixFailures.Infrastructure;
 using RealFenixFailures.Infrastructure.Logging;
 using RealFenixFailures.Integrations.Fenix;
 using RealFenixFailures.Integrations.SimConnect;
+using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels;
 using RealFenixFailures.UI.ViewModels.Realistic;
 using RealFenixFailures.UI.Views;
@@ -27,6 +28,8 @@ public static class HostBuilderExtensions {
                 services.AddInfrastructure(context.Configuration);
                 services.AddSimConnectIntegration();
                 services.AddFenixIntegration(context.Configuration);
+                services.AddSingleton<UserPreferencesService>();
+                services.AddTransient<SettingsWindowViewModel>();
                 services.AddTransient<MainWindow>();
                 services.AddTransient<MainWindowViewModel>();
                 services.AddScoped<RealisticModeViewModel>();

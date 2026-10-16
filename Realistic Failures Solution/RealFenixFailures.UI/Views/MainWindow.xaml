@@ -128,10 +128,11 @@
                         </StackPanel>
                     </Border>
 
-                    <Button Grid.Column="4" Content="↻  Refresh"
-                            Command="{Binding RefreshCommand}"
+                    <Button Grid.Column="4" Content="⚙"
+                            Command="{Binding OpenSettingsCommand}"
                             Style="{StaticResource GhostButtonStyle}"
-                            FontSize="12"/>
+                            FontSize="14"
+                            ToolTip="Configuración"/>
                 </Grid>
             </Border>
 
@@ -245,6 +246,29 @@
                         <panels:CustomModePanel Visibility="{Binding IsCustomModeSelected, Converter={StaticResource BoolToVis}}"/>
                         <panels:RealisticModePanel Visibility="{Binding IsRealisticModeSelected, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
+                </Border>
+            </Grid>
+
+            <!-- SETTINGS OVERLAY: opaca TODO lo que está debajo de la status bar
+                 (contenido principal) y muestra el panel de configuración fijo en el centro.
+                 La status bar y la title bar quedan visibles e intactas. -->
+            <Grid Grid.Row="2"
+                  Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVis}}">
+                <!-- Fondo opaco + bloqueo del contenido -->
+                <Border Background="#C0080A0F"/>
+
+                <!-- Panel centrado -->
+                <Border Background="{StaticResource Brush.Background.Card}"
+                        CornerRadius="12"
+                        BorderBrush="{StaticResource Brush.Border.Default}"
+                        BorderThickness="1"
+                        Width="780" Height="620"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
+                    </Border.Effect>
+                    <panels:SettingsPanel x:Name="SettingsPanelHost"
+                                          DataContext="{Binding Settings}"/>
                 </Border>
             </Grid>
 
