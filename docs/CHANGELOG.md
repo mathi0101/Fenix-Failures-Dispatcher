@@ -4,6 +4,41 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-15 — Datos de aeronave coherentes (HasAircraftData) + fix de DuplicateID 29 en AddToDataDefinition
+
+**Qué**
+
+- `SimConnectClient.RegisterDataDefinitions` (`RealFenixFailures.Integrations.SimConnect/Services/SimConnectClient.cs`) asigna a cada una de las 18 `AddToDataDefinition` un ID de datum único (`uint datumId` con `datumId++`, 0..17), sin alterar el orden del struct `AircraftStateData`. Antes todas pasaban `0` explícito como último argumento (DatumID).
+- El handler `OnRecvException` enriquece el mensaje con `dwException`, `dwSendID` y `dwIndex` (mismo nivel Warning, una sola línea).
+- Nuevo validador puro `AircraftStateDataValidator.IsValid` (`Integrations.SimConnect/Models/AircraftStateDataValidator.cs`): rangos físicos razonables (lat/lon, altitudes MSL/AGL, heading, velocidades, VS, flaps, N1, throttle), booleanos int estrictos 0/1 (OnGround, combustión), rechazo de NaN/Infinity/denormales y del frame completamente en cero; permite aeronave estacionada a altitud 0. Un paquete inválido conserva sus valores crudos en `SimConnectAircraftState` para diagnóstico pero con `IsConnected=false` (y por lo tanto `HasSimulatorData=false`).
+- El callback `OnRecvSimobjectDataBytype` actualiza `_lastDataReceivedUtc` por cualquier paquete recibido (sin bucle de reconexión cuando SimConnect responde sin avión cargado) y sobrescribe siempre el último estado: una muestra inválida nunca deja la telemetría previa válida como actual. Sin warnings por paquete (100 ms).
+- `ConnectionStatusDto` gana la propiedad init-only `HasAircraftData` (default `false`; se preserva el constructor posicional). `SimulatorConnectionService.GetConnectionStatusAsync` marca `HasAircraftData` y reporta fase `Disconnected` si el handle está abierto pero no hay datos coherentes (antes `Flying`/`OnGround` con telemetría basura).
+- UI: `MainWindowViewModel` sincroniza `HasAircraftData`; `SimConnectStatus` distingue `Disconnected` / `Connected · No aircraft data` / `Connected · Aircraft data` con punto gris/ámbar/verde; `CanStartEngine` exige SimConnect + datos de aeronave + Fenix; `CurrentFlightPhaseDisplay` muestra `Disconnected`/`No aircraft data` sin presentar fases viejas. `RealisticModeViewModel` sincroniza la propiedad, exige `HasAircraftData` en `CanActivate`, agrega la razón "MSFS conectado pero sin datos de aeronave disponibles." y muestra `Disconnected`/`No aircraft data` en su indicador de fase.
+- `FlightEventDetector.ProcessSnapshot` con `HasSimulatorData=false` limpia todo el tracking anterior (fase, debounce, altitud y motor/latch) y devuelve `Unknown` sin emitir eventos: una lectura corrupta o la ausencia de avión nunca dejan `Landing`/`Cruise` estancadas (antes conservaba la fase confirmada). El motor realista ya salta ese tick y ese comportamiento se conserva.
+
+**Por qué**
+
+- Los logs de diagnóstico compartidos (2026-10-15) mostraban `SimConnect Exception: 29` en cada conexión y telemetría corrupta (`Lon=6.8e38` o `0`, `AltMSL=0`, `IndAlt≈1e-313`, `AltAGL=-2147483648`, `Flaps=2147483647`, combustión con enteros enormes, N1/throttle absurdos) con el detector marcando `Landing` aun con `OnGround=false`. Contraste con la doc oficial del SDK: enum 29 = `SIMCONNECT_EXCEPTION_DUPLICATE_ID`, que SimConnect produce por IDs repetidos en `AddToDataDefinition`; el cliente pasaba DatumID `0` en las 18 definiciones. **Raíz probable/confirmada: registro duplicado de datos.** Adicionalmente, `IsConnectedAsync` indica solo el handle y la UI confundía conexión con datos de aeronave disponibles.
+
+**Áreas**
+
+- `RealFenixFailures.Integrations.SimConnect` — `Services/SimConnectClient.cs`, `Models/AircraftStateDataValidator.cs` (nuevo).
+- `RealFenixFailures.Application` — `DTOs/ConnectionStatusDto.cs`, `Services/SimulatorConnectionService.cs`, `Services/FlightEventDetector.cs`.
+- `RealFenixFailures.UI` — `ViewModels/MainWindowViewModel.cs`, `ViewModels/Realistic/RealisticModeViewModel.cs`.
+- `RealFenixFailures.TestUnits` — `Integrations/AircraftStateDataValidatorTests.cs` (nuevo), `Services/SimulatorConnectionServiceTests.cs`, `Services/FlightEventDetectorTests.cs`.
+- `docs/` — `integraciones/simconnect.md`, `realistic-mode/estado-y-diseno.md`, `CHANGELOG.md`.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: 0 errores, 0 advertencias.
+- `dotnet build RealFenixFailures.slnx -c Release --no-restore`: 0 errores, 0 advertencias.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj --no-restore`: **69/69**.
+
+**Pendiente / Limitación**
+
+- La corrección de datos de aeronave fue comprobada por el usuario en producción: reportó telemetría coherente tras publicar el fix. Los builds y tests automatizados siguen siendo evidencia separada de esa prueba manual.
+- La detección se describe como **datos coherentes disponibles** (validador físico de rangos), no como confirmación de un estado de menú específico del simulador; no se usó ningún API de menú ni `L:Vars`.
+
 ### 2026-10-16 — Manejo global de excepciones, log de crash y splash de arranque (UI)
 
 **Qué**
