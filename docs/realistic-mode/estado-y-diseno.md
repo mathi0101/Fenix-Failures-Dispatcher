@@ -135,6 +135,159 @@ Cambio aplicado y verificado por builds focalizados y tests (55/55); verificaci�
 - Mecanismo de notificación manager → UI (hoy eventos `EventHandler` + `INotifyPropertyChanged`).
 - Vincular fallas Fenix ↔ sistema desgastable: FK directa vs tabla de mapeo.
 
+## Investigación y diseño: la meta del modo Realistic y los bloques de pensamiento del engine (2026-10-16)
+
+> **Sección de investigación/diseño, no implementada en código.** Explora cómo debería pensar el motor realista cuando el modo evolucione del sorteo ponderado actual a un proceso con narrativa propia. Todo lo de esta sección es propuesta: el comportamiento vigente es el de "Implementado" arriba y las restricciones de "Limitaciones restantes".
+
+### Objetivo del modo realista
+
+El modo Realistic debe producir fallas que se sientan como **consecuencia natural de la operación**, no como sorteo: el engine razona sobre contexto, estado de la aeronave, historial de la sesión, plausibilidad y objetivo para decidir *si* y *qué* falla; un piloto que mira hacia atrás debe poder decir "tenía sentido que pasara eso".
+
+### Capas de pensamiento del engine
+
+| Capa | Qué piensa | Qué necesita |
+|---|---|---|
+| Contexto de vuelo | Dónde está la aeronave y qué está haciendo: fase, altitud MSL/AGL, IAS, VS, motores, tierra/aire | Telemetría coherente del simulador (SimConnect) y fase confirmada del `FlightEventDetector` |
+| Estado del avión | Qué tan sano está cada sistema y cómo se operó: desgaste, configuración, uso | Modelo de aeronave y desgaste de sistemas (hoy pendiente, ver "Pendiente") |
+| Historial de sesión | Qué pasó ya en esta sesión/vuelo: fallas disparadas, cooldown, eventos | `SessionEventLog`, `TriggeredFailure` y reloj de cooldown |
+| Plausibilidad | Si es creíble que falle *esto* en *este* momento: condiciones físicas, incompatibilidades, narrativa | Reglas de severidad y condiciones de los presets; incompatibilidades (pendiente) |
+| Objetivo | Qué experiencia se está construyendo: tensión, aprendizaje, realismo | Perfil de riesgo del modo: **dirección, no veredicto** |
+
+### Proceso mental del engine (flujo propuesto)
+
+```mermaid
+flowchart TD
+    A["Origen de inputs"] --> B["Validación"]
+    B -->|"Datos coherentes"| C["Construcción de contexto"]
+    B -->|"Faltan datos coherentes"| NA["NoAction"]
+    C --> D["Filtro de elegibilidad"]
+    D --> E["Ponderación"]
+    E --> F["Decisión"]
+    F --> G["Ejecución"]
+    G --> H["Persistencia / feedback"]
+    H -->|"Siguiente tick"| I["Replanificación"]
+    NA -->|"Siguiente tick"| A
+    I -->|"Siguiente tick"| A
+```
+
+`Origen de inputs → Validación → Construcción de contexto → Filtro de elegibilidad → Ponderación → Decisión → Ejecución → Persistencia/feedback → Replanificación`
+
+Flujo principal por fases: cada fase consume lo que produce la anterior. En la tabla, "consume" incluye tanto entradas externas como lo dejado por la fase previa, y "produce" es lo que queda para la siguiente.
+
+| Paso | Qué hace | Consume | Produce |
+|---|---|---|---|
+| **1. Origen de inputs** | Reunir todo lo que llega para el tick | Telemetría, conexión Fenix + SimConnect, presets, historial de la sesión, OFP, desgaste de aeronave, preferencias del usuario | Paquete bruto de inputs del tick |
+| **2. Validación** | Comprobar que hay datos mínimos coherentes y permisos para evaluar | Telemetría coherente (`HasSimulatorData`), conexión Fenix + SimConnect, presets cargados | Tick válido, o `NoAction` como salida directa (no se entra al resto del flujo) |
+| **3. Construcción de contexto** | Interpretar dónde está la aeronave, qué está haciendo y si la realidad sigue el plan | Tick validado, fase confirmada del detector, historial de la sesión, OFP como planificación previa | Snapshot de contexto interpretado: fase, ventanas esperadas vs reales y estado del avión |
+| **4. Filtro de elegibilidad** | Descartar lo imposible o increíble para la situación actual | Contexto, catálogo/presets, reglas de severidad y condiciones, plan de vuelo (ventanas) | Lista de candidatos elegibles para el tick |
+| **5. Ponderación** | Calcular el peso final de cada candidato: plausibilidad (contexto + historial + objetivo) más `Probability` del preset | Candidatos, historial, desgaste (pendiente), objetivo/preferencias del modo | Pesos finales de selección por candidato |
+| **6. Decisión** | Aplicar la probabilidad de disparo (hoy `BaseProbability` × multiplicador de riesgo) con cooldown y máx. simultáneas, y elegir por acumulación ponderada | Pesos, constantes del modo, estado de cooldown y fallas activas | Decisión del tick: **armar**, **posponer** o **no armar** |
+| **7. Ejecución** | Materializar la decisión en el simulador | Decisión, API Fenix | Falla armada o desarmada en Fenix |
+| **8. Persistencia/feedback** | Registrar la falla y el evento de sesión como unidad de trabajo y actualizar el estado de la sesión | Falla ejecutada, sesión activa, historial | `TriggeredFailure` + `SessionEventLog` (atómico) y estado de sesión actualizado |
+| **9. Replanificación** | Cerrar el tick: qué queda descartado para la sesión y qué se vuelve plausible después | Historial actualizado, contexto del tick | Narrativa de la sesión actualizada, que vuelve a entrar al siguiente tick vía historial |
+
+La cadena conceptual anterior (`Observar → Enmarcar → Seleccionar → Ponderar → Decidir → Actuar y registrar → Re-planificar`) se conserva como resumen: **Observar** cubre el origen de inputs y la validación; **Enmarcar** es la construcción de contexto; **Seleccionar candidatos** es el filtro de elegibilidad; **Ponderar** y **Decidir** mapean 1:1 a ponderación y decisión; **Actuar y registrar** une ejecución + persistencia; **Re-planificar** es la replanificación.
+
+### Entradas y salidas del motor (diagrama de diseño)
+
+**Tabla de inputs**, agrupados por categoría. La columna "Oblig." marca si el motor necesita el input para funcionar (**obligatorio**) o si solo lo enriquece cuando está disponible (opcional).
+
+| Categoría | Input | Oblig. | Rol |
+|---|---|---|---|
+| Simulador | Telemetría (fase, altitud MSL/AGL, IAS, GS, VS, heading, motores, tierra/aire, N1/throttle, flaps) | **Obligatorio** | Contexto real del tick; sin datos coherentes el tick se salta (`NoAction`) |
+| Simulador | Disponibilidad de datos coherentes (`HasSimulatorData`) | **Obligatorio** | Puerta de entrada de la evaluación: solo se procesa telemetría validada por rangos físicos |
+| Simulador | Conexión Fenix + SimConnect | **Obligatorio** | Habilita/inhabilita evaluación y armado |
+| Aeronave | Modelo de la aeronave (`UserAircraft`, sistemas asociados) | Opcional | Contexto de qué sistemas existen y su historial de uso (pendiente de conexión al motor) |
+| Aeronave | Desgaste de sistemas (`AircraftSystemWear`, delta por vuelo) | Opcional | Factor de plausibilidad por sistema y amplificación de probabilidad (`base × (1 + factor × wear/100)`); pendiente de implementación |
+| Aeronave | Configuración y uso en vuelo (flaps, tiempos de operación) | Opcional | Operación por sistema, hoy solo parcial vía telemetría |
+| Sesión/historial | Historial de la sesión (`SessionEventLog`, `TriggeredFailure`) | **Obligatorio** | Memoria operativa: qué pasó, qué no se repite, narrativa |
+| Sesión/historial | Estado de la sesión (fase actual, `ActiveFailureCount`, `LastTriggeredAtUtc`, presets disponibles) | **Obligatorio** | Estado mutado por el engine entre ticks, reentrante a cada evaluación |
+| Sesión/historial | Reloj de cooldown y máx. fallas simultáneas | **Obligatorio** | Restricciones de la decisión (hoy constantes; pendiente configuración) |
+| Plan de vuelo | OFP / flightplan (SimBrief: flight log, fuel, pesajes, TLR, routing, weather) | Opcional | Planificación previa: ventanas esperadas de fase/altitud/tiempo que orientan la selección de candidatos; **no es oráculo** |
+| Plan de vuelo | Plan vigente y desvíos en vuelo (re-consulta) | Opcional | Ciclo de vida del plan en cambios de ruta (abierta, ver preguntas de diseño 2 y 4) |
+| Entorno | Clima (METAR/TAF de origen, destino y alterno) | Opcional | Plausibilidad climática; el motor hoy no tiene telemetría de clima |
+| Entorno | Condiciones de aeropuerto (NOTAMs, infraestructura) | Opcional | Fuente potencial de escenarios; texto libre difícil de correlacionar, no prioritario ahora |
+| Reglas/configuración | Catálogo / presets realistas | **Obligatorio** | Define candidatos por fase y pesos de selección |
+| Reglas/configuración | Reglas de severidad y condiciones de los presets (altitud, IAS, tiempo, evento previo) | **Obligatorio** | Filtro físico/narrativo de candidatos |
+| Reglas/configuración | Constantes del modo (probabilidad base, cooldown, máx. simultáneas, multiplicadores de riesgo) | **Obligatorio** | Probabilidad y límites de disparo del tick (hoy `const`; pendiente configuración) |
+| Reglas/configuración | Incompatibilidades entre fallas | Opcional | Evita fallas mutuamente excluyentes simultáneas (pendiente) |
+| Manual user input | Preferencias de riesgo del usuario | Opcional | Intensidad buscada (hoy los multiplicadores de riesgo) |
+| Manual user input | Selección de aeronave/presets al iniciar la sesión | Opcional | Define el alcance de candidatos de la sesión |
+| Manual user input | Pausa/reanudación manual de la sesión | Opcional | Control de la ventana de evaluación (hoy no hay auto-resume) |
+
+**Tabla de outputs**, separados por tipo de salida.
+
+| Tipo de salida | Elemento | Qué contiene / hacia dónde va |
+|---|---|---|
+| **Operativa** | Decisión del tick (armar / posponer / no armar) | Resultado de la fase de decisión; alimenta la ejecución y la UI en tiempo real |
+| **Operativa** | Comando de armado/desarme | Decisión materializada en la API Fenix (una falla armada o desarmada en el simulador) |
+| **Persistencia** | `TriggeredFailure` (snapshot de la condición) | Registro durable de la falla disparada con el detalle del preset/condición al momento del disparo |
+| **Persistencia** | `SessionEventLog` (append-only) | Trazabilidad de la sesión: inicio/fin, motores, fases, altitud y fallas; enlazado a la `TriggeredFailure` cuando corresponde |
+| **Persistencia** | Estado de sesión actualizado | Fase, `ActiveFailureCount`, `LastTriggeredAtUtc`, cooldown — entrada del siguiente tick |
+| **Explicación/diagnóstico** | Explicación de la decisión (piloto) | Por qué falló esto y por qué ahora: candidatos, plausibilidad y reglas que llevaron a la decisión (pendiente de diseño, ver preguntas 1 y 5) |
+| **Explicación/diagnóstico** | Log / trazabilidad de desarrollo | Qué se vio, qué se descartó y por qué en cada fase; soporte a calibración y depuración (hoy logs de diagnóstico) |
+
+### Relación entre inputs y outputs
+
+- **Elegibilidad** — qué candidatos entran a la selección: reglas de severidad y condiciones de los presets, telemetría (fase, altitud, IAS, tiempo), historial (cooldown, no repetir, máx. simultáneas), plan de vuelo (ventanas esperadas) e incompatibilidades (pendiente). Si el tick no pasa la validación, aquí no llega nada.
+- **Ponderación** — cuánto pesa cada candidato elegible: `Probability` del preset (peso de selección relativo), plausibilidad calculada (contexto + historial + objetivo), desgaste de aeronave (pendiente) y objetivo/preferencias del modo.
+- **Decisión/ejecución** — las constantes del modo (probabilidad de disparo, cooldown, máx. simultáneas) y la conexión Fenix determinan si la salida operativa es armar, posponer o no armar.
+- **Explicación** — qué se le cuenta al piloto y al desarrollador: lo descartado en el filtro y la ponderación (por qué *no*), y la decisión con su trazabilidad (por qué *sí* y por qué ahora). La explicación es una salida derivada de las fases 4, 5 y 6, no un input.
+
+### Planificación previa vs reevaluación en tiempo real
+
+El OFP/flightplan describe el vuelo **esperado** (fases, altitudes, tiempos, puntos) y sirve como planificación previa: permite anticipar ventanas plausibles ("despegue entre T+5 y T+10", "crucero a FL350") y descartar temprano escenarios que el plan no contempla. Es una **entrada de orientación para la selección de candidatos**, no una fuente de verdad sobre lo que está pasando.
+
+Pero el OFP **orienta, no manda**: cada decisión se re-evalúa contra el contexto real de cada tick (fase del detector, telemetría, estado del avión). Si la realidad se desvía del plan (retraso, espera en tierra, desvío, motores apagados), manda el hecho observado y el plan queda degradado a referencia. Regla propuesta: *el OFP declara la intención; la telemetría declara el hecho; el historial declara la memoria; el objetivo declara la dirección; ante conflicto, manda el hecho*.
+
+### SimBrief / OFP como fuente de planificación (ejemplo de respuesta real)
+
+Análisis de una **respuesta real de SimBrief** (OFP/flightplan) tomada de la URL pública `https://www.simbrief.com/api/xml.fetcher.php?username=R3M1X0101`, como ejemplo concreto de los datos que devuelve ese servicio y de su valor potencial como entrada de planificación para el modo Realistic. Complementa la subsección anterior ("el OFP orienta, no manda") documentando **qué contiene una respuesta real**, no cómo se integraría.
+
+**Bloques que devuelve la respuesta**
+
+- **Encabezado OFP** — identidad del vuelo: callsign, fecha, ruta (p. ej. SBGL-SUMU), tipo/aeronave, registro, hora de release, ATC callsign, viento medio, etc.
+- **Pesajes** — MTOW, LAW y ZFW máximos y estimados (en el ejemplo: TOW 60309 / LAW 54513 / ZFW 51912).
+- **Fuel** — TRIP, CONT 5%, ALTN, FINRES, MINIMUM T/OFF FUEL, TAXI y BLOCK FUEL (8627 en el ejemplo).
+- **Routing** — camino de la ruta, p. ej. `SBGL/10 TIVRO1A BITAK UN857 NELOX UM424 TOLEP UM661 TOSIB DCT SUMU/19`.
+- **Flight log** — tabla por waypoint/tramo con columnas de performance/posición (FL, MN, WIND, OAT, EFOB, TAS, GS, DIS, RDIS, EET, ETO, LAT/LONG, etc.) y combustible estimado a lo largo de la ruta.
+- **Weather** — METAR/TAF de origen, destino y alterno.
+- **TLR (takeoff/landing report)** — pista, temperatura, viento, QNH, pesos, flaps, limitaciones y remarks de despegue/aterrizaje.
+- **ATC flight plan** — FPL con equipment, DEP/ARR, ruta, PBN, DOF, REG, EET, SEL, CODE, OPR y RMK.
+- **NOTAMs** — avisos breves para los aeropuertos de la operación.
+
+**Qué aporta cada bloque**
+
+| Bloque | Qué aporta | Utilidad potencial para el motor |
+|---|---|---|
+| Encabezado OFP | Identidad del vuelo (callsign, fecha, ruta, registro, release) | Contexto operacional de la sesión; incidencia directa baja en la selección de fallas |
+| Pesajes | MTOW/LAW/ZFW y pesos estimados | Umbrales físicos y márgenes de performance como contexto de plausibilidad |
+| Fuel | Combustible por tramo (trip, contingencias, alterno, final, mínimo, taxi, bloque) | Ventanas esperadas de autonomía/reserva; contexto para fallas de combustible |
+| Routing | Camino de la ruta (SID/STAR, airways, DCT, pistas) | Geometría del plan: relación entre fases, puntos y el flight log |
+| Flight log | Perfil esperado por waypoint: FL, viento, OAT, EFOB, TAS/GS, tiempos y distancias | **La más rica para el motor**: ventanas esperadas de fase/altitud/tiempo y evolución del combustible |
+| Weather | METAR/TAF de origen, destino y alterno | Plausibilidad climática (limitada: el motor hoy no tiene telemetría de clima) |
+| TLR | Perfil esperado de despegue/aterrizaje: pista, viento, QNH, pesos, flaps, límites | Contexto esperado de las fases terrestres (Takeoff/Landing) |
+| ATC flight plan | Plan de vuelo ATC: equipment, PBN, DOF, REG, EET, SEL, CODE, OPR, RMK | Cross-check operacional; secundario para la selección de fallas |
+| NOTAMs | Avisos breves por aeropuerto (infraestructura, servicios) | Fuente potencial de escenarios; texto libre difícil de correlacionar automáticamente |
+
+**Valor por prioridad para el motor**
+
+| Categoría | Bloques | Razón |
+|---|---|---|
+| **Muy útil** | Flight log, Fuel, Pesajes, TLR | Definen perfiles esperados (fases, altitudes, tiempos, autonomía) y umbrales físicos que orientan directamente la plausibilidad de candidatos |
+| **Útil pero secundario** | Routing, Weather, Encabezado OFP, ATC flight plan | Dan contexto operacional y estructural, pero con incidencia indirecta o dependiente de datos que el motor hoy no tiene (p. ej. clima) |
+| **No prioritario ahora** | NOTAMs | Texto libre difícil de parsear/correlacionar con valor inmediato para la selección de fallas |
+
+**Nota de alcance** — El análisis del uso de estos datos **como input al comenzar el modo realista** (integración concreta, parsing, carga al inicio de la sesión) queda **fuera de alcance** de esta investigación: aquí solo se documenta qué devuelve la respuesta y su valor potencial.
+
+### Preguntas de diseño abiertas
+
+1. ¿Cómo se representa la **plausibilidad** como valor combinable (contexto × historial × objetivo) sin que la decisión pierda explicabilidad ni se vuelva una caja cerrada?
+2. ¿El OFP se integra como modelo **estático al iniciar la sesión** o puede re-consultarse/cambiarse en vuelo (modificación de plan, desvío)?
+3. ¿El historial debe influir solo como **frecuencia** (cooldown, no repetir) o también como **narrativa** (no repetir sistema en la misma sesión, escalar severidad)?
+4. Cuando la realidad contradice el OFP (retraso, desvío, avión parado), ¿el engine **re-planifica sobre la marcha**, descarta el plan restante o pausa los candidatos condicionados al plan?
+5. ¿Qué nivel de **explicación** de la decisión se le da al piloto (por qué falló esto y por qué ahora) en la UI/log, y qué nivel al desarrollador (depuración y calibración)?
+
 ## Limitaciones restantes (no resueltas)
 
 1. **Fallas de Training/Custom fuera del feed de eventos** — el log en pantalla (`MainWindowViewModel.LogEntries`) solo recibe eventos del detector; las fallas disparadas por los modos Training/Custom no llegan a ese feed. Referencia: `MainWindowViewModel.FlightEventDetector_FlightEventDetected`.
@@ -144,7 +297,3 @@ Cambio aplicado y verificado por builds focalizados y tests (55/55); verificaci�
 5. **Auto-resume** — no implementado (ver "Pendiente").
 6. **Integración real MSFS/Fenix sin verificar** — builds y tests no reemplazan la prueba manual.
 7. **Historial persistido solo en el modo Realistic** — `FlightSession`, `SessionEventLog` y `TriggeredFailure` solo se crean desde `RealisticSessionEngine` durante sesiones Realistic; los modos Training/Custom no persisten sesiones ni historial (igual que antes de este cambio).
-## Notas
-
-- El `prompt1.md` original era diseño inicial; ante cualquier conflicto entre ambos, manda este documento + el código.
-- Detalles de integraciones: [integraciones/simconnect.md](../integraciones/simconnect.md) y [integraciones/fenix-api.md](../integraciones/fenix-api.md).

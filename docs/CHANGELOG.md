@@ -36,6 +36,107 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 
 
+### 2026-10-16 — Diagrama Mermaid del flujo del motor realista (documentación)
+
+**Qué**
+
+- Cambio de **documentación/diseño** (sin cambios de código): se agrega un **diagrama Mermaid** a `docs/realistic-mode/estado-y-diseno.md`, justo después del título "Proceso mental del engine (flujo propuesto)", que visualiza el flujo principal por fases (`Origen de inputs → Validación → Construcción de contexto → Filtro de elegibilidad → Ponderación → Decisión → Ejecución → Persistencia/feedback → Replanificación`) con dos desvíos explícitos: **Validación → NoAction** cuando faltan datos coherentes y **Persistencia/feedback → Replanificación (siguiente tick)** que cierra el ciclo hacia el siguiente tick.
+- El diagrama es solo un **apoyo visual** del flujo ya documentado: no cambia el contenido conceptual de la sección ni introduce lógica de implementación nueva; el resto del documento no se tocó.
+
+**Por qué**
+
+- El usuario pidió un diagrama Mermaid que visualice el flujo del motor realista ya documentado en la sección de diseño, como apoyo visual, manteniendo el resto del documento intacto.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md` — inserción del diagrama Mermaid en "Proceso mental del engine (flujo propuesto)" (el resto del contenido no se tocó).
+- `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación/diseño, sin cambios de código (no aplica build/test).
+
+### 2026-10-16 — Afinación del diagrama del motor realista: flujo por fases, inputs por categorías y outputs (documentación)
+
+**Qué**
+
+- Cambio de **documentación/diseño** (sin cambios de código): se refina la sección de investigación/diseño del modo Realistic en `docs/realistic-mode/estado-y-diseno.md`:
+  - "Proceso mental del engine (flujo propuesto)": la cadena conceptual se convierte en un **flujo principal por fases** concreto, usable como diagrama de diseño — `Origen de inputs → Validación → Construcción de contexto → Filtro de elegibilidad → Ponderación → Decisión → Ejecución → Persistencia/feedback → Replanificación` — con tabla por fase (qué hace / qué consume / qué produce) y el mapeo a la cadena previa (`Observar → …`) conservado como resumen.
+  - "Entradas y salidas del motor": la tabla de inputs se amplía y se agrupa por categorías (**simulador, aeronave, sesión/historial, plan de vuelo, entorno, reglas/configuración, manual user input**), marcando **obligatorio vs opcional** en cada fila; la tabla de outputs ahora distingue **salida operativa** (armar/desarmar/posponer), **persistencia** (session log / triggered failure) y **explicación/diagnóstico**.
+  - Nueva mini-sección "Relación entre inputs y outputs": qué inputs influyen en **elegibilidad**, cuáles en **ponderación** y cuáles en la **explicación**.
+- El análisis de la respuesta real de SimBrief/OFP se conserva íntegro (sigue siendo el contexto de planificación previa); no se introduce diseño de integración concreta: todo sigue siendo propuesta conceptual.
+- `docs/CHANGELOG.md` se actualiza con esta entrada.
+
+**Por qué**
+
+- El usuario pidió "volver a lo importante": dejar el diagrama de flujos y decisiones del motor realista con todos los inputs para generar los outputs más concreto y accionable como base de diseño, refinando la sección de investigación/diseño existente en lugar de rehacer el documento.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md` — reemplazo/ampliación de los bloques "Proceso mental del engine (flujo propuesto)" y "Entradas y salidas del motor" dentro de la sección de investigación/diseño (el resto del contenido no se tocó).
+- `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación/diseño, sin cambios de código (no aplica build/test).
+
+**Pendiente / Limitación**
+
+- La sección sigue siendo investigación/diseño, no comportamiento implementado; el comportamiento vigente del modo es el de "Implementado" en `estado-y-diseno.md`.
+- Siguen abiertas las preguntas de diseño listadas en la sección (plausibilidad combinable, ciclo de vida del OFP, historial como narrativa, re-planificación ante desvíos y explicabilidad de la decisión).
+
+### 2026-10-16 — Análisis de respuesta real de SimBrief/OFP como fuente de planificación (documentación)
+
+**Qué**
+
+- Cambio de **documentación** (sin cambios de código): se analizó una **respuesta real de SimBrief** (OFP/flightplan) tomada de la URL pública `https://www.simbrief.com/api/xml.fetcher.php?username=R3M1X0101` y se documentó el análisis en `docs/realistic-mode/estado-y-diseno.md` como subsección nueva dentro de la sección de investigación/diseño ("SimBrief / OFP como fuente de planificación (ejemplo de respuesta real)"), ubicada junto a la parte de planificación previa/inputs.
+- La subsección documenta los **bloques que devuelve la respuesta** (encabezado OFP, pesajes, fuel, routing, flight log, weather, TLR, ATC flight plan y NOTAMs), qué aporta cada bloque y su utilidad potencial para el motor (tabla de tres columnas), y una clasificación corta por valor: **muy útil** (flight log, fuel, pesajes, TLR), **útil pero secundario** (routing, weather, encabezado OFP, ATC flight plan) y **no prioritario ahora** (NOTAMs).
+- **Alcance explícito**: el uso de esos datos **como input al comenzar el modo realista** (integración concreta) queda **fuera de alcance** de esta investigación; solo se documenta el análisis de los datos devueltos y su valor potencial.
+- `docs/CHANGELOG.md` se actualiza con esta entrada.
+
+**Por qué**
+
+- El rol del OFP/flightplan como entrada de planificación previa ya estaba identificado en la sección de investigación/diseño; con una respuesta real de SimBrief se documenta concretamente qué datos devuelve el servicio y cuáles tienen más valor potencial para el motor.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md` — subsección nueva dentro de "Investigación y diseño" (inserción; el resto del contenido no se tocó).
+- `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación, sin cambios de código (no aplica build/test).
+
+**Pendiente / Limitación**
+
+- No se diseñó la integración concreta del OFP al iniciar el modo realista; queda fuera de alcance de esta investigación.
+- El análisis se basa en una única respuesta de ejemplo (un OFP de SimBrief para SBGL-SUMU, A320); no es una especificación del formato completo de la API.
+
+### 2026-10-16 — Investigación y diseño del modo Realistic: meta, bloques del engine y rol del OFP
+
+**Qué**
+
+- Cambio de **documentación/diseño** (sin cambios de código): se agrega en `docs/realistic-mode/estado-y-diseno.md` una sección de investigación/diseño entre "Decisiones abiertas" y "Limitaciones restantes". Incluye: objetivo del modo realista; tabla de capas de pensamiento del engine (contexto de vuelo, estado del avión, historial de sesión, plausibilidad, objetivo) con "qué piensa / qué necesita"; flujo numerado del proceso mental (observar → enmarcar → seleccionar → ponderar → decidir → actuar y registrar → re-planificar); tabla de inputs obligatorios/opcionales y outputs con el **OFP/flightplan como entrada de planificación previa** (no oráculo); subsección "Planificación previa vs reevaluación en tiempo real" (el OFP orienta, no manda); y 5 preguntas de diseño abiertas.
+- `docs/CHANGELOG.md` se actualiza con esta entrada.
+
+**Por qué**
+
+- El usuario quiere abrir una línea de investigación/diseño del modo Realistic (diagramas y tablas) y documentarla sin tocar código; la discusión se separa del estado implementado para no confundir comportamiento vigente con propuestas.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md` — sección nueva de investigación/diseño (inserción; el resto del contenido no se tocó).
+- `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación/diseño, sin cambios de código (no aplica build/test).
+
+**Pendiente / Limitación**
+
+- La sección es investigación/diseño y no describe comportamiento implementado; el comportamiento vigente del modo es el de "Implementado" en `estado-y-diseno.md`.
+- Quedan abiertas las preguntas de diseño listadas en la sección (plausibilidad combinable, ciclo de vida del OFP, historial como narrativa, re-planificación ante desvíos, explicabilidad de la decisión).
+
 ### 2026-10-16 — Ventana de configuración con pestañas, preferencias de usuario (ID SimBrief) y eliminación del botón Refresh
 
 **Qué**
