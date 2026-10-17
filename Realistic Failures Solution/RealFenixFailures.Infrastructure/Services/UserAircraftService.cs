@@ -7,6 +7,10 @@ using RealFenixFailures.Infrastructure.Persistence;
 namespace RealFenixFailures.Infrastructure.Services;
 
 public class UserAircraftService : IUserAircraftService {
+    private const int MaxRegistrationLength = 10;
+
+    private static readonly string[] AllowedIcaoTypes = ["A319", "A320", "A321"];
+
     private readonly RealFenixDbContext _dbContext;
 
     public UserAircraftService(RealFenixDbContext dbContext) {
@@ -18,8 +22,16 @@ public class UserAircraftService : IUserAircraftService {
     // -------------------------------------------------------------------------
 
     public async Task<UserAircraftDto> CreateAsync(CreateUserAircraftRequest request, CancellationToken ct) {
+        var registration = request.Registration.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(registration) || registration.Length > MaxRegistrationLength) {
+            throw new ArgumentException($"La matrícula debe tener entre 1 y {MaxRegistrationLength} caracteres.", nameof(request));
+        }
+        if (!AllowedIcaoTypes.Contains(request.IcaoTypeCode)) {
+            throw new ArgumentException("El tipo ICAO debe ser uno de: A319, A320, A321.", nameof(request));
+        }
+
         var aircraft = new UserAircraft {
-            Registration = request.Registration,
+            Registration = registration,
             IcaoTypeCode = request.IcaoTypeCode,
             CreatedAt = DateTime.UtcNow
         };
@@ -51,6 +63,8 @@ public class UserAircraftService : IUserAircraftService {
         var aircrafts = await _dbContext.UserAircrafts
             .AsNoTracking()
             .Include(x => x.FlightSessions)
+            .Include(x => x.SystemWears)
+                .ThenInclude(x => x.WearableSystem)
             .ToListAsync(ct);
 
         return aircrafts.Select(ToDto).ToArray();

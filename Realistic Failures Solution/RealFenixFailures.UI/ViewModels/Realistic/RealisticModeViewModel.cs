@@ -10,11 +10,10 @@ using System.ComponentModel;
 namespace RealFenixFailures.UI.ViewModels.Realistic;
 
 /// <summary>
-/// ViewModel del flujo completo del Modo Realista (4 pasos):
+/// ViewModel del flujo completo del Modo Realista (3 pasos):
 ///   1) Selección/Creación de aeronave
 ///   2) Dashboard de la aeronave (stats, desgaste, historial)
-///   3) Selección de nivel de riesgo
-///   4) Activación con validaciones reactivas
+///   3) Preparación y monitoreo (perfil, requisitos, OFP pendiente, activación)
 /// Consume IUserAircraftService (CRUD + desgaste) y IEngineOrchestrator
 /// (estado de conexión / fase de vuelo / arranque del motor de fallas).
 /// </summary>
@@ -30,6 +29,11 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     private int _currentStep = 1;
     private bool _isLoading;
+
+    private static readonly string[] AllowedIcaoTypes = ["A319", "A320", "A321"];
+    private bool _isEngineActive;
+    private bool _stopConfirmationVisible;
+    private bool _isOperationPending;
 
     // Paso 1
     private UserAircraftItemViewModel? _selectedAircraft;
@@ -52,6 +56,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private bool _isSessionPaused;
     private ComplexFlightPhaseEnum currentFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private SimpleFlightPhaseEnum simpleFlightPhase = SimpleFlightPhaseEnum.Disconnected;
+    private bool _isVatsimConfirmVisible;
+    private TaskCompletionSource<bool>? _vatsimConfirmTcs;
     #endregion
 
     #region Constructor
@@ -71,28 +77,30 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         Sessions = new ObservableCollection<FlightSessionItemViewModel>();
         LiveTriggeredFailures = new ObservableCollection<string>();
 
-        SelectAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await SelectAircraftAsync(a));
+        SelectAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await SelectAircraftAsync(a), _ => !IsEngineActive && !IsOperationPending);
         DeleteAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await DeleteAircraftAsync(a));
         ToggleCreateFormCommand = new RelayCommand(() => ShowCreateForm = !ShowCreateForm);
         CreateAircraftCommand = new RelayCommand(async () => await CreateAircraftAsync(), () => CanCreateAircraft);
         RefreshAircraftCommand = new RelayCommand(async () => await LoadAircraftAsync());
 
-        BackToStep1Command = new RelayCommand(() => CurrentStep = 1);
-        ContinueToRiskCommand = new RelayCommand(() => CurrentStep = 3, () => SelectedAircraft is not null);
-        BackToStep2Command = new RelayCommand(() => CurrentStep = 2);
-        ContinueToActivateCommand = new RelayCommand(() => CurrentStep = 4, () => SelectedRiskLevel.HasValue);
-        BackToStep3Command = new RelayCommand(() => CurrentStep = 3);
+        BackToStep1Command = new RelayCommand(() => CurrentStep = 1, () => !IsEngineActive && !IsOperationPending);
+        ContinueToPrepCommand = new RelayCommand(() => CurrentStep = 3, () => SelectedAircraft is not null && !IsEngineActive && !IsOperationPending);
+        BackToStep2Command = new RelayCommand(() => CurrentStep = 2, () => !IsEngineActive && !IsOperationPending);
 
-        SelectRiskCommand = new RelayCommand<string>(SelectRisk);
+        SelectRiskCommand = new RelayCommand<string>(SelectRisk, _ => !IsEngineActive && !IsOperationPending);
+        ConfirmVatsimStartCommand = new RelayCommand(() => _vatsimConfirmTcs?.TrySetResult(true));
+        CancelVatsimStartCommand = new RelayCommand(() => _vatsimConfirmTcs?.TrySetResult(false));
         ToggleSessionCommand = new RelayCommand<FlightSessionItemViewModel>(ToggleSession);
 
-        ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => CanActivate || IsEngineActive);
-        ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused);
+        ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => (CanActivate || IsEngineActive) && !IsOperationPending);
+        ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused && !IsOperationPending);
+        CancelStopCommand = new RelayCommand(() => StopConfirmationVisible = false, () => !IsOperationPending);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
         IsSessionPaused = _realisticSessionManager.IsPaused;
+        IsEngineActive = _orchestrator.IsEngineActive;
         SyncConnectionFromOrchestrator();
     }
     #endregion
@@ -105,14 +113,15 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand CreateAircraftCommand { get; }
     public RelayCommand RefreshAircraftCommand { get; }
     public RelayCommand BackToStep1Command { get; }
-    public RelayCommand ContinueToRiskCommand { get; }
+    public RelayCommand ContinueToPrepCommand { get; }
     public RelayCommand BackToStep2Command { get; }
-    public RelayCommand ContinueToActivateCommand { get; }
-    public RelayCommand BackToStep3Command { get; }
     public RelayCommand<string> SelectRiskCommand { get; }
     public RelayCommand<FlightSessionItemViewModel> ToggleSessionCommand { get; }
     public RelayCommand ActivateCommand { get; }
     public RelayCommand ResumeSessionCommand { get; }
+    public RelayCommand CancelStopCommand { get; }
+    public RelayCommand ConfirmVatsimStartCommand { get; }
+    public RelayCommand CancelVatsimStartCommand { get; }
 
     #endregion
 
@@ -134,7 +143,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsStep1));
                 OnPropertyChanged(nameof(IsStep2));
                 OnPropertyChanged(nameof(IsStep3));
-                OnPropertyChanged(nameof(IsStep4));
             }
         }
     }
@@ -142,7 +150,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool IsStep1 => CurrentStep == 1;
     public bool IsStep2 => CurrentStep == 2;
     public bool IsStep3 => CurrentStep == 3;
-    public bool IsStep4 => CurrentStep == 4;
 
     public bool IsLoading {
         get => _isLoading;
@@ -159,7 +166,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (SetProperty(ref _selectedAircraft, value)) {
                 OnPropertyChanged(nameof(HasSelectedAircraft));
                 OnPropertyChanged(nameof(SelectedAircraftTitle));
-                ContinueToRiskCommand.RaiseCanExecuteChanged();
+                ContinueToPrepCommand.RaiseCanExecuteChanged();
                 RaiseActivationState();
             }
         }
@@ -193,9 +200,14 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
-    public bool CanCreateAircraft =>
-        !string.IsNullOrWhiteSpace(NewRegistration) &&
-        !string.IsNullOrWhiteSpace(NewIcaoTypeCode);
+    public IReadOnlyList<string> IcaoOptions => AllowedIcaoTypes;
+
+    public bool CanCreateAircraft {
+        get {
+            var registration = NewRegistration.Trim().ToUpperInvariant();
+            return registration.Length is > 0 and <= 10 && AllowedIcaoTypes.Contains(NewIcaoTypeCode);
+        }
+    }
 
     #endregion
 
@@ -220,7 +232,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsRiskHighSelected));
                 OnPropertyChanged(nameof(HasSelectedRisk));
                 OnPropertyChanged(nameof(SelectedRiskDisplay));
-                ContinueToActivateCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(HeaderProfileDisplay));
                 RaiseActivationState();
             }
         }
@@ -238,9 +250,20 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _ => "—"
     };
 
+    public string HeaderProfileDisplay => SelectedRiskLevel.HasValue ? SelectedRiskDisplay : "Sin perfil";
+
+    public string RiskProfileButtonText => HasSelectedRisk ? "Cambiar perfil" : "Elegir perfil";
+
+    public bool CanChangeProfile => !IsEngineActive && !IsOperationPending;
+
+    public bool IsVatsimConfirmVisible {
+        get => _isVatsimConfirmVisible;
+        private set => SetProperty(ref _isVatsimConfirmVisible, value);
+    }
+
     #endregion
 
-    #region Step 4 — activation & validations
+    #region Step 3 — activación, OFP y validaciones
 
     public bool IsSimConnected {
         get => _isSimConnected;
@@ -305,19 +328,48 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
-    public bool IsEngineActive => _orchestrator.IsEngineActive;
+    public bool IsEngineActive {
+        get => _isEngineActive;
+        private set {
+            if (SetProperty(ref _isEngineActive, value)) {
+                OnPropertyChanged(nameof(SessionStatusDisplay));
+                RaiseActivationState();
+            }
+        }
+    }
+
+    public bool OfpValidated => false;
+
+    public string RouteDisplay => "No registrada";
+
+    public string OfpStatusDisplay => "Pendiente · Sin backend";
+
+    public string SessionStatusDisplay {
+        get {
+            if (IsSessionPaused) return "Evaluación suspendida";
+            if (IsEngineActive) return "Activa";
+            return "Sin sesión";
+        }
+    }
 
     public bool IsOnGround => SimpleFlightPhase == SimpleFlightPhaseEnum.OnGround;
 
+    public bool StopConfirmationVisible {
+        get => _stopConfirmationVisible;
+        set => SetProperty(ref _stopConfirmationVisible, value);
+    }
+
     /// <summary>
-    /// La sesión realista está pausada (p. ej. por pérdida de datos del simulador); habilita REANUDAR SESIÓN.
+    /// La sesión realista está pausada (p. ej. por pérdida de datos del simulador); habilita REANUDAR EVALUACIÓN.
     /// Refleja <c>IRealisticSessionManager.IsPaused</c> vía PropertyChanged.
     /// </summary>
     public bool IsSessionPaused {
         get => _isSessionPaused;
         private set {
-            if (SetProperty(ref _isSessionPaused, value))
+            if (SetProperty(ref _isSessionPaused, value)) {
                 ResumeSessionCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(SessionStatusDisplay));
+            }
         }
     }
 
@@ -329,6 +381,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         !IsEngineActive &&
         SelectedAircraft is not null &&
         SelectedRiskLevel.HasValue &&
+        OfpValidated &&
         IsSimConnected &&
         IsFenixConnected &&
         HasAircraftData &&
@@ -339,7 +392,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         get {
             if (IsEngineActive) return string.Empty;
             if (SelectedAircraft is null) return "Seleccioná una aeronave para continuar.";
-            if (!SelectedRiskLevel.HasValue) return "Seleccioná un nivel de riesgo.";
+            if (!SelectedRiskLevel.HasValue) return "Seleccioná un perfil de riesgo.";
+            if (!OfpValidated) return "OFP pendiente: el plan de vuelo operacional es obligatorio y su validación aún no tiene backend. La activación queda bloqueada hasta contar con un OFP validado.";
             if (!IsSimConnected || !IsFenixConnected) return "Conectá MSFS 2024 y el sistema Fenix A320.";
             if (!HasAircraftData) return "MSFS conectado pero sin datos de aeronave disponibles.";
             if (!IsOnGround) return $"Solo se puede activar en tierra (fase actual: {CurrentFlightPhaseDisplay}).";
@@ -349,7 +403,20 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public bool HasActivationBlockReason => !string.IsNullOrEmpty(ActivationBlockReason);
 
-    public string ActivateButtonText => IsEngineActive ? "DETENER MODO REALISTA" : "ACTIVAR MODO REALISTA";
+    public string ActivateButtonText =>
+        IsOperationPending ? "PROCESANDO..." :
+        IsEngineActive ? "DETENER MODO REALISTA" : "ACTIVAR MODO REALISTA";
+
+    public string ActionToolTip => IsEngineActive
+        ? "Termina la sesión e intenta desactivar las fallas en Fenix; confirma en vuelo. Comprobá las fallas manualmente si la API no responde."
+        : ActivationBlockReason;
+
+    public bool IsOperationPending {
+        get => _isOperationPending;
+        private set {
+            if (SetProperty(ref _isOperationPending, value)) RaiseActivationState();
+        }
+    }
 
     #endregion
 
@@ -407,7 +474,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         try {
             var created = await _aircraftService.CreateAsync(
                 new CreateUserAircraftRequest {
-                    Registration = NewRegistration,
+                    Registration = NewRegistration.Trim().ToUpperInvariant(),
                     IcaoTypeCode = NewIcaoTypeCode,
                 },
                 CancellationToken.None);
@@ -465,13 +532,23 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private async Task ActivateOrStopAsync() {
+        if (IsOperationPending) return;
+        IsOperationPending = true;
         try {
             if (IsEngineActive) {
+                if (!IsOnGround && !StopConfirmationVisible) {
+                    StopConfirmationVisible = true;
+                    return;
+                }
+                StopConfirmationVisible = false;
                 await _orchestrator.StopCurrentModeAsync(CancellationToken.None);
                 _logger.LogInformation("Modo Realista detenido.");
                 return;
             }
 
+            if (!CanActivate || SelectedAircraft is null || !SelectedRiskLevel.HasValue) return;
+
+            if (!await ConfirmVatsimStartAsync()) return;
             if (!CanActivate || SelectedAircraft is null || !SelectedRiskLevel.HasValue) return;
 
             LiveTriggeredFailures.Clear();
@@ -483,13 +560,24 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         } catch (Exception ex) {
             _logger.LogError(ex, "Error al activar/detener el Modo Realista.");
         } finally {
-            RaiseActivationState();
+            IsOperationPending = false;
+        }
+    }
+
+    private async Task<bool> ConfirmVatsimStartAsync() {
+        _vatsimConfirmTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        IsVatsimConfirmVisible = true;
+        try {
+            return await _vatsimConfirmTcs.Task;
+        } finally {
+            IsVatsimConfirmVisible = false;
+            _vatsimConfirmTcs = null;
         }
     }
 
     private void RealisticSessionManager_FailureTriggered(object? sender, FailureTriggeredEventArgs e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-            LiveTriggeredFailures.Insert(0, $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}  {e.Description}");
+            LiveTriggeredFailures.Insert(0, $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}  Enviada (sin confirmación)  ·  {e.Description}");
             while (LiveTriggeredFailures.Count > MaxLiveTriggeredFailures) {
                 LiveTriggeredFailures.RemoveAt(LiveTriggeredFailures.Count - 1);
             }
@@ -497,9 +585,11 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private void RealisticSessionManager_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(IRealisticSessionManager.IsPaused)) {
-            IsSessionPaused = _realisticSessionManager.IsPaused;
-        }
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+            if (e.PropertyName == nameof(IRealisticSessionManager.IsPaused)) {
+                IsSessionPaused = _realisticSessionManager.IsPaused;
+            }
+        });
     }
 
     private async Task ResumeSessionAsync() {
@@ -513,18 +603,16 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private void Orchestrator_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(IEngineOrchestrator.ConnectionStatus)) {
-            SyncConnectionFromOrchestrator();
-        } else if (e.PropertyName == nameof(IEngineOrchestrator.CurrentFlightPhase)) {
-            var phase = _orchestrator.CurrentFlightPhase;
-            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-                CurrentFlightPhase = phase;
-            });
-        } else if (e.PropertyName == nameof(IEngineOrchestrator.IsEngineActive) ||
-                   e.PropertyName == nameof(IEngineOrchestrator.CurrentMode)) {
-            OnPropertyChanged(nameof(IsEngineActive));
-            RaiseActivationState();
-        }
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+            if (e.PropertyName == nameof(IEngineOrchestrator.ConnectionStatus)) {
+                SyncConnectionFromOrchestrator();
+            } else if (e.PropertyName == nameof(IEngineOrchestrator.CurrentFlightPhase)) {
+                CurrentFlightPhase = _orchestrator.CurrentFlightPhase;
+            } else if (e.PropertyName == nameof(IEngineOrchestrator.IsEngineActive) ||
+                       e.PropertyName == nameof(IEngineOrchestrator.CurrentMode)) {
+                IsEngineActive = _orchestrator.IsEngineActive;
+            }
+        });
     }
 
     private void SyncConnectionFromOrchestrator() {
@@ -545,9 +633,19 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         OnPropertyChanged(nameof(ActivationBlockReason));
         OnPropertyChanged(nameof(HasActivationBlockReason));
         OnPropertyChanged(nameof(ActivateButtonText));
+        OnPropertyChanged(nameof(ActionToolTip));
+        OnPropertyChanged(nameof(CanChangeProfile));
+        OnPropertyChanged(nameof(RiskProfileButtonText));
         OnPropertyChanged(nameof(IsEngineActive));
         OnPropertyChanged(nameof(IsOnGround));
         ActivateCommand.RaiseCanExecuteChanged();
+        BackToStep1Command.RaiseCanExecuteChanged();
+        BackToStep2Command.RaiseCanExecuteChanged();
+        SelectAircraftCommand.RaiseCanExecuteChanged();
+        SelectRiskCommand.RaiseCanExecuteChanged();
+        ContinueToPrepCommand.RaiseCanExecuteChanged();
+        ResumeSessionCommand.RaiseCanExecuteChanged();
+        CancelStopCommand.RaiseCanExecuteChanged();
     }
 
     #endregion

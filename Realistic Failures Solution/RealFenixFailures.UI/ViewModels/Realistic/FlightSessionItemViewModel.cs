@@ -50,4 +50,6 @@ public sealed class FlightSessionItemViewModel : ObservableObject {
         : "En curso";
 
     public string FailureCountDisplay => FailureCount == 1 ? "1 falla" : $"{FailureCount} fallas";
+
+    public string OfpStatusDisplay => "No registrado";
 }

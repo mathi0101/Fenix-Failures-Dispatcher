@@ -1,6 +1,7 @@
 // RealFenixFailures.TestUnits/Services/UserAircraftServiceTests.cs
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Infrastructure.Persistence;
@@ -104,5 +105,93 @@ public class UserAircraftServiceTests {
         Assert.Equal(1, dashboard.Aircraft.TotalFlights);
         Assert.Equal(1.25, dashboard.Aircraft.TotalFlightHours, 3);
         Assert.Equal(1, dashboard.TotalFailuresTriggered);
+    }
+
+    [Fact]
+    public async Task CreateAsync_TrimsAndUppercasesRegistration() {
+        await using var db = CreateContext();
+        var service = new UserAircraftService(db);
+
+        var dto = await service.CreateAsync(
+            new CreateUserAircraftRequest { Registration = " lv-ab ", IcaoTypeCode = "A319" },
+            CancellationToken.None);
+
+        Assert.Equal("LV-AB", dto.Registration);
+        Assert.Equal("A319", dto.IcaoTypeCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsInvalidRegistrations() {
+        await using var db = CreateContext();
+        var service = new UserAircraftService(db);
+
+        var tooLong = new CreateUserAircraftRequest { Registration = "12345678901", IcaoTypeCode = "A320" };
+        var whitespaceOnly = new CreateUserAircraftRequest { Registration = "   ", IcaoTypeCode = "A320" };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.CreateAsync(tooLong, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.CreateAsync(whitespaceOnly, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsUnsupportedIcaoTypeCode() {
+        await using var db = CreateContext();
+        var service = new UserAircraftService(db);
+
+        var request = new CreateUserAircraftRequest { Registration = "LV-AB", IcaoTypeCode = "B738" };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.CreateAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_AcceptsAllSupportedIcaoTypeCodes() {
+        await using var db = CreateContext();
+        var service = new UserAircraftService(db);
+
+        foreach (var icao in new[] { "A319", "A320", "A321" }) {
+            var dto = await service.CreateAsync(
+                new CreateUserAircraftRequest { Registration = "LV-" + icao, IcaoTypeCode = icao },
+                CancellationToken.None);
+
+            Assert.Equal(icao, dto.IcaoTypeCode);
+        }
+    }
+
+    [Fact]
+    public async Task GetAllAsync_IncludesSystemWearsWithShortNameAndPercentage() {
+        await using var db = CreateContext();
+        var aircraft = new UserAircraft {
+            Registration = "LV-WEAR",
+            IcaoTypeCode = "A320",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.UserAircrafts.Add(aircraft);
+        db.SaveChanges();
+
+        var system = new AircraftWearableSystem {
+            Name = "Motores",
+            ShortName = "PROP",
+            DisplayOrder = 1
+        };
+        db.AircraftWearableSystems.Add(system);
+        db.SaveChanges();
+
+        db.AircraftSystemWears.Add(new AircraftSystemWear {
+            UserAircraftId = aircraft.Id,
+            WearableSystemId = system.Id,
+            WearPercentage = 42.5,
+            LastUpdatedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
+
+        var service = new UserAircraftService(db);
+        var result = await service.GetAllAsync(CancellationToken.None);
+
+        var dto = Assert.Single(result);
+        var wear = Assert.Single(dto.SystemsWear);
+        Assert.Equal("PROP", wear.SystemWear.ShortName);
+        Assert.Equal(42.5, wear.WearPercentage);
     }
 }

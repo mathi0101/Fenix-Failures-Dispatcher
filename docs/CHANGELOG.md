@@ -4,6 +4,55 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Ajuste de densidad y selector modal del front Realistic
+
+**Qué**
+
+- Paso 3: tarjetas paralelas para ruta/OFP y requisitos, rótulos/estados compactos, sin duplicar conexiones ni fase de la barra superior. Desplazamiento vertical con barra nativa oculta; pensamiento del motor visible solo durante sesión activa.
+- El requisito «Perfil» abre una ventana modal de cuatro perfiles expandibles: distingue topes y cadencia del diseño objetivo del motor vigente, indica público y uso VATSIM. Bajo/Moderado/Alto tienen selección provisional y botón Confirmar; Cancelar no cambia la elección; 7700 puede consultarse pero permanece no seleccionable.
+- El aviso VATSIM sale del cuerpo de la pantalla y se presenta como confirmación al intentar iniciar con requisitos válidos. Aclara la prioridad del controlador y que, hasta que exista pausa que desarme, hay que detener y revisar fallas en Fenix. Se recomienda terminar en tierra, sin prohibir detener en vuelo.
+- La validación OFP continúa ausente (`OfpValidated=false`): el intento de inicio y su confirmación VATSIM no son alcanzables todavía. No se implementaron backend OFP, pausa ni perfil 7700.
+
+**Por qué**
+
+- Aprovechar el espacio disponible y evitar tarjetas/avisos redundantes en preparación sin confundir capacidades objetivo con funciones existentes.
+
+**Áreas**
+
+- `RealFenixFailures.UI` — panel, ventana modal de perfiles y ViewModel; `docs/realistic-mode/` — diseño y estado.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug --nologo -v q`: 0 errores, 0 advertencias.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj -c Debug --no-build --nologo -v q`: 85/85.
+- `dotnet run --project RealFenixFailures.UI.csproj -c Debug --no-build` ejecutado desde el proyecto UI: se abrió la ventana principal y se navegó por UI Automation a Realista/paso 1. El primer intento desde la carpeta de solución no inició por ausencia de `appsettings.json` en ese directorio; se cerró y se ejecutó desde la carpeta correcta.
+- Pendiente de verificación manual: paso 3, ventana modal y diseño WPF a tamaño mínimo (no había aeronaves registradas en la sesión de prueba); la confirmación de inicio sigue bloqueada por la ausencia de validación OFP.
+
+### 2026-10-17 — Flujo de tres pasos del front Realistic y validación de aeronaves
+
+**Qué**
+
+- `RealisticModePanel` y `RealisticModeViewModel` pasan de cuatro pasos a tres: selección/registro de aeronave; resumen e historial; preparación y monitoreo en la misma pantalla. Se conserva el desglose de sistemas y se añade el promedio del desgaste registrado a la tarjeta de aeronave, con «Sin datos» cuando faltan filas; se indica sesión sin finalizar y «OFP: No registrado» en el historial (no existe campo OFP aún). La zona central es desplazable y deja accesibles las acciones inferiores.
+- Registro: matrícula de máximo 10 caracteres, normalización de espacios extremos y mayúsculas también en `UserAircraftService.CreateAsync`; selector y validación de ICAO A319/A320/A321. `GetAllAsync` carga desgaste y sistema para las tarjetas. Tests nuevos comprueban normalización, longitud, tipos admitidos y carga de desgaste.
+- El paso de preparación muestra conexiones y datos coherentes, cabecera de aeronave/perfil/ruta/fase/estado, aviso operativo y VATSIM (el controlador prevalece), tres perfiles vigentes explicados sin atribuirles los topes futuros y tarjeta 7700 no seleccionable. Incluye lista de fallas enviada sin confirmación y ojo desplegable sin razonamientos ficticios. La pausa que desarma y la descarga de OFP están deshabilitadas con explicación, incluida en sus tooltips. Reanudar evaluación por desconexión conserva su semántica antigua. El perfil no cambia durante una sesión activa.
+- **Limitación deliberada**: el inicio de nuevas sesiones desde esta pantalla queda bloqueado porque el OFP obligatorio aún no se puede descargar/validar (`OfpValidated=false`); no se fingió validación. Detener sesiones ya activas sigue accesible, con confirmación inline si está en vuelo y protección contra dobles operaciones. El reset de Fenix real no está garantizado. No se implementaron motor, integración OFP, pausa/desarme real, topes 7700, auto-resume ni resultados.
+- `docs/realistic-mode/diseno-objetivo.md` §14 explicita el flujo final acordado y `estado-y-diseno.md` distingue esta UI del backend pendiente.
+
+**Por qué**
+
+- Definir la experiencia de preparación y sesión antes de cambiar el motor, sin representar como operativas capacidades todavía ausentes.
+
+**Áreas**
+
+- `RealFenixFailures.UI` — panel y ViewModels Realistic; `RealFenixFailures.Infrastructure` — servicio de aeronaves; `RealFenixFailures.TestUnits` — pruebas del servicio; `docs/realistic-mode/` — diseño y estado.
+
+**Pruebas**
+
+- `dotnet build RealFenixFailures.slnx -c Debug --nologo -v q`: 0 errores, 0 advertencias.
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj -c Debug --nologo -v q`: 85/85.
+- `dotnet build RealFenixFailures.slnx -c Release --nologo -v q`: 0 errores, 0 advertencias.
+- Renderizado manual WPF a 900×720 y sesión real MSFS/Fenix: **no verificados**. Los tests actuales no cubren bindings ni interacciones WPF.
+
 ### 2026-10-17 — Documento de diseño objetivo del modo Realistic (diseño/visión, sin código)
 
 **Qué**
