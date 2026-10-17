@@ -411,7 +411,13 @@ Distribución resultante: **173 Minor, 179 Major, 32 Critical**. Detalle: Fire p
 
 Nota: `IRS Alignment` (IR1/2/3 alineación) quedaron con severidad 1 pero son fallas de **procedimiento** externas al engine (ver sección «Fallas ajenas al engine») y no deberían ser armables por el motor.
 
-**Pendiente (fuera del alcance de esta tarea):** persistir `severity` en la base — hoy `FailuresPersistenceService` fuerza `FailureSeverity.Minor` (FailuresPersistenceService.cs:46) sin leer el campo — con los cambios de parser/DTO y la decisión sobre si las externas entran al catálogo persistido.
+### Campo `repairable` (2026-10-17, mismo día)
+
+Cada falla lleva además `"repairable": true|false` = **la función normal del sistema puede restaurarse durante el vuelo** (reset de computadora, re-arranque del motor, realineación de ADIRs, reintento de arranque). Es un atributo de catálogo **independiente de la severidad**: no se ajustó ningún valor de severidad al marcar esta propiedad (el motor decidirá más adelante cómo combinar ambos). Criterio aplicado: `true` solo donde existe un procedimiento en vuelo que el piloto ejecuta y Fenix refleja; por defecto `false` (mantenimiento en rampa / la falla persiste). Ante duda → `false`.
+
+Distribución: **20 reparables en vuelo / 364 no**. Las `true` son: `F_ENGINE_1/2` (engine failure, relight), `F_OH_FLT_CTL_*_RECOVERABLE_*` (FAC1/2, ELAC1/2, SEC1/2/3 — resettable), `F_MCDU_1/2_RECOVERABLE`, `F_START_FAULT_*_HOT_START/HUNG_START/NO_IGNITION` (reintento de arranque en tierra) y las `F_OH_NAV_IR_ALIGNMENT_*` (se resuelven alinear; externas al engine de todas formas). Excluidas explícitamente a pesar del nombre o del evento: `Engine surge`, `Bird strike`, `Engine failure with damage`, `Fire … extinguished with N bottles` (estado posterior al evento, no acción del piloto), `Start valve` (válvula atascada: hardware) y las `resettable` de otros sistemas que no se pueden resetear en vuelo.
+
+**Pendiente (fuera del alcance de esta tarea):** persistir `severity` y `repairable` en la base — hoy `FailuresPersistenceService` fuerza `FailureSeverity.Minor` (FailuresPersistenceService.cs:46) sin leer ninguno de los campos — con los cambios de parser/DTO y la decisión sobre si las externas entran al catálogo persistido.
 
 ## Limitaciones restantes (no resueltas)
 

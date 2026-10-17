@@ -4,6 +4,26 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Campo `repairable` en las 384 fallas del catálogo (reparables en vuelo)
+
+**Qué**
+
+- Cada falla de `failures.json` lleva ahora `"repairable": true|false`, **independiente de la severidad** (ningún valor de severidad se modificó en esta pasada; el motor decidirá más adelante cómo combinar ambos). Define si la función normal del sistema puede restaurarse **durante el vuelo** (reset de computadora, relight de motor, realineación de ADIRs, reintento de arranque); `false` por defecto (mantenimiento en rampa / persiste).
+- Distribución: **20 true / 364 false**. True: `F_ENGINE_1/2`, `F_OH_FLT_CTL_*_RECOVERABLE_*` (FAC/ELAC/SEC resettable), `F_MCDU_1/2_RECOVERABLE`, `F_START_FAULT_*_HOT/HUNG/NO_IGNITION` y `F_OH_NAV_IR_ALIGNMENT_*` (se resuelven al alinear; externas). Excluidas deliberadamente: `Engine surge`, `Bird strike`, `Engine failure with damage`, `Fire … extinguished with N bottles` (estado posterior, no acción del piloto) y `Start valve` (hardware atascado).
+- Diff aditivo: 384 líneas `repairable`, 0 eliminaciones (el campo `severity` quedó intacto; CRLF y formato preservados).
+
+**Por qué**
+
+- El catálogo necesita el atributo de reparabilidad por separado: hay fallas que se autodescriben (recoverable/resettable, con daño, bird strike) y otras que el evento no revela (engine failure = posible relight). El engine podrá usar severidad y reparabilidad de forma independiente.
+
+**Áreas**
+
+- `RealFenixFailures.Domain/Resources/failures.json`, `docs/realistic-mode/estado-y-diseno.md` (sección «Campo repairable»). Sin cambios de código.
+
+**Pruebas**
+
+- JSON válido y 384/384 con `severity`+`repairable`; diff verificado aditivo; **build Debug 0 warnings y 88/88 tests** (el parser de Fenix ignora el campo desconocido). Asignación por conocimiento de sistemas, sujeta a validación del usuario (archivo `severidad_reparabilidad_revision.tsv`); no probada en simulación. Persistencia en DB sigue pendiente.
+
 ### 2026-10-17 — Severidad de fallas del catálogo (campo `severity` en las 384 fallas)
 
 **Qué**
