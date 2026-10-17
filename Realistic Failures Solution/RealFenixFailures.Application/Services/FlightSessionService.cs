@@ -8,9 +8,11 @@ namespace RealFenixFailures.Application.Services;
 
 public class FlightSessionService : IFlightSessionService {
     private readonly IFlightSessionRepository _sessionRepository;
+    private readonly ITriggeredFailureRepository _triggeredFailureRepository;
 
-    public FlightSessionService(IFlightSessionRepository sessionRepository) {
+    public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository) {
         _sessionRepository = sessionRepository;
+        _triggeredFailureRepository = triggeredFailureRepository;
     }
 
     public async Task<FlightSession> StartNewAsync(RiskLevel risk, UserAircraftDto aircraft, CancellationToken cancellationToken) {
@@ -78,5 +80,22 @@ public class FlightSessionService : IFlightSessionService {
         };
         await _sessionRepository.AddEventLogAsync(eventLog, ct);
         await _sessionRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateTriggeredFailureStateAsync(int sessionId, string fenixFailureId, FailureLifecycleState newState,
+        ComplexFlightPhaseEnum phase, ResolutionSource? source, DateTime utcNow, CancellationToken ct) {
+        var current = await _triggeredFailureRepository.GetActiveForUpdateAsync(sessionId, fenixFailureId, ct);
+        if (current is null || current.State == newState) return;
+
+        current.State = newState;
+        if (newState == FailureLifecycleState.Active && current.FenixConfirmedAtUtc is null)
+            current.FenixConfirmedAtUtc = utcNow.Kind == DateTimeKind.Utc ? utcNow : utcNow.ToUniversalTime();
+        if (newState == FailureLifecycleState.ResolvedByPilot || newState == FailureLifecycleState.AutoResolved) {
+            if (current.ResolvedAtUtc is null) current.ResolvedAtUtc = utcNow.Kind == DateTimeKind.Utc ? utcNow : utcNow.ToUniversalTime();
+            current.ResolvedPhase = phase;
+            current.ResolutionSource = source;
+        }
+
+        await _triggeredFailureRepository.SaveChangesAsync(ct);
     }
 }

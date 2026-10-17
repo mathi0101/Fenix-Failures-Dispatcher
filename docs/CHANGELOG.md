@@ -4,6 +4,27 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Backend Realistic: ciclo de vida de fallas con confirmación por Fenix
+
+**Qué**
+
+- `RealisticSessionEngine.ReconcileFailureLifecycleAsync` (por lectura del estado de Fenix, diseño objetivo §10): cada tick transiciona `Sent→Active` cuando `failed=true` (confirma `FenixConfirmedAtUtc`) y `Active→ResolvedByPilot` cuando `failed=false` y ya no está armada (el piloto la despejó; persiste `ResolvedAtUtc`, `ResolvedPhase`, `ResolutionSource=Pilot`).
+- `FlightSessionService.UpdateTriggeredFailureStateAsync` persiste la transición usando el rastreo EF.
+- `ITriggeredFailureRepository`/`TriggeredFailureRepository`: nuevos `GetActiveForSessionAsync` (no-tracking) y `GetActiveForUpdateAsync` (rastreo para transicionar).
+- `RealisticSessionEngine` gana dependencia `ITriggeredFailureRepository` (inyectada por el manager en `StartNewSessionAsync`); tests del engine y del manager actualizados al nuevo constructor.
+
+**Por qué**
+
+- Es el corazón del modo Realistic: pasar de "falla enviada" a "confirmada activa" y detectar la resolución por piloto sin necesidad de un evento de Fenix.
+
+**Áreas**
+
+- Application (`RealisticSessionEngine`, `FlightSessionService`, `IFlightSessionService`, `RealisticSessionManager`), Domain/Infrastructure (`ITriggeredFailureRepository`, `TriggeredFailureRepository`), tests.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **93/93 tests** (2 nuevos: Sent confirmada por Fenix → Active; Active despejada por piloto → ResolvedByPilot). El comportamiento real de Fenix (cómo responde a failed=true/false) ya está documentado en `docs/integraciones/fenix-api.md` y confirmado manualmente; el mapeo de estados en sesión real sigue pendiente de prueba en vivo.
+
 ### 2026-10-17 — Front Realistic (Paso 3): enganche del OFP/SimBrief de punta a punta
 
 **Qué**

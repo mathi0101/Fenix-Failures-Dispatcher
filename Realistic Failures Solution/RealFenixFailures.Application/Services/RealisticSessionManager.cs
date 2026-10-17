@@ -4,6 +4,7 @@ using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Interfaces.Repositories;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Services;
@@ -87,7 +88,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 scope.ServiceProvider.GetRequiredService<IFlightSessionService>(),
                 scope.ServiceProvider.GetRequiredService<IPresetService>(),
                 scope.ServiceProvider.GetRequiredService<IFailureTrigger>(),
-                _flightEventDetector);
+                _flightEventDetector,
+                scope.ServiceProvider.GetRequiredService<ITriggeredFailureRepository>());
 
             var result = await engine.TryStartSession(context, ct);
             if (result.Started == false) {

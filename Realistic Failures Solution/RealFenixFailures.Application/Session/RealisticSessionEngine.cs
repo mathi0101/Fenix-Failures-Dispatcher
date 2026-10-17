@@ -4,6 +4,7 @@ using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Interfaces.Repositories;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Session;
@@ -37,6 +38,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private readonly IPresetService _presetService;
     private readonly IFailureTrigger _failureTrigger;
     private readonly IFlightEventDetector _flightEventDetector;
+    private readonly ITriggeredFailureRepository _triggeredFailureRepository;
     private readonly Random _random = Random.Shared;
     private readonly object _eventQueueLock = new();
     private readonly Queue<FlightEventDto> _pendingFlightEvents = new();
@@ -69,13 +71,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         IFlightSessionService sessionService,
         IPresetService presetService,
         IFailureTrigger failureTrigger,
-        IFlightEventDetector flightEventDetector) {
+        IFlightEventDetector flightEventDetector,
+        ITriggeredFailureRepository triggeredFailureRepository) {
         _simulator = simulator ?? throw new ArgumentNullException(nameof(simulator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sessionService = sessionService;
         _presetService = presetService;
         _failureTrigger = failureTrigger ?? throw new ArgumentNullException(nameof(failureTrigger));
         _flightEventDetector = flightEventDetector ?? throw new ArgumentNullException(nameof(flightEventDetector));
+        _triggeredFailureRepository = triggeredFailureRepository ?? throw new ArgumentNullException(nameof(triggeredFailureRepository));
     }
     #endregion
 
@@ -156,7 +160,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             await DrainFlightEventsAsync(currentPhase, ct);
             Session!.ProcessSimData(rawData, failures, currentPhase);
-
+            await ReconcileFailureLifecycleAsync(currentPhase, ct);
         } catch (SimulatorDataUnavailableException ex) {
             _logger.LogWarning("Error al recibir datos en EvaluateAsync, Ex: {a}", ex.Message);
             return EvaluationResult.Disconnected();
@@ -223,6 +227,45 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     private static string PhaseCode(ComplexFlightPhaseEnum phase) => phase.ToString().ToUpperInvariant();
+
+    /// <summary>
+    /// Reconciliación del ciclo de vida por lectura de Fenix (diseño objetivo §10): cada tick compara las fallas
+    /// persistidas en curso contra lo que el avión reporta real en <c>FenixFailureDto</c>.
+    ///   • Sent → Active cuando <c>failed=true</c> (confirmada por Fenix).
+    ///   • Active → ResolvedByPilot cuando <c>failed=false</c> y ya no está armada (el piloto la despejó).
+    /// </summary>
+    private async Task ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
+        var session = Session;
+        if (session is null) return;
+
+        var active = await _triggeredFailureRepository.GetActiveForSessionAsync(session.Session.Id, ct);
+        if (active.Count == 0) return;
+
+        var failedById = session.FailedFailures.ToDictionary(f => f.FenixId);
+        var armedById = session.ArmedFailures.ToDictionary(f => f.FenixId);
+        var utcNow = DateTime.UtcNow;
+
+        foreach (var failure in active) {
+            var liveFailed = failedById.TryGetValue(failure.FenixFailureId, out var ff) ? ff.Failed : false;
+            var liveArmed = armedById.ContainsKey(failure.FenixFailureId);
+
+            switch (failure.State) {
+                case FailureLifecycleState.Sent when liveFailed:
+                    await _sessionService.UpdateTriggeredFailureStateAsync(
+                        session.Session.Id, failure.FenixFailureId, FailureLifecycleState.Active,
+                        phase, null, utcNow, ct);
+                    _logger.LogInformation("Failure confirmed active by Fenix: {Id}", failure.FenixFailureId);
+                    break;
+
+                case FailureLifecycleState.Active when !liveFailed && !liveArmed:
+                    await _sessionService.UpdateTriggeredFailureStateAsync(
+                        session.Session.Id, failure.FenixFailureId, FailureLifecycleState.ResolvedByPilot,
+                        phase, ResolutionSource.Pilot, utcNow, ct);
+                    _logger.LogInformation("Failure resolved by pilot (Fenix cleared it): {Id}", failure.FenixFailureId);
+                    break;
+            }
+        }
+    }
 
     private static double RiskProbabilityMultiplier(RiskLevel riskLevel) => riskLevel switch {
         RiskLevel.Low => 0.5,

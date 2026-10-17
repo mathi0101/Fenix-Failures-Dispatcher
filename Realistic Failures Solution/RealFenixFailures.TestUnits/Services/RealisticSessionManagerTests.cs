@@ -9,6 +9,7 @@ using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Interfaces.Repositories;
 
 namespace RealFenixFailures.TestUnits.Services;
 
@@ -17,14 +18,21 @@ public class RealisticSessionManagerTests {
     private readonly Mock<IFlightSessionService> _sessionService = new();
     private readonly Mock<IPresetService> _presetService = new();
     private readonly Mock<IFailureTrigger> _failureTrigger = new();
-    private readonly Mock<IFlightEventDetector> _flightEventDetector = new();
+    private readonly Mock<IFlightEventDetector> _flightEventDetector = new()!;
+    private Mock<ITriggeredFailureRepository> _triggeredFailureRepository = null!;
     private Mock<IServiceScope> _scope = null!;
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null) {
+        _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<TriggeredFailure>());
+
         var serviceProvider = new Mock<IServiceProvider>();
         serviceProvider.Setup(sp => sp.GetService(typeof(IFlightSessionService))).Returns(_sessionService.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IPresetService))).Returns(_presetService.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IFailureTrigger))).Returns(_failureTrigger.Object);
+        serviceProvider.Setup(sp => sp.GetService(typeof(ITriggeredFailureRepository))).Returns(_triggeredFailureRepository.Object);
 
         _scope = new Mock<IServiceScope>();
         _scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);

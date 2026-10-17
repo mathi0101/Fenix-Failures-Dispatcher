@@ -8,6 +8,7 @@ using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Interfaces.Repositories;
 
 namespace RealFenixFailures.TestUnits.Session;
 
@@ -17,6 +18,14 @@ public class RealisticSessionEngineTests {
     private readonly Mock<IPresetService> _presetService = new();
     private readonly Mock<IFailureTrigger> _failureTrigger = new();
     private readonly Mock<IFlightEventDetector> _flightEventDetector = new();
+    private readonly Mock<ITriggeredFailureRepository> _triggeredFailureRepository = new();
+
+    public RealisticSessionEngineTests() {
+        // Por defecto, sin fallas activas en BD para que la reconciliación del ciclo de vida no dispare NRE.
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<TriggeredFailure>());
+    }
 
     private RealisticSessionEngine CreateEngine() => new(
         _simulator.Object,
@@ -24,7 +33,8 @@ public class RealisticSessionEngineTests {
         _sessionService.Object,
         _presetService.Object,
         _failureTrigger.Object,
-        _flightEventDetector.Object);
+        _flightEventDetector.Object,
+        _triggeredFailureRepository.Object);
 
     private static RealisticModeContext Context() =>
         new(RiskLevel.Moderate, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" });
@@ -460,5 +470,85 @@ public class RealisticSessionEngineTests {
         _sessionService.Verify(
             s => s.AddEventLogAsync(42, SessionEventCategory.EnginesStarted, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_SentFailureConfirmedByFenix_TransitionsToActive() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var engine = CreateEngine();
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        // Falla persistida en BD como Sent.
+        var persisted = new TriggeredFailure {
+            Id = 7,
+            FlightSessionId = 42,
+            FenixFailureId = "F_ENGINE_1",
+            TriggeredAt = DateTime.UtcNow,
+            FlightPhase = ComplexFlightPhaseEnum.Takeoff,
+            State = FailureLifecycleState.Sent
+        };
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { persisted });
+
+        // Fenix la reporta activa (failed=true).
+        SetupFenixFailures(new FenixFailureDto("F_ENGINE_1", "Motor 1", Failed: true, FailureCondition: null));
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.False(result.ShouldPauseSession);
+        _sessionService.Verify(
+            s => s.UpdateTriggeredFailureStateAsync(42, "F_ENGINE_1", FailureLifecycleState.Active, It.IsAny<ComplexFlightPhaseEnum>(), null, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_ActiveFailureClearedByFenix_TransitionsToResolvedByPilot() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var engine = CreateEngine();
+        var start = await engine.TryStartSession(Context(), CancellationToken.None);
+        Assert.True(start.Started);
+
+        var persisted = new TriggeredFailure {
+            Id = 8,
+            FlightSessionId = 42,
+            FenixFailureId = "F_HYD_1",
+            TriggeredAt = DateTime.UtcNow,
+            FlightPhase = ComplexFlightPhaseEnum.Climb,
+            State = FailureLifecycleState.Active
+        };
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { persisted });
+
+        // El piloto despejó la falla en Fenix: ya no failed, ya no armada.
+        SetupFenixFailures(new FenixFailureDto("F_HYD_1", "Hydraul", Failed: false, FailureCondition: null));
+
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        _sessionService.Verify(
+            s => s.UpdateTriggeredFailureStateAsync(42, "F_HYD_1", FailureLifecycleState.ResolvedByPilot, It.IsAny<ComplexFlightPhaseEnum>(), ResolutionSource.Pilot, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private void SetupFenixFailures(params FenixFailureDto[] failures) {
+        var grouped = new AllFenixFailuresResponseDto {
+            MajorGroups = new List<FenixMajorSystemGroupDto> {
+                new(
+                    "Systems",
+                    "SYS",
+                    new List<FenixSystemGroupDto> {
+                        new("Group", failures)
+                    })
+            }
+        };
+        _simulator
+            .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(grouped));
     }
 }
