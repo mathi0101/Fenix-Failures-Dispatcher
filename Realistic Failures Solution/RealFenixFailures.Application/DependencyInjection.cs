@@ -9,6 +9,7 @@ public static class DependencyInjection {
         services.AddScoped<IPresetService, PresetService>();
         services.AddScoped<IInitializerService, InitializerService>();
         services.AddScoped<IFlightSessionService, FlightSessionService>();
+        services.AddScoped<ISimbriefOfpService, SimbriefOfpService>();
         services.AddScoped<IEngineOrchestrator, EngineOrchestrator>();
         services.AddSingleton<ISimulatorConnectionService, SimulatorConnectionService>();
         services.AddSingleton<IFlightEventDetector, FlightEventDetector>();

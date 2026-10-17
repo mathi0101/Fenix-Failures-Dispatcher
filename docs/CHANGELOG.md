@@ -4,6 +4,28 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Backend Realistic (Fase 2): módulo OFP/SimBrief completo
+
+**Qué**
+
+- Nueva integración `RealFenixFailures.Integrations.SimBrief`: `SimBriefApiClient` (HTTP real por `userid`, base `https://www.simbrief.com/api/xml.fetcher.php`), `MockSimBriefApiClient` (DEBUG con OFP sintético), `SimBriefApiOptions` (`SimBriefApi:BaseUrl`, `DownloadTimeoutSeconds`) y `SimBriefOfpFetcher` que adapta el cliente al contrato `IOfpFetcher` de la capa de aplicación.
+- `SimBriefOfpReader` (implementa `ISimBriefOfpReader` de Domain): parsea el XML del OFP a `FlightPlan` (aerolínea, número, ICAO, horarios UTC, duración, ruta, raw) sin validar.
+- `SimbriefOfpService` (Application): descarga → valida ICAO == aeronave registrada, campos mínimos (origen/destino/duración) y ventana UTC (`RealisticMode.Ofp` PreStart −2 h / PostArrival +2 h) → persiste `FlightPlan` → devuelve `FlightPlanDto` con `ValidationState`/mensaje.
+- Persistencia `IFlightPlanRepository` → `FlightPlanRepository` (Add, GetById, GetLatestForAircraftType). Registrado en DI; sección `SimBriefApi` en appsettings; csproj nuevo agregado a la solución, UI y TestUnits.
+- El userid de SimBrief NO se guarda en BD (vive en userprefs): privacidad; `FlightPlan` no lo almacena.
+
+**Por qué**
+
+- El OFP es un requisito del diseño objetivo (sesión por OFP de SimBrief) y el único habilitador de la activación del modo Realistic en el front.
+
+**Áreas**
+
+- `Integrations.SimBrief` (nuevo), `Application` (DTO `FlightPlanDto`, interfaz y `SimbriefOfpService`), `Domain` (`IFlightPlanRepository`, `ISimBriefOfpReader`), `Infrastructure` (`FlightPlanRepository`), `UI` (HostBuilderExtensions + appsettings), `TestUnits` (3 tests), solución.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias; **91/91 tests** (3 nuevos: parser del OFP mapea campos, OFP válido en ventana persiste y usable, ICAO distinto inválido). El enganche del front (botón "Descargar OFP") queda para la etapa contigua. Sin prueba manual contra la API real de SimBrief todavía.
+
 ### 2026-10-17 — Campo `repairable` en las 384 fallas del catálogo (reparables en vuelo)
 
 **Qué**

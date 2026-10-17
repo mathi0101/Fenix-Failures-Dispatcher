@@ -6,6 +6,7 @@
     <ProjectReference Include="..\RealFenixFailures.Infrastructure\RealFenixFailures.Infrastructure.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.Fenix\RealFenixFailures.Integrations.Fenix.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.SimBrief\RealFenixFailures.Integrations.SimBrief.csproj" />
   </ItemGroup>
 
   <ItemGroup>

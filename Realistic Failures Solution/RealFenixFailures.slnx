@@ -3,6 +3,7 @@
   <Project Path="RealFenixFailures.Domain/RealFenixFailures.Domain.csproj" />
   <Project Path="RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj" />
   <Project Path="RealFenixFailures.Integrations.Fenix/RealFenixFailures.Integrations.Fenix.csproj" />
+  <Project Path="RealFenixFailures.Integrations.SimBrief/RealFenixFailures.Integrations.SimBrief.csproj" />
   <Project Path="RealFenixFailures.Integrations.SimConnect/RealFenixFailures.Integrations.SimConnect.csproj" />
   <Project Path="RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj" Id="72d2ad92-30b3-4a5d-824d-149b4b44ef05" />
   <Project Path="RealFenixFailures.UI/RealFenixFailures.UI.csproj" />

@@ -419,6 +419,20 @@ Distribución: **20 reparables en vuelo / 364 no**. Las `true` son: `F_ENGINE_1/
 
 **Pendiente (fuera del alcance de esta tarea):** persistir `severity` y `repairable` en la base — hoy `FailuresPersistenceService` fuerza `FailureSeverity.Minor` (FailuresPersistenceService.cs:46) sin leer ninguno de los campos — con los cambios de parser/DTO y la decisión sobre si las externas entran al catálogo persistido.
 
+## Fase 2 — Módulo OFP/SimBrief (backend completo) (2026-10-17)
+
+Terminado el backend del OFP: descargar, validar y persistir; el enganche de la UI (botón "Descargar OFP") se deja para una etapa contigua.
+
+- **Integración nueva `RealFenixFailures.Integrations.SimBrief`**: `SimBriefApiClient` (HTTP real por `userid`; base `https://www.simbrief.com/api/xml.fetcher.php`) + `MockSimBriefApiClient` (DEBUG, OFP sintético) + `SimBriefApiOptions` (`SimBriefApi:BaseUrl`, `DownloadTimeoutSeconds`). `SimBriefOfpFetcher` adapta el cliente al contrato `IOfpFetcher` de Application.
+- **Parser `SimBriefOfpReader`** (implementa `ISimBriefOfpReader` de Domain): convierte el XML del OFP a `FlightPlan` (aerolínea, número, ICAO ac/dest, horarios UTC, duración, ruta, raw). Sin validar.
+- **Servicio `SimbriefOfpService`** (Application) orquesta: valida ICAO == aeronave registrada, campos mínimos (origen/destino/duración) y ventana UTC (`RealisticMode.Ofp` PreStart −2 h / PostArrival +2 h), persiste `FlightPlan` y devuelve `FlightPlanDto` con `ValidationState` y mensaje.
+- **Persistencia** `IFlightPlanRepository`→`FlightPlanRepository` (Infrastructure) con `GetById`, `GetLatestForAircraftType`, `Add`.
+- **Config/DI**: sección `SimBriefApi` en appsettings; `AddSimbriefIntegration` registrado en el host; solución con el nuevo csproj; referencias en UI y TestUnits.
+
+**Decisión de capas**: el ID de SimBrief del usuario vive en userprefs (privacidad), no en BD; `FlightPlan` no guarda el userid.
+
+**Verificación**: build Release 0 errores/advertencias y **91/91 tests** (3 nuevos: parser del OFP, OFP válido en ventana persiste, ICAO distinto inválido). Sin verificación con la API real de SimBrief (pendiente de network/test manual).
+
 ## Limitaciones restantes (no resueltas)
 
 1. **Fallas de Training/Custom fuera del feed de eventos** — el log en pantalla (`MainWindowViewModel.LogEntries`) solo recibe eventos del detector; las fallas disparadas por los modos Training/Custom no llegan a ese feed. Referencia: `MainWindowViewModel.FlightEventDetector_FlightEventDetected`.

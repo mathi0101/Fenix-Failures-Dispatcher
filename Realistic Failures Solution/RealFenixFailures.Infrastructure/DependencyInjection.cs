@@ -33,6 +33,7 @@ public static class DependencyInjection {
         services.AddScoped<IPresetRepository, PresetRepository>();
         services.AddScoped<IFlightSessionRepository, FlightSessionRepository>();
         services.AddScoped<ITriggeredFailureRepository, TriggeredFailureRepository>();
+        services.AddScoped<IFlightPlanRepository, FlightPlanRepository>();
 
         services.AddScoped<IFailuresPersistenceService, FailuresPersistenceService>();
         services.AddScoped<IPresetsLoader, PresetsLoader>();
