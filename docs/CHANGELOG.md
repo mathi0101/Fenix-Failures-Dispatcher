@@ -4,6 +4,48 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Documento de diseño objetivo del modo Realistic (diseño/visión, sin código)
+
+**Qué**
+
+- Cambio de **documentación/diseño** (sin cambios de código): se agrega `docs/realistic-mode/diseno-objetivo.md`, un documento de diseño que plasma la **visión** del modo Realistic tal como la define el usuario, como resultado de un intercambio de definición guiado (Q1–Q89). Cubre: visión, flujo de alto nivel (qué entra/sale y cuándo), configuración y arranque (requisitos, OFP y ventana temporal), perfiles de riesgo como comportamiento completo (Bajo/Moderado/Alto/7700), ciclo de vida de la sesión, fallas iniciales de tierra, ciclo de vida de una falla, fallas temporales, resolución por el piloto, pipeline del motor y plan de intensidad (con pesos de críticas por fase según distribución histórica), desgaste por sistema (19 ATAs de `failures.json`), historial y resultados, UX de la ventana del modo, e inicio sin Fenix operativo.
+- Es documento de **intención/objetivo**, no de estado de implementación: `estado-y-diseno.md` sigue siendo la referencia de lo implementado.
+- Se crea el tracker local de diseño `.scratch/realistic-vision/` (mapa + issues 01–12, gitignored) y se amplía `CONTEXT.md` (glosario y decisiones de dominio).
+
+**Por qué**
+
+- El usuario quiere documentar de forma clara y concisa todo lo que tiene pensado para el modo Realistic, desde la UX y los inputs hasta el engine y sus outputs, antes de evaluar viabilidad e implementación.
+
+**Áreas**
+
+- `docs/realistic-mode/diseno-objetivo.md` — documento nuevo.
+- `docs/CHANGELOG.md` — esta entrada.
+- `.scratch/realistic-vision/` y `CONTEXT.md` — apoyo del proceso de definición (el tracker es gitignored).
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación/diseño, sin cambios de código (no aplica build/test).
+
+### 2026-10-16 — Planeamiento conceptual del motor realista: estados internos, memoria y política de decisión (documentación)
+
+**Qué**
+
+- Cambio de **documentación/diseño** (sin cambios de código): se amplía la sección de investigación/diseño del modo Realistic en `docs/realistic-mode/estado-y-diseno.md` con una subsección nueva, **"Cómo debe pensar el motor: estados internos y política de decisión"**, ubicada entre "Relación entre inputs y outputs" y "Planificación previa vs reevaluación en tiempo real". Incluye: tabla de **estados internos** del motor (observar/recolectar, validar, contextualizar, evaluar elegibilidad, ponderar, decidir, ejecutar, registrar, aprender/replanificar) con la pregunta que resuelve y sus entradas/salidas, mapeada a las fases del flujo ya documentado; apartado de **memoria del motor** (qué recuerda durante la sesión — fallas disparadas, candidatos descartados, cooldowns, desvíos del OFP, contexto reciente — y qué no arrastra entre sesiones salvo datos persistentes); apartado de **política de decisión** (cuándo armar, posponer o no armar; influencia del objetivo y la plausibilidad; cómo evitar repeticiones absurdas); apartado de **explicabilidad** (qué debe poder contestar el motor en lenguaje natural sobre cada decisión) y un mini-flujo textual que conecta los estados internos con el flujo existente sin reemplazarlo.
+- Las secciones existentes (flujo, inputs/outputs, OFP/SimBrief y preguntas abiertas) se conservan íntegras; el resto del documento no se tocó.
+
+**Por qué**
+
+- El usuario quiere una capa adicional de planeamiento conceptual centrada en el comportamiento interno del motor (estados internos, memoria, política de decisión y criterios de explicación), como paso previo a decidir la siguiente pregunta de diseño.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md` — subsección nueva dentro de "Investigación y diseño" (inserción; el resto del contenido no se tocó).
+- `docs/CHANGELOG.md` — esta entrada.
+
+**Pruebas**
+
+- **No se ejecutaron pruebas**: el cambio es solo de documentación/diseño, sin cambios de código (no aplica build/test).
+
 ### 2026-10-15 — Reducción de ruido de logs: niveles raíz Serilog y transiciones INFO únicas (SimConnect / API Fenix)
 
 **Qué**
