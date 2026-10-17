@@ -442,3 +442,8 @@ FodyWeavers.xsd
 
 # Abacus.ai — artefactos temporales de la herramienta (no se versionan)
 **/.abacusai/tmp/
+
+# Modo desarrollo: recursos de datos se deciden desversionar (severidad/repairable en edición)
+Realistic Failures Solution/RealFenixFailures.Domain/Resources/failures.json
+Realistic Failures Solution/RealFenixFailures.Domain/Resources/training_presets.json
+Realistic Failures Solution/RealFenixFailures.Domain/Resources/realistic_presets.json

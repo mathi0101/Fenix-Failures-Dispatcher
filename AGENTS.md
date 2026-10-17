@@ -64,7 +64,7 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - Solo Windows: WPF y SimConnect.
 - Arquitectura objetivo **x64**: `PlatformTarget=x64` fijado en UI, TestUnits e Integrations.SimConnect; resuelve **MSB3270**. Al tocar esos csproj, no volver a MSIL ni desalinear la arquitectura.
 - Fenix corre en la máquina local; la API es configurable por claves y el puerto predeterminado es **8083**.
-- `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos) y ya están **trackeados/versionados** (el `.gitignore` los excluye del ignore): no borrarlos ni renombrarlos.
+- `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos). En desarrollo **no se versiona `failures.json`** (data de fallas/severidades en edición; está en `.gitignore`) y **no deben borrarse ni renombrarse**; `training_presets.json` permanece versionado. Re-versionar `failures.json` cuando la data esté estable (fuera de desarrollo).
 - Preservar el EOL y la codificación de los archivos que se editen.
 - El WIP del modo **Realistic** ya está committeado como base en `031a9e7` (branch `dev`); la **estabilización** (validación previa, null safety, scope por sesión, compensación, x64, paquetes actualizados) está aplicada en el árbol de trabajo pero **pendiente de commit**: lo commiteará el agente principal, no lo adelantes.
 
