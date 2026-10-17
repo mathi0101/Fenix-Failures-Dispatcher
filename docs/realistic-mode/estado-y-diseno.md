@@ -232,7 +232,77 @@ La cadena conceptual anterior (`Observar → Enmarcar → Seleccionar → Ponder
 - **Elegibilidad** — qué candidatos entran a la selección: reglas de severidad y condiciones de los presets, telemetría (fase, altitud, IAS, tiempo), historial (cooldown, no repetir, máx. simultáneas), plan de vuelo (ventanas esperadas) e incompatibilidades (pendiente). Si el tick no pasa la validación, aquí no llega nada.
 - **Ponderación** — cuánto pesa cada candidato elegible: `Probability` del preset (peso de selección relativo), plausibilidad calculada (contexto + historial + objetivo), desgaste de aeronave (pendiente) y objetivo/preferencias del modo.
 - **Decisión/ejecución** — las constantes del modo (probabilidad de disparo, cooldown, máx. simultáneas) y la conexión Fenix determinan si la salida operativa es armar, posponer o no armar.
+
 - **Explicación** — qué se le cuenta al piloto y al desarrollador: lo descartado en el filtro y la ponderación (por qué *no*), y la decisión con su trazabilidad (por qué *sí* y por qué ahora). La explicación es una salida derivada de las fases 4, 5 y 6, no un input.
+
+### Cómo debe pensar el motor: estados internos y política de decisión
+
+Capa de planeamiento conceptual complementaria al flujo de "Proceso mental del engine": el flujo dice **qué se hace** en cada fase; esta capa dice **cómo piensa** el motor — qué pregunta se plantea en cada estado, qué recuerda de la sesión, con qué criterio decide y qué debe poder explicar. Sigue siendo diseño conceptual, no implementación.
+
+**Estados internos**
+
+| Estado | Pregunta que resuelve | Qué entra | Qué sale |
+|---|---|---|---|
+| **Observar / recolectar** | ¿Qué llega en este tick? | Telemetría, conexión Fenix + SimConnect, presets, historial de la sesión, OFP, preferencias | Paquete bruto de inputs del tick |
+| **Validar** | ¿Hay datos mínimos coherentes y permiso para evaluar? | Paquete bruto, `HasSimulatorData`, conexiones | Tick válido, o `NoAction` como salida directa |
+| **Contextualizar** | ¿Dónde está la aeronave y qué significa este momento? | Tick validado, fase confirmada del detector, historial, OFP | Snapshot de contexto interpretado: fase, ventanas esperadas vs reales, estado del avión |
+| **Evaluar elegibilidad** | ¿Qué candidatos son posibles y creíbles aquí? | Contexto, presets, reglas de severidad y condiciones, ventanas del OFP | Lista de candidatos elegibles |
+| **Ponderar** | ¿Cuánto pesa cada candidato? | Candidatos, historial, desgaste (pendiente), objetivo del modo | Pesos finales de selección por candidato |
+| **Decidir** | ¿Qué hago este tick: armar, posponer o no armar? | Pesos, constantes del modo, cooldown, máx. simultáneas | Decisión del tick |
+| **Ejecutar** | ¿Cómo materializo la decisión? | Decisión, API Fenix | Falla armada o desarmada |
+| **Registrar** | ¿Qué dejo asentado de este tick? | Falla ejecutada, sesión activa, historial | `TriggeredFailure` + `SessionEventLog` (atómico), estado de sesión actualizado |
+| **Aprender / replanificar** | ¿Qué cambió para los próximos ticks? | Historial actualizado, memoria del tick, contexto | Narrativa de sesión y ventanas revisadas, que vuelven a entrar por memoria/historial |
+
+Los estados mapean 1:1 con las fases del flujo existente (Observar = fases 1–2, Contextualizar = 3, Evaluar elegibilidad = 4, Ponderar = 5, Decidir = 6, Ejecutar = 7, Registrar = 8, Aprender = 9): **no reemplazan el flujo, lo leen desde el ángulo de la pregunta interna**. A diferencia del flujo, no todos son pasos secuenciales de un tick: la **memoria** y el **aprendizaje** son transversales — se leen en varios estados y se actualizan al cerrar el tick.
+
+**Memoria del motor**
+
+Lo que el motor recuerda **durante la sesión** (memoria operativa, se reconstruye al iniciar):
+
+- **Fallas disparadas** — cuáles, cuándo y en qué contexto (fase, altitud, condición), para la narrativa y el "no repetir".
+- **Candidatos descartados y por qué** — lo que el filtro y la ponderación dejaron fuera y el motivo, para no reevaluar absurdos tick a tick y para poder explicar el "por qué *no*".
+- **Cooldowns y fallas activas** — reloj de espera entre disparos y cuenta de simultáneas.
+- **Desvíos del OFP** — en qué se apartó la realidad del plan (retrasos, esperas, cambios de ruta) y qué ventanas quedaron vencidas.
+- **Contexto reciente** — fase confirmada, transiciones y eventos cercanos que dan continuidad a la lectura del momento.
+
+Lo que **no** debería arrastrar entre sesiones: toda la memoria operativa expira al cerrar la sesión. Solo sobreviven los **datos persistentes** (`TriggeredFailure` y `SessionEventLog` como historial durable, y a futuro el desgaste de aeronave), y de ellos la sesión nueva reconstruye su punto de partida: qué falló antes, cuánto desgaste acumula cada sistema, qué perfil de riesgo opera. Los candidatos descartados, cooldowns y contexto de una sesión vieja no dicen nada de la nueva y no deben contaminarla.
+
+**Política de decisión**
+
+Criterio conceptual de cuándo corresponde cada salida:
+
+- **Armar** — el tick valida, hay al menos un candidato elegible, la probabilidad del tick cae a favor, se respetan cooldown y máx. simultáneas, y la falla es plausible para el momento (contexto + historial + objetivo). Es la salida **excepcional**: la operación normal del motor es no armar.
+- **Posponer** — la falla es plausible **pero no ahora**: sus condiciones aún no maduran (fase, altitud, IAS, tiempo del preset; una ventana del OFP que llegará más adelante) o el cooldown está por vencer. Posponer **no descarta**: el candidato permanece vivo para los próximos ticks, con su memoria intacta.
+- **No armar** — el tick no valida (`NoAction`), no quedan candidatos elegibles, la probabilidad del tick no cae, o la falla contradice la narrativa/objetivo. Es la salida por defecto y la menos costosa: no consume narrativa ni memoria.
+
+Influencia del objetivo y la plausibilidad: el objetivo del modo (tensión, realismo, aprendizaje) es **dirección, no veredicto** — inclina la selección entre candidatos igualmente plausibles y fija qué tan agresiva es la ventana de probabilidad, pero nunca ordena una falla increíble. La plausibilidad decide dentro de esa dirección: una falla posible pero increíble para el momento pesa menos que una cuyas condiciones físicas y narrativas están a favor.
+
+Cómo evitar repeticiones absurdas: cooldown y máx. simultáneas son la restricción mínima; sobre esa base, la memoria de sesión debería **no repetir el mismo sistema/falla sin justificación**, **escalar severidad o cambiar de tipo** cuando un sistema ya falló (dándole tiempo de recuperación narrativa) y **descartar lo contradictorio** (p. ej., fallar presurización en tierra con motores apagados) registrando el motivo para no reevaluarlo cada tick. Heredando la regla de "Planificación previa vs reevaluación en tiempo real": *ante conflicto entre lo posible y lo creíble, manda lo creíble* (ver pregunta de diseño 3).
+
+**Explicabilidad**
+
+El motor debe poder contestar en lenguaje natural sobre **cada decisión**:
+
+- **¿Qué decidió?** — armar, posponer o no armar (y, en su caso, cuál falla).
+- **¿Por qué ahora?** — qué condiciones del contexto/telemetría y qué ventana del OFP hicieron válido el momento.
+- **¿Por qué esta y no otra?** — qué pesó en la ponderación: plausibilidad, historial, objetivo, `Probability`.
+- **¿Por qué no?** — qué se descartó en elegibilidad y ponderación, y con qué motivo.
+- **¿Qué viene después?** — cuándo puede volver a ser plausible (cooldown, fase siguiente, condiciones por madurar).
+
+Estos son los niveles de la salida "Explicación/diagnóstico" de la tabla de outputs: al **piloto** le basta el qué y el por qué ahora en una línea narrativa; al **desarrollador**, la trazabilidad por fase (qué se vio, qué se descartó y por qué) para calibrar sin cajas cerradas (ver preguntas de diseño 1 y 5).
+
+**Conexión con el flujo existente**
+
+```
+[tick 30 s] → Observar → Validar → Contextualizar → Elegibilidad → Ponderar → Decidir → Ejecutar → Registrar
+               (1)        (2)        (3)              (4)           (5)        (6)        (7)         (8)
+                               │
+                               └── faltan datos coherentes → NoAction → siguiente tick
+
+Registrar → Aprender / replanificar (9) → siguiente tick (que vuelve a Observar con memoria + historial actualizados)
+```
+
+Los estados internos siguen el mismo orden y las mismas salidas que el flujo de "Proceso mental del engine" (`NoAction`, decisión del tick, persistencia); el ciclo se cierra cuando **Registrar → Aprender / replanificar** devuelve la memoria y el historial del tick al siguiente ciclo, que vuelve a **Observar**. El diagrama Mermaid y la tabla de fases existentes no se reemplazan: esta es la lectura de "cómo piensa" sobre ese mismo flujo.
 
 ### Planificación previa vs reevaluación en tiempo real
 
