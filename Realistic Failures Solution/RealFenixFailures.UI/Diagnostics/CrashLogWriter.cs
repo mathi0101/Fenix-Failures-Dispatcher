@@ -12,7 +12,7 @@ namespace RealFenixFailures.UI.Diagnostics;
 /// </summary>
 public static class CrashLogWriter {
     private const string LogsFolder = "logs";
-    private const string CrashSubfolder = "crash";
+    private const string CrashSubfolder = "";
 
     /// <summary>
     /// Arma el texto completo del reporte de crash para una excepción.
