@@ -603,11 +603,19 @@
                                     <TextBlock Grid.Column="1" Text="{Binding OfpStatusDisplay}" FontSize="11" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Accent.Amber.Primary}" TextWrapping="Wrap"/>
                                 </Grid>
-                                <Button Content="Descargar OFP" IsEnabled="False" Opacity="0.55" Margin="0,12,0,0"
-                                        Height="32" Padding="16,0" HorizontalAlignment="Left"
-                                        Style="{StaticResource GhostButtonStyle}"
-                                        ToolTipService.ShowOnDisabled="True"
-                                        ToolTip="El OFP es obligatorio para activar y su servicio de descarga/validación aún no está implementado (backend pendiente). La activación quedará disponible cuando exista un OFP validado."/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBox Text="{Binding SimbriefUserId, UpdateSourceTrigger=PropertyChanged}" Width="150" Height="28"
+                                             VerticalContentAlignment="Center" FontSize="11"
+                                             Style="{StaticResource DarkTextBoxStyle}"
+                                             ToolTip="Userid de SimBrief. Se obtiene del perfil de simbrief.com (Settings → Account info). Nunca se guarda en la base."/>
+                                    <Button Content="Descargar OFP" Margin="8,0,0,0" Height="32" Padding="16,0" Width="140"
+                                            Command="{Binding DownloadOfpCommand}"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            ToolTip="Descarga el plan operacional de SimBrief del user, lo valida (ICAO del avión, campos mínimos y ventana UTC) y deja lista la activación."/>
+                                </StackPanel>
+                                <TextBlock Text="Userid guardado solo en tus preferencias (nunca en la BD)."
+                                           FontSize="9" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
 

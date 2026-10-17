@@ -4,6 +4,27 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Front Realistic (Paso 3): enganche del OFP/SimBrief de punta a punta
+
+**Qué**
+
+- `RealisticModeViewModel` inyecta `ISimbriefOfpService` (backend de la Fase 2). El botón "Descargar OFP" del Paso 3 pasa de `IsEnabled="False"` (backend pendiente) a ejecutar `DownloadOfpAsync` real: toma el `userid` (campo editable `SimbriefUserId`) y el `IcaoTypeCode` de la aeronave seleccionada, descarga/valida/persiste y aplica el resultado al ViewModel.
+- `OfpValidated`, `RouteDisplay` y `OfpStatusDisplay` dejan de ser valores hardcodeados y se alimentan del `FlightPlanDto` devuelto (`ValidationState`: Válido/Pendiente/Inválido/Fuera de ventana con mensaje). `SimbriefUserId` notifica a `DownloadOfpCommand` (se habilita al haber userid + aeronave). `IsOfpDownloading` deshabilita la descarga durante el proceso.
+- La activación del modo Realistic queda habilitada sólo con OFP válido en ventana (`CanActivate` ya exigía `OfpValidated`; ahora se cumple de verdad).
+- En DEBUG se usa el mock de SimBrief (OFP sintético); en Release, HTTP real.
+
+**Por qué**
+
+- Es el requisito del diseño objetivo: sesión por OFP de SimBrief. Cierra de punta a punta el flujo de preparación del Paso 3.
+
+**Áreas**
+
+- `RealisticModeViewModel.cs` (inyección, `DownloadOfpAsync`, `ApplyOfpResult`, propiedades OFP reales, `SimbriefUserId` editable), `RealisticModePanel.xaml` (botón + campo userid), `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias; **91/91 tests** (los 3 de OFP siguen pasando; el enganche es UI que se verifica manualmente). Sin prueba manual contra la API real de SimBrief (pendiente; DEBUG usa mock). La ventana completa no se ejercitó en vivo (requiere ejecutar la app).
+
 ### 2026-10-17 — Backend Realistic (Fase 2): módulo OFP/SimBrief completo
 
 **Qué**

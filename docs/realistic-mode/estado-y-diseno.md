@@ -421,7 +421,7 @@ Distribución: **20 reparables en vuelo / 364 no**. Las `true` son: `F_ENGINE_1/
 
 ## Fase 2 — Módulo OFP/SimBrief (backend completo) (2026-10-17)
 
-Terminado el backend del OFP: descargar, validar y persistir; el enganche de la UI (botón "Descargar OFP") se deja para una etapa contigua.
+Terminado el backend del OFP y su enganche en el front (Paso 3): descargar, validar y persistir; la UI ya ejecuta el flujo real.
 
 - **Integración nueva `RealFenixFailures.Integrations.SimBrief`**: `SimBriefApiClient` (HTTP real por `userid`; base `https://www.simbrief.com/api/xml.fetcher.php`) + `MockSimBriefApiClient` (DEBUG, OFP sintético) + `SimBriefApiOptions` (`SimBriefApi:BaseUrl`, `DownloadTimeoutSeconds`). `SimBriefOfpFetcher` adapta el cliente al contrato `IOfpFetcher` de Application.
 - **Parser `SimBriefOfpReader`** (implementa `ISimBriefOfpReader` de Domain): convierte el XML del OFP a `FlightPlan` (aerolínea, número, ICAO ac/dest, horarios UTC, duración, ruta, raw). Sin validar.
@@ -430,6 +430,8 @@ Terminado el backend del OFP: descargar, validar y persistir; el enganche de la 
 - **Config/DI**: sección `SimBriefApi` en appsettings; `AddSimbriefIntegration` registrado en el host; solución con el nuevo csproj; referencias en UI y TestUnits.
 
 **Decisión de capas**: el ID de SimBrief del usuario vive en userprefs (privacidad), no en BD; `FlightPlan` no guarda el userid.
+
+**Enganche en el front (Paso 3)**: `RealisticModeViewModel` inyecta `ISimbriefOfpService`; el botón "Descargar OFP" queda habilitado (antes deshabilitado sin backend) y ejecuta `DownloadOfpAsync` con el `userid` (campo editable, referencia `SimbriefUserId`) y el `IcaoTypeCode` de la aeronave seleccionada. `OfpValidated`, `RouteDisplay` y `OfpStatusDisplay` se alimentan del `FlightPlanDto` devuelto; la activación se habilita sólo con OFP válido en ventana. En DEBUG se usa el mock de SimBrief (OFP sintético).
 
 **Verificación**: build Release 0 errores/advertencias y **91/91 tests** (3 nuevos: parser del OFP, OFP válido en ventana persiste, ICAO distinto inválido). Sin verificación con la API real de SimBrief (pendiente de network/test manual).
 

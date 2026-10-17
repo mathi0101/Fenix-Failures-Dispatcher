@@ -26,6 +26,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly IEngineOrchestrator _orchestrator;
     private readonly ILogger<RealisticModeViewModel> _logger;
     private readonly IRealisticSessionManager _realisticSessionManager;
+    private readonly ISimbriefOfpService _ofpService;
 
     private int _currentStep = 1;
     private bool _isLoading;
@@ -66,11 +67,13 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IUserAircraftService aircraftService,
         IEngineOrchestrator orchestrator,
         ILogger<RealisticModeViewModel> logger,
-        IRealisticSessionManager realisticSessionManager) {
+        IRealisticSessionManager realisticSessionManager,
+        ISimbriefOfpService ofpService) {
         _aircraftService = aircraftService;
         _orchestrator = orchestrator;
         _logger = logger;
         _realisticSessionManager = realisticSessionManager;
+        _ofpService = ofpService;
 
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
@@ -95,6 +98,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => (CanActivate || IsEngineActive) && !IsOperationPending);
         ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused && !IsOperationPending);
         CancelStopCommand = new RelayCommand(() => StopConfirmationVisible = false, () => !IsOperationPending);
+        DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
@@ -120,6 +124,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand ActivateCommand { get; }
     public RelayCommand ResumeSessionCommand { get; }
     public RelayCommand CancelStopCommand { get; }
+    public RelayCommand DownloadOfpCommand { get; }
     public RelayCommand ConfirmVatsimStartCommand { get; }
     public RelayCommand CancelVatsimStartCommand { get; }
 
@@ -338,11 +343,66 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
-    public bool OfpValidated => false;
+    private FlightPlanDto? _ofpPlanForUi;
+    private bool _isOfpDownloading;
 
-    public string RouteDisplay => "No registrada";
+    /// <summary>Userid de SimBrief del usuario (entrada para descargar el OFP).</summary>
+    private string _simbriefUserId = string.Empty;
 
-    public string OfpStatusDisplay => "Pendiente · Sin backend";
+    public string SimbriefUserId {
+        get => _simbriefUserId;
+        set {
+            if (SetProperty(ref _simbriefUserId, value)) {
+                DownloadOfpCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool CanDownloadOfp =>
+        SelectedAircraft is not null &&
+        !string.IsNullOrWhiteSpace(SimbriefUserId) &&
+        !IsEngineActive && !IsOperationPending;
+
+    public bool OfpValidated => _ofpPlanForUi?.IsUsable == true;
+    public bool IsOfpDownloading {
+        get => _isOfpDownloading;
+        private set {
+            if (SetProperty(ref _isOfpDownloading, value)) {
+                RaiseActivationState();
+                DownloadOfpCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string RouteDisplay {
+        get {
+            if (_ofpPlanForUi is null) return "No registrada";
+            var anyText = !string.IsNullOrWhiteSpace(_ofpPlanForUi.RouteText);
+            var ruta = anyText ? _ofpPlanForUi.RouteText! : $"{_ofpPlanForUi.OriginIcao} → {_ofpPlanForUi.DestinationIcao}";
+            return _ofpPlanForUi.IsUsable ? ruta : $"{ruta} ({OfpStatusDisplay})";
+        }
+    }
+
+    public string OfpStatusDisplay {
+        get => _ofpPlanForUi switch {
+            null => "Pendiente · Sin OFP",
+            var p => p.ValidationState switch {
+                ValidationState.Valid => "Válido · Listo para activar",
+                ValidationState.Pending => "Pendiente de validación",
+                ValidationState.Invalid => $"Inválido · {p.ValidationMessage}",
+                ValidationState.Expired => $"Fuera de ventana · {p.ValidationMessage}",
+                _ => p.ValidationState.ToString()
+            }
+        };
+    }
+
+    public void ApplyOfpResult(FlightPlanDto dto) {
+        _ofpPlanForUi = dto;
+        OnPropertyChanged(nameof(OfpValidated));
+        OnPropertyChanged(nameof(RouteDisplay));
+        OnPropertyChanged(nameof(OfpStatusDisplay));
+        RaiseActivationState();
+    }
 
     public string SessionStatusDisplay {
         get {
@@ -529,6 +589,31 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     private static void ToggleSession(FlightSessionItemViewModel? session) {
         if (session is not null) session.IsExpanded = !session.IsExpanded;
+    }
+
+    private async Task DownloadOfpAsync() {
+        if (IsOfpDownloading || SelectedAircraft is null || string.IsNullOrWhiteSpace(SimbriefUserId)) return;
+
+        IsOfpDownloading = true;
+        try {
+            var dto = await _ofpService.DownloadAsync(SelectedAircraft.IcaoTypeCode, SimbriefUserId.Trim(), CancellationToken.None);
+            ApplyOfpResult(dto);
+
+            if (dto.IsUsable) {
+                _logger.LogInformation("OFP válido cargado: {Origin} → {Dest} para {Reg}.",
+                    dto.OriginIcao, dto.DestinationIcao, SelectedAircraft.Registration);
+            } else {
+                _logger.LogWarning("OFP inválido: {State} · {Msg}", dto.ValidationState, dto.ValidationMessage);
+            }
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error al descargar/validar el OFP.");
+            ApplyOfpResult(new FlightPlanDto {
+                ValidationState = ValidationState.Invalid,
+                ValidationMessage = $"Error al descargar: {ex.Message}",
+            });
+        } finally {
+            IsOfpDownloading = false;
+        }
     }
 
     private async Task ActivateOrStopAsync() {
