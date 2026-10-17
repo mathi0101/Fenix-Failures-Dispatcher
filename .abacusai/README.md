@@ -1,6 +1,6 @@
 # Skills — `.agents/skills`
 
-Las skills instaladas en `.agents/skills/` son **herramientas de trabajo reutilizables** (metodologías y procedimientos de trabajo para agentes), **no contexto del dominio** de este proyecto. No describen cómo funciona la app ni reemplazan la documentación: la fuente del proyecto son `AGENTS.md` y `docs/`.
+Las skills instaladas en `.abacusai/skills/` son **herramientas de trabajo reutilizables** (metodologías y procedimientos de trabajo para agentes), **no contexto del dominio** de este proyecto. No describen cómo funciona la app ni reemplazan la documentación: la fuente del proyecto son `AGENTS.md` y `docs/`.
 
 No se mueven ni se borran skills; la selección depende de la tarea concreta. Esta tabla clasifica cuáles conviene considerar por defecto en este repositorio.
 
