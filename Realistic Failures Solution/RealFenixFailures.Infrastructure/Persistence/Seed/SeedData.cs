@@ -21,14 +21,25 @@ public static class SeedData {
 
     private static void SeedAircraftWearableSystems(ModelBuilder modelBuilder) {
         var systems = new List<AircraftWearableSystem> {
-            new() { Id = 1, Name = "Engine 1", ShortName = "ENG1", DisplayOrder = 1 },
-            new() { Id = 2, Name = "Engine 2", ShortName = "ENG2", DisplayOrder = 2 },
-            new() { Id = 3, Name = "Hydraulic System", ShortName = "HYD", DisplayOrder = 3 },
-            new() { Id = 4, Name = "Landing Gear", ShortName = "GEAR", DisplayOrder = 4 },
-            new() { Id = 5, Name = "Navigation Systems", ShortName = "NAV", DisplayOrder = 5 },
-            new() { Id = 6, Name = "Pneumatic System", ShortName = "PNEU", DisplayOrder = 6 },
-            new() { Id = 7, Name = "APU", ShortName = "APU", DisplayOrder = 7 },
-            new() { Id = 8, Name = "Doors", ShortName = "DOOR", DisplayOrder = 8 }
+            new() { Id = 1, AtaId = 21, Name = "Air Conditioning", ShortName = "Air", DisplayOrder = 1 },
+            new() { Id = 2, AtaId = 22, Name = "AutoFlight", ShortName = "AutoFlight", DisplayOrder = 2 },
+            new() { Id = 3, AtaId = 23, Name = "Communications", ShortName = "Communications", DisplayOrder = 3 },
+            new() { Id = 4, AtaId = 24, Name = "Electrical power", ShortName = "Elec", DisplayOrder = 4 },
+            new() { Id = 5, AtaId = 26, Name = "Fire protection", ShortName = "Fire", DisplayOrder = 5 },
+            new() { Id = 6, AtaId = 27, Name = "Flight controls", ShortName = "Flight controls", DisplayOrder = 6 },
+            new() { Id = 7, AtaId = 28, Name = "Fuel", ShortName = "Fuel", DisplayOrder = 7 },
+            new() { Id = 8, AtaId = 29, Name = "Hydraulic power", ShortName = "Hydraulic", DisplayOrder = 8 },
+            new() { Id = 9, AtaId = 30, Name = "Ice and rain protection", ShortName = "Ice/Rain", DisplayOrder = 9 },
+            new() { Id = 10, AtaId = 31, Name = "Indicating/Recording system", ShortName = "Indicating/Recording", DisplayOrder = 10 },
+            new() { Id = 11, AtaId = 32, Name = "Landing gear", ShortName = "Gear", DisplayOrder = 11 },
+            new() { Id = 12, AtaId = 34, Name = "Navigation", ShortName = "Navigation", DisplayOrder = 12 },
+            new() { Id = 13, AtaId = 35, Name = "Oxygen", ShortName = "Oxygen", DisplayOrder = 13 },
+            new() { Id = 14, AtaId = 36, Name = "Pneumatic", ShortName = "Pneumatic", DisplayOrder = 14 },
+            new() { Id = 15, AtaId = 46, Name = "Information systems", ShortName = "Information", DisplayOrder = 15 },
+            new() { Id = 16, AtaId = 49, Name = "APU", ShortName = "APU", DisplayOrder = 16 },
+            new() { Id = 17, AtaId = 52, Name = "Doors", ShortName = "Doors", DisplayOrder = 17 },
+            new() { Id = 18, AtaId = 70, Name = "Power plant", ShortName = "Engines", DisplayOrder = 18 },
+            new() { Id = 19, AtaId = 80, Name = "Start faults", ShortName = "Start Faults", DisplayOrder = 19 }
         };
 
         modelBuilder.Entity<AircraftWearableSystem>().HasData(systems);

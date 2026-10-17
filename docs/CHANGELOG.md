@@ -4,6 +4,109 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Severidad de fallas del catálogo (campo `severity` en las 384 fallas)
+
+**Qué**
+
+- Las 384 fallas de `failures.json` (EmbeddedResource versionado) llevan ahora `"severity": 1|2|3`, asignada con la escala operativa documentada en `docs/realistic-mode/estado-y-diseno.md` («Severidad de fallas del catálogo»): 1 Minor (respaldo/redundancia absorbe o informativo), 2 Major (ECAM actions y vuelo con limitaciones), 3 Critical (desvío/emergencia o control comprometido). Reglas de desempate: redundancia del A320 como guía, control de vuelo manda, fuego/humo/descompresión → 3, informativo → 1, duda → el menor.
+- Distribución: **173 Minor, 179 Major, 32 Critical**; detalle por ATA en el doc y archivo de revisión completo (`severidad_propuesta_revision.tsv`, 384 filas id|ATA|grupo|título|severidad) para validación por el usuario.
+- `IRS Alignment` (IR1/2/3) con severidad 1 pero marcadas como fallas de procedimiento externas al engine (no armables); ver sección de externas.
+- El JSON solo ganó las 384 líneas `"severity"` (diff aditivo, 0 eliminaciones), preservando EOL CRLF y formato.
+
+**Por qué**
+
+- Tarea pendiente de la Fase 1: el catálogo curado por id ahora puede alimentar `FenixFailureDefinition.Severity` sin el `Minor` forzado actual.
+
+**Áreas**
+
+- `RealFenixFailures.Domain/Resources/failures.json`, `docs/realistic-mode/estado-y-diseno.md`, `docs/CHANGELOG.md`. Sin cambios de código.
+
+**Pruebas**
+
+- Validación estructural del JSON (384/384 asignadas, archivo legible); diff verificado (384 insertions, 0 deletions). **Pendiente (no ejecutado):** build/tests y persistencia en DB; la asignación por conocimiento de sistemas es propuesta sujeta a validación del usuario ítem por ítem (no probada en simulación).
+
+### 2026-10-17 — Documentación: fallas ajenas al engine (externas) detectadas en la API real
+
+**Qué**
+
+- Se documenta en `docs/realistic-mode/estado-y-diseno.md` (sección nueva "Fallas ajenas al engine (externas)") el hallazgo verificado en sim real: con el A320 en gate cold & dark, `GET /fenix/failures/manual` devuelve 3 fallas activas por diseño — `F_OH_NAV_IR_ALIGNMENT_1/2/3` (`failed=true`, sin armado) — que se resuelven con la alineación de ADIRs del cockpit prep (flujo normal del Captain), no las provoca el engine.
+- Se registran los 3 impactos sobre el engine actual: (1) `ResetAllFailuresAsync` al detener desarma también las externas; (2) `ActiveFailureCount`/`ActiveFenixFailureIds` las cuentan y pueden bloquear el disparo en gate (3/3 con las IR); (3) la reconciliación futura no distinguiría externa resuelta de propia resuelta.
+- Decisión registrada: fuera de alcance; el diseño futuro es una "cartera de fallas propias" (engine-owned): topes y desarme/reset solo sobre los IDs armados por la sesión (persistidos en `TriggeredFailure`), las externas consumen 0 y no se tocan; las fallas de procedimiento tipo IR ALIGNMENT no deberían ser armables por el engine.
+
+**Por qué**
+
+- Hallazgo de integración real que condiciona topes, reset y reconciliación del modo Realistic; no era previsible desde el catálogo y debe quedar asentado antes de diseñar el motor.
+
+**Áreas**
+
+- `docs/realistic-mode/estado-y-diseno.md`; sin cambios de código.
+
+**Pruebas**
+
+- Ninguna ejecutada (cambio de documentación). Hallazgo verificado por consulta real a la API local (`GET /fenix/failures/manual`) con el avión cargado en gate.
+
+### 2026-10-17 — Consolidación del esquema en desarrollo (EnsureCreated, sin migraciones)
+
+**Qué**
+
+- Política nueva de esquema para desarrollo: se eliminan las migraciones existentes (`InitialCreate`, `FixFailurePresetDuplicateColumn`, `AddSessionEventHistoryAndDerivedAircraftTotals`, `RealisticModeFlowSchema` y el snapshot) y `App.xaml.cs` pasa de `MigrateAsync()` a `EnsureCreatedAsync()`: el esquema se crea completo desde el modelo actual (con seeds) en bases nuevas; no hay historial ni `__EFMigrationsHistory`.
+- Se borraron las bases locales de la app (`realfenixfailures.db` en la solución, el proyecto y `bin/Release`; la de `bin/Debug` quedó retenida por la app abierta y se regenera al cerrarla) — la app las recrea solas.
+- `docs/desarrollo.md` y `AGENTS.md` actualizados a la política: al cambiar el esquema, borrar la base local; al acercarse a v1, generar una única migración inicial y volver al flujo clásico.
+
+**Por qué**
+
+- Decisión del usuario: en desarrollo la base es un artefacto regenerable; las migraciones solo tendrán sentido en producción (v1). Evita fricción de historial en cada fase y el riesgo de «migration not found» contra bases viejas.
+
+**Áreas**
+
+- `RealFenixFailures.UI/App.xaml.cs`, `RealFenixFailures.Infrastructure/Migrations` (eliminados), `docs/desarrollo.md`, `AGENTS.md`, `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- Build Release sin advertencias y **88/88 tests** (los tests usan `EnsureCreated()` en memoria, mismos que antes). Base real borrada/regenerable; sin verificación manual en sesión real.
+
+### 2026-10-17 — Backend Realistic (Fase 1): configuración y esquema objetivo
+
+**Qué**
+
+- Nueva sección `FailureEngine:RealisticMode` en `FailureEngineSettings` + `appsettings.json`: intervalo de evaluación (30 s), tope de cola de preparadas (5), fallas en tierra habilitadas, tope de líneas de pensamiento (50) y ventanas OFP (`PreStartWindowHours=2`, `PostArrivalWindowHours=2`) y desgaste (`AmplificationFactor=0.5`, `ThresholdNoticePct=80`). Sin cadencias de disparo nuevas.
+- Migración nueva `RealisticModeFlowSchema` (no se tocaron las aplicadas): tabla `FlightPlans` (origen/destino/aerotipo, OFP+valores UTC, validez, estado de validación, XML crudo, fuente) con FK desde `FlightSession` (+`OriginIcao`/`DestinationIcao`/`ResultSnapshotJson`); ciclo de vida en `TriggeredFailure` (`State` default `Sent`, `FenixConfirmedAtUtc`, `ResolvedAtUtc`, `ResolvedPhase`, `ResolutionSource`, `CanBeTemporary`, `PreparedAtUtc`); `AtaId` en `FenixFailureSystem` y `AircraftWearableSystem`; `CanBeTemporary` en `FenixFailureDefinition`.
+- Seed de sistemas de desgaste ampliado de 8 a 19, alineado a los bloques ATA de `failures.json` (21..80); los Ids 1-8 cambian de semántica (Engine 1/2 se fusionan en ATA 70/80). Impacto en datos viejos de `AircraftSystemWear` documentado en `estado-y-diseno.md`.
+- Enums nuevos/aditivos: `FailureLifecycleState`, `ResolutionSource`, `ValidationState`; `SessionEventCategory` 9..14 (`Pause`…`SessionRecovered`).
+- La severidad por falla (campo `severity` en `failures.json` y su persistencia) **queda delegada al usuario**, no se implementa en esta fase.
+
+**Por qué**
+
+- Primer bloque del plan de backend aprobado: sienta el esquema que consumen las fases siguientes (OFP/validez, estados de falla, pausa/desarme, desgaste, resultados).
+
+**Áreas**
+
+- `Domain` (entidades `FlightPlan` nueva, `FlightSession`, `TriggeredFailure`, `FenixFailureDefinition`, `FenixFailureSystem`, `AircraftWearableSystem`; enums; `FailureEngineSettings`), `Infrastructure` (`RealFenixDbContext`, `SeedData`, migración `RealisticModeFlowSchema`), `UI/appsettings.json`, `TestUnits` (3 tests nuevos), `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- Migración validada en base temporal: aplicación completa, `Down` y re-`Up` (19 sistemas con AtaId 21..80 y `FlightPlans` presentes); la base real no se modificó. Build Release sin advertencias. **88/88 tests** (incluye los 3 nuevos: seed 19/AtaId únicos, valores aditivos de `SessionEventCategory`, defaults de `RealisticMode`). Build Debug del proyecto de tests OK; el build Debug de la solución quedó bloqueado por el ejecutable abierto (igual que en commits previos). Sin verificación manual en sesión real.
+
+### 2026-10-17 — Documentación del contrato crudo de la API de Fenix
+
+**Qué**
+
+- `docs/integraciones/fenix-api.md` documenta el contrato HTTP crudo: forma de `GET /fenix/failures/manual` (idéntica a `failures.json`, con el estado real por falla: `failed` = activa, `failureCondition` = armado), las cinco condiciones de armado (IAS, altitud sobre/bajo, tiempo, evento) y el payload de `POST /fenix/failures/saveManual` para activar, armar, desarmar/limpiar (no existe campo `armed`).
+- Se añade la derivación de estados del modo Realistic (limpia/armada/activa), el mapeo con la guía oficial de FenixSim (EFB pestañas Failed/Armed, resolución por el FMGC/EFB, mantenimiento en rampa) y la lista de verificación con la API real: GET de catálogo completo y operaciones POST confirmadas manualmente; reset verificado por envío, detección de resuelta por piloto y mantenimiento quedan pendientes.
+- Se registra que la respuesta **no incluye severidad** (asegura la necesidad del catálogo curado por `id` en el plan del motor) y la limitación conocida de `ResetAllFailuresAsync` (verifica solo `failed`, no `failureCondition`).
+
+**Por qué**
+
+- Ambos endpoints ya estaban implementados en `FenixApiClient`/`FenixApiFailureService` pero sin documentación del protocolo; es la base para definir el mapeo de estados de falla del modo Realistic.
+
+**Áreas**
+
+- `docs/integraciones/fenix-api.md`; sin cambios de código.
+
+**Pruebas**
+
+- Ninguna ejecutada (cambio de documentación). Comportamiento de la API confirmado por revisión manual del usuario con el avión cargado (listado completo con estados; armado/desarme/activación/desactivación vía `saveManual`). Pendientes detallados en el doc.
+
 ### 2026-10-17 — Ajuste de densidad y selector modal del front Realistic
 
 **Qué**

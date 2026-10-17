@@ -43,7 +43,7 @@ public partial class App : System.Windows.Application {
 
             using var scope = _host.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
-            await dbContext.Database.MigrateAsync();
+            await dbContext.Database.EnsureCreatedAsync();
 
             var initializer = scope.ServiceProvider.GetRequiredService<IInitializerService>();
             await initializer.InitializeAsync(CancellationToken.None);

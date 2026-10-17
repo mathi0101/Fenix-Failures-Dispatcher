@@ -9,12 +9,96 @@ Cliente HTTP de la API local de Fenix Simulations en `RealFenixFailures.Integrat
 - Health check cacheado para la UI.
 - Reset de fallas activas al detener un modo.
 
-## Endpoints usados
+## API cruda — contrato HTTP
 
-- `GET /fenix/failures/manual` — lista las fallas manuales disponibles (bloques ATA, grupos, fallas con estado).
-- `POST /fenix/failures/saveManual` — aplica (o desactiva) una falla manual.
+El URI final se construye desde configuración (`BaseUrl` + `Port` + path). Son dos endpoints:
 
-El URI final se construye desde configuración (`BaseUrl` + `Port` + path).
+- `GET /fenix/failures/manual` — lectura del estado de todas las fallas manuales disponibles.
+- `POST /fenix/failures/saveManual` — escritura: arma, desarma, activa o desactiva una falla.
+
+### GET /fenix/failures/manual — lectura de todas las fallas
+
+Devuelve un JSON con la **misma forma que `failures.json`** (el catálogo embebido): `atas` → `{id, title, shortTitle, groups}` → `{groupName, failures}`. La diferencia es que cada unidad de falla trae su **estado real actual** del avión:
+
+```json
+{
+  "id": "F_PNEUMATIC_CPC_1",
+  "title": "CPC 1",
+  "failureCondition": null,
+  "failed": false
+}
+```
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `id` | string | Identificador estable de la falla; es la clave para `saveManual`. |
+| `title` | string | Nombre que muestra Fenix. |
+| `failed` | bool | **Falla activa/inyectada en el avión** (equivale a "Failed" marcado en el EFB con Apply Changes). `false` = no está fallando. |
+| `failureCondition` | object \| null | **Armado de la falla**: presente mientras la falla está en espera de que se cumpla una condición; `null` = sin armado. Ver estructura en la sección POST. |
+
+`failed` y `failureCondition` son dimensiones independientes: una falla puede estar fallando sin armado, armada sin fallar, ambas o ninguna (las pestañas **Failed** y **Armed** del EFB muestran cada dimensión). El parser en `FenixStreamFailuresReaderService` deserializa este documento y lo mapea a `AllFenixFailuresResponseDto` (bloques ATA → grupos → `FenixFailureDto`).
+
+**La respuesta no incluye severidad** (ni `Minor`/`Major`/`Critical`); tampoco `failures.json`. Para los perfiles con topes por severidad hace falta un catálogo propio curado por `id` (Fase 1 del plan del modo Realistic).
+
+### POST /fenix/failures/saveManual — escritura (armar/desarmar/activar/desactivar)
+
+Cuerpo (el mismo que serializa `FenixSaveManualRequest`):
+
+```json
+{
+  "id": "F_ENG_1_OVHT",
+  "failed": false,
+  "failureCondition": { "ias": 1000 }
+}
+```
+
+| Campo | Tipo | Efecto |
+|---|---|---|
+| `id` | string | Falla objetivo (id devuelto por el GET). |
+| `failed` | bool | `true` inyecta la falla **de inmediato**; `false` la retira del estado fallando. |
+| `failureCondition` | object \| null | Detalle del armado; `null` quita el armado. |
+
+`failureCondition` acepta las **cinco opciones de armado del EFB, combinables** (la guía oficial de FenixSim las describe como "Arm Failure Condition"):
+
+| Propiedad | Condición en el EFB | Semántica |
+|---|---|---|
+| `ias` | Above IAS | Se dispara al superar esta IAS. |
+| `alt` | Above Alt AMSL | Se dispara al superar esta altitud (MSL). |
+| `altb` | Below Alt AMSL | Se dispara al quedar por debajo de esta altitud (MSL). |
+| `time` | After Time | Se dispara tras este número de segundos. |
+| `afterEvent` | After Event | Evento de disparo (p. ej. `V1`, despegue o aterrizaje). |
+| `afterEventSeconds` | — | Segundos adicionales después de `afterEvent`. |
+
+Combinaciones (p. ej. `{"ias": 150, "alt": 2000}`): la falla se dispara cuando se cumplen todas las condiciones presentes.
+
+**Operaciones típicas** (mismo endpoint, payload distinto):
+
+| Operación | Payload | Efecto |
+|---|---|---|
+| Activar inmediata | `{"id":"...", "failed":true, "failureCondition":null}` | La falla ocurre ya (pestaña Failed del EFB). |
+| Armar con condición | `{"id":"...", "failed":false, "failureCondition":{...}}` | La falla queda en espera y se dispara al cumplirse la condición (pestaña Armed). |
+| Desarmar / limpiar | `{"id":"...", "failed":false, "failureCondition":null}` | Quita armado y falla activa; deja la falla totalmente limpia. Es la request que usan desarme individual y reset. |
+
+No existe un campo `armed` en el protocolo: la intención se codifica en `failed` + `failureCondition`.
+
+### Derivación de estados (modo Realistic)
+
+| Lectura desde el GET | Significado |
+|---|---|
+| `failed=false` ∧ `failureCondition=null` | Limpia |
+| `failed=false` ∧ `failureCondition≠null` | Armada (en espera) |
+| `failed=true` | Activa (inyectada) |
+
+En código, `FenixFailureDto.IsArmed` deriva `failureCondition != null`; "activa" es `failed == true`.
+
+### Mapeo con la guía oficial de FenixSim
+
+Guía oficial: [Failures Guide in FenixSim Aircraft](https://support.fenixsim.com/hc/en-us/articles/12457317731855-Failures-Guide-in-FenixSim-Aircraft). Coincidencias relevantes:
+
+- **"Failed"** en el EFB = `failed:true` en `saveManual`.
+- **"Arm Failure Condition"** con sus 5 opciones = los campos de `failureCondition` de arriba.
+- **Quitar una falla manual** (unselect Failed + Apply Changes) = `failed:false` sin condición; la re-lectura por GET lo refleja. Este es el mecanismo por el que la app podrá detectar que el piloto resolvió una falla desde el FMGC/EFB (diseño objetivo §10, "lectura en vez de evento") sin que la app intervenga.
+- **Fallas random** (MTBF) y **mantenimiento en tierra** (solo en rampa, por categoría, hasta 10 minutos de reparación) viven en MCDU → Config → Random Failures, **no** en la API manual: la app no las gestiona, pero el mantenimiento en rampa es la vía del FMGC para despejar fallas y debe entenderse como "resuelta por piloto" en el historial.
 
 ## Configuración (por nombres de claves)
 
@@ -44,7 +128,9 @@ El DTO de armado/desarme es `FenixArmFailureRequest(Id, Failed, FailureCondition
 
 ## Reset
 
-`ResetAllFailuresAsync` consulta el estado actual, desactiva las fallas activas (`saveManual` con `(Failed=false, FailureCondition=null)`) y verifica que todas queden inactivas. Se invoca en `EngineOrchestrator.StopCurrentModeAsync`.
+`ResetAllFailuresAsync` consulta el estado actual vía `GetAllFailuresAsync`, y para cada falla con `failed=true` o `failureCondition != null` envía el desarme `(Failed=false, FailureCondition=null)`. Se invoca en `EngineOrchestrator.StopCurrentModeAsync`.
+
+**Limitación conocida** (`FenixApiFailureService.cs:80-94`): no comprueba el resultado HTTP de cada desarme (los envía y sigue) y la verificación final solo confirma `failed=false`, **sin mirar `FailureCondition`**. Hasta reescribirlo con desarme verificado por envío y re-lectura de ambos campos, no conviene apoyar en él la pausa que desarma, el cierre de sesión confiable ni la recuperación de fallas (ver docs/realistic-mode/estado-y-diseno.md).
 
 ## Armado y desarme individual
 
@@ -54,13 +140,19 @@ El DTO de armado/desarme es `FenixArmFailureRequest(Id, Failed, FailureCondition
 - **Pruebas automatizadas**: `SimulatorConnectionServiceTests` cubre el request de desarme y el id vacío; `RealisticSessionEngineTests` cubre la compensación con desarme exitoso y fallido.
 - El desarme/reset **real** sigue pendiente de verificación manual (ver abajo).
 
-## Verificaciones manuales pendientes
+## Verificación con la API real
 
-- Health check con Fenix corriendo y avión cargado.
-- Listado real de fallas vía `GET /fenix/failures/manual`.
-- Armado/desarme real de una falla vía `POST /fenix/failures/saveManual`.
-- Reset efectivo de fallas activas al detener el modo.
-- Desarme individual (`DisarmFailureAsync`) de una falla armada real.
+**Confirmado de forma manual con el avión cargado** (revisión del usuario):
+
+- `GET /fenix/failures/manual` devuelve el catálogo completo (misma forma que `failures.json`) con el estado real de cada falla (`failed` / `failureCondition`).
+- `POST /fenix/failures/saveManual` arma, desarma, activa y desactiva fallas reales según el payload documentado arriba.
+
+**Pendiente de verificación** (no probado de punta a punta):
+
+- Health check con la app levantada y Fenix corriendo.
+- Reset con desarme verificado por envío y re-lectura de ambos campos.
+- Detección de "resuelta por piloto": despejar una falla desde el FMGC/EFB y observar que el GET lo refleja (base del diseño objetivo §10, aún sin validar en sesión).
+- Mantenimiento en rampa (MCDU → Config → Random Failures) y su reflejo en el GET.
 - Uso completo del modo Realistic con Fenix real (no solo mocks).
 
 Diseño y estado del modo que consume esta API: [docs/realistic-mode/estado-y-diseno.md](../realistic-mode/estado-y-diseno.md).

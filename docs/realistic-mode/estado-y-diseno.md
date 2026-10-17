@@ -16,6 +16,19 @@ El front de Realistic usa ahora tres pasos: (1) selección/registro de aeronave,
 - **Pendiente de integración**: descarga/revisión/validez UTC del OFP y su persistencia; arranque sin Fenix y sin restricción de fase; los cuatro perfiles completos con topes/cadencias/temporales; estados de falla confirmada y resolución; pensamiento real del motor; pausa/desarme/restauración; resultados y recuperación de sesiones abiertas. Los tres perfiles seleccionables describen **solo el motor vigente** (tope global 3 y cooldown 60 s), no los topes objetivo de `diseno-objetivo.md` §5.
 - **Verificación**: la compilación Debug y las pruebas de unidad automatizadas se consignan en `docs/CHANGELOG.md`. La app DEBUG arrancó desde la carpeta del proyecto y se navegó por automatización a Realista/paso 1; no se comprobó el paso 3 ni el modal porque no había aeronaves registradas. No se ha verificado visualmente la ventana a tamaño mínimo ni se ha ensayado esta UI en una sesión real MSFS/Fenix.
 
+## Fase 1 — Fundamentos del esquema objetivo (2026-10-17)
+
+Primera fase del backend del modo Realistic: configuración, esquema (migración `RealisticModeFlowSchema`) y catálogo de sistemas. La severidad por falla se completó el **2026-10-17** con el campo `severity` en las 384 fallas de `failures.json` (ver sección «Severidad de fallas del catálogo»); la **persistencia** del campo en `FenixFailureDefinition` sigue pendiente.
+
+- **Configuración** — nueva sección `FailureEngine:RealisticMode` en `FailureEngineSettings` y `appsettings.json`: `EvaluationIntervalSeconds=30`, `PreparedQueueLimit=5`, `GroundFailureEnabled`, `ThinkingLinesCap=50`, `Ofp{PreStartWindowHours=2, PostArrivalWindowHours=2}`, `Wear{AmplificationFactor=0.5, ThresholdNoticePct=80}`. Sin cadencias de disparo nuevas (calibración pendiente; los topes actuales del motor son los vigentes).
+- **Esquema** — creado con `EnsureCreatedAsync()` desde el modelo (desarrollo; no hay migraciones; política en `docs/desarrollo.md`):
+  - `FlightPlans` (tabla nueva): origen/destino/aerotipo, número/vuelo y callsign, offblock y aterrizaje estimado en UTC, duración, ruta, XML crudo, fuente (`Userid`/`Url`), fechas de descarga/validez, `ValidationState` y mensaje. `FlightSession` gana `FlightPlanId` (FK Restrict), `OriginIcao`, `DestinationIcao` y `ResultSnapshotJson`.
+  - `TriggeredFailure` gana el ciclo de vida: `State` (default `Sent`), `FenixConfirmedAtUtc`, `ResolvedAtUtc`, `ResolvedPhase`, `ResolutionSource`, `CanBeTemporary`, `PreparedAtUtc`.
+  - `FenixFailureSystem.AtaId` y `AircraftWearableSystem.AtaId` (join 1:1 por ATA) y `FenixFailureDefinition.CanBeTemporary`.
+  - **Seed de sistemas ampliado de 8 a 19**, alineado a los 19 bloques ATA de `failures.json` (21..80): los Ids 1-8 se re-semantizan (antes Engine 1/2, HYD, GEAR, NAV, PNEU, APU, DOOR) y ya no existe "Engine 1/Engine 2" como sistemas independientes; se fusionan en ATA 70 (Power plant) y ATA 80 (Start faults). **Impacto**: datos de `AircraftSystemWear` de aeronaves existentes que apunten a Ids 1-8 quedan asociados a un sistema de distinto nombre; en la base real no había aeronaves con desgaste persistido al momento del cambio.
+- **Enums aditivos** — `FailureLifecycleState` (Preparing/Queued/Sent/Active/ResolvedByPilot/AutoResolved/NotResolved/Rejected), `ResolutionSource` (EngineAuto/Pilot/SessionEnded), `ValidationState` (Pending/Valid/Invalid/Expired) y `SessionEventCategory` ampliado (Pause, ResumeOrReconnect, FailureStateChanged, WearUpdated, OfpLoaded, SessionRecovered = 9..14). Sin esquema.
+- **Verificación** — esquema validado con `EnsureCreated()` sobre SQLite en memoria y en DB temporal de archivo (19 sistemas con AtaId 21..80, tabla `FlightPlans`, defaults del ciclo de vida); se borraron las bases locales y se eliminaron las migraciones previas (consolidación dev, 2026-10-17). Build Release sin advertencias y **88/88 tests** (3 nuevos: seed 19/AtaId, valores aditivos de `SessionEventCategory`, defaults de `RealisticMode`). El roundtrip a DB del ciclo de vida de `TriggeredFailure` quedó validado por el esquema; su prueba unitaria de entidad se deja para la fase de estados de falla.
+
 ## Implementado (verificado en código)
 
 - **`RealisticSessionManager`** (`RealFenixFailures.Application/Services/RealisticSessionManager.cs`) — singleton; **responsable del ciclo de vida y el timer**: `StartNewSessionAsync`, `StopAsync`, `PauseAsync`, `ResumeAsync`; `PeriodicTimer` de evaluación de **30 s** (`EvaluationIntervalSeconds`); despacha `FailureTriggered` y `SessionError` hacia la UI.
@@ -370,6 +383,36 @@ Análisis de una **respuesta real de SimBrief** (OFP/flightplan) tomada de la UR
 4. Cuando la realidad contradice el OFP (retraso, desvío, avión parado), ¿el engine **re-planifica sobre la marcha**, descarta el plan restante o pausa los candidatos condicionados al plan?
 5. ¿Qué nivel de **explicación** de la decisión se le da al piloto (por qué falló esto y por qué ahora) en la UI/log, y qué nivel al desarrollador (depuración y calibración)?
 
+## Fallas ajenas al engine (externas) — hallazgo 2026-10-17, pendiente de diseño
+
+Fenix simula fallas **propias de su flujo operativo** que el engine no provoca y no debe tocar. Verificado contra la API real (`GET /fenix/failures/manual`, avión A320 en gate, cold & dark): el listado devuelve **3 fallas activas por diseño** — `F_OH_NAV_IR_ALIGNMENT_1/2/3` (IR1/2/3 alignment, `failed=true`, sin `failureCondition`) — que se resuelven cuando el piloto completa la alineación de los ADIRs, flujo normal de cockpit preparation del Captain.
+
+**Impacto sobre el engine actual (sin manejo de externas):**
+
+1. **Reset total al detener** — `EngineOrchestrator.StopCurrentModeAsync` → `ResetAllFailuresAsync` (FenixApiFailureService.cs:80) desactiva **todas** las fallas activas/armadas de Fenix, externas incluidas: al detener una sesión borraría el estado operativo propio de Fenix (p. ej. las IR que el piloto esté alineando).
+2. **Tope de simultáneas contaminado** — `RealisticSession.ActiveFailureCount` y `ActiveFenixFailureIds` (RealisticSession.cs:29-34) miran el estado Fenix crudo: con las 3 IR ALIGNMENT activas en gate, `ActiveFailureCount >= MaxSimultaneousActiveFailures (3)` y el engine **no puede disparar ninguna falla** hasta que el piloto alinee los ADIRs.
+3. **Reconciliación futura** — la re-consulta tras reconexión / detección de resuelta no podría distinguir una externa resuelta (el piloto alineó) de una propia resuelta por el piloto.
+
+**Decisión (fuera de alcance de la fase actual):** el engine debe operar sobre una **"cartera de fallas propias"** (engine-owned failures): IDs que él armó en la sesión (persistidos en `TriggeredFailure`), usándolos para topes de simultáneas y desarme/reset por ID; las externas consumen 0 y jamás se tocan. Las fallas de procedimiento (tipo IR ALIGNMENT) tampoco deberían ser candidatas armables por el engine. En esta fase solo queda documentado; no hay cambios de código.
+
+## Severidad de fallas del catálogo (2026-10-17)
+
+Las 384 fallas de `failures.json` llevan ahora `"severity": 1|2|3`, aplicada con la definición operativa siguiente (clasificación para **vuelo en condiciones normales, en crucero**):
+
+| Nivel | Criterio | Marcos |
+|---|---|---|
+| **1 Minor** | El avión cumple el vuelo sin cambios de plan ni limitaciones; el sistema tiene respaldo/redundancia que absorbe la falla, o es información de apoyo | Falla de **un** canal de un sistema dual (CPC, MCDU, DU, fuel pumps, radios, ILS), equipamiento informativo (TCAS, GPWC, NAV, ATC, com), door/tyre/start y fallas de tierra |
+| **2 Major** | Degrada capacidades: ECAM actions/checklist, respaldos mermados o vuelo con limitaciones; el destino sigue factible | Falla de un motor, un eje hidráulico, generador/IDG, ADIRU/ADR, buses principales, laps de detección de fuego, fuga de combustible/bleed, gear lock |
+| **3 Critical** | Emergencia o sistema esencial sin respaldo: desvío/aterrizaje inmediato o compromete el control | Fuego/humo (motor, cargo, lavatory, avionics), descompresión rápida, buses esenciales (AC/DC ESS, ESS TR), direct/alternate law sin protecciones, gear locked up, sidestick reversal, elevador L+R, reverser presurizado/desbloqueado, falla de motor con daño, fuel valve de motor atascada |
+
+Reglas de desempate usadas: la **redundancia del A320** es la guía principal (un canal de un par redundante → 1; sistema completo inoperante o par roto → 2; doble falla o pérdida sin respaldo de algo esencial → 3); **control de vuelo manda** (falla de control primario o ley sin respaldo → 3); fuego/humo/descompresión/falla de ambos motores → 3 salvo evidencia en contrario; equipamiento informativo → 1; ante duda → el nivel menor.
+
+Distribución resultante: **173 Minor, 179 Major, 32 Critical**. Detalle: Fire protection 0/10/12, Power plant 4/18/6, Flight controls 10/20/5, Electrical power 11/15/3, AutoFlight 4/13/2, Fuel 20/9/2, Ice and rain 9/17/0, Hydraulic 7/14/0, Pneumatic 7/13/0, Air Conditioning 15/8/1, Landing gear 13/11/1, Navigation 24/27/0, Indicating 16/2/0, Doors 15/0/0, Start faults 8/0/0, APU 3/0/0, Communications 2/0/0, Oxygen 4/2/0, Information systems 1/0/0. La revisión completa (id | ATA | grupo | título | severidad) se hizo contra el catálogo: quedan a validar por el usuario los ítems dudosos anotados en el CHANGELOG.
+
+Nota: `IRS Alignment` (IR1/2/3 alineación) quedaron con severidad 1 pero son fallas de **procedimiento** externas al engine (ver sección «Fallas ajenas al engine») y no deberían ser armables por el motor.
+
+**Pendiente (fuera del alcance de esta tarea):** persistir `severity` en la base — hoy `FailuresPersistenceService` fuerza `FailureSeverity.Minor` (FailuresPersistenceService.cs:46) sin leer el campo — con los cambios de parser/DTO y la decisión sobre si las externas entran al catálogo persistido.
+
 ## Limitaciones restantes (no resueltas)
 
 1. **Fallas de Training/Custom fuera del feed de eventos** — el log en pantalla (`MainWindowViewModel.LogEntries`) solo recibe eventos del detector; las fallas disparadas por los modos Training/Custom no llegan a ese feed. Referencia: `MainWindowViewModel.FlightEventDetector_FlightEventDetected`.
@@ -379,3 +422,4 @@ Análisis de una **respuesta real de SimBrief** (OFP/flightplan) tomada de la UR
 5. **Auto-resume** — no implementado (ver "Pendiente").
 6. **Integración real MSFS/Fenix sin verificar** — builds y tests no reemplazan la prueba manual.
 7. **Historial persistido solo en el modo Realistic** — `FlightSession`, `SessionEventLog` y `TriggeredFailure` solo se crean desde `RealisticSessionEngine` durante sesiones Realistic; los modos Training/Custom no persisten sesiones ni historial (igual que antes de este cambio).
+8. **Fallas ajenas al engine sin manejo** — Fenix levanta fallas propias de su flujo (comprobado: IR ALIGNMENT en gate); el engine actual las cuenta para topes y el reset total las desarma. Diseño pendiente de una "cartera de fallas propias"; ver sección "Fallas ajenas al engine (externas)".

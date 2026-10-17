@@ -29,22 +29,25 @@ La configuración vive en `RealFenixFailures.UI/appsettings.json`. Acá se lista
 - `FenixApi` — `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
 - `Serilog` — nivel mínimo y `WriteTo:File` (`logs/realfenix-.log`, rolling diario).
 
-## Migraciones EF
+## Migraciones EF (modo desarrollo)
 
-Rutas desde `Realistic Failures Solution` (`--project` es Infrastructure y `--startup-project` es UI):
+**En desarrollo no se mantienen migraciones.** `App.xaml.cs` usa `Database.EnsureCreatedAsync()`: el esquema se crea **completo desde el modelo actual** en cada arranque si la base no existe (incluye los seeds `HasData`). No hay historial de migraciones ni `__EFMigrationsHistory`.
+
+- Al cambiar entidades: entidad en Domain → ajuste en `RealFenixDbContext` → seed si corresponde → **borrar la base local** (`realfenixfailures.db`; la app la recrea sola en el próximo arranque). No hace falta generar, revisar ni aplicar migraciones.
+- Las bases de la app son artefactos regenerables: `Realistic Failures Solution/realfenixfailures.db` (CWD de la solución), `RealFenixFailures.UI/realfenixfailures.db` (CWD del proyecto) y las de `bin/`.
+- Los tests corren con `EnsureCreated()` sobre SQLite en memoria: no dependen de migraciones.
+- **Cuando el esquema esté cercano a la v1**: generar una única migración inicial (`dotnet ef migrations add InitialRelease --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release`) y volver a `MigrateAsync()` para entornos compartidos.
+
+Comandos de EF (para cuando se retome el flujo clásico, desde `Realistic Failures Solution`; `--project` Infrastructure, `--startup-project` UI):
 
 ```sh
-dotnet ef migrations add NombreDeLaMigracion --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef database update --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef migrations list --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef migrations remove --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
+dotnet ef migrations add NombreDeLaMigracion --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+dotnet ef database update --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+dotnet ef migrations list --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+dotnet ef migrations remove --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
 ```
 
-Reglas:
-
-- No editar migraciones ya aplicadas en entornos compartidos: siempre crear migración nueva (en `RealFenixFailures.Infrastructure/Migrations`).
-- Revisar el código generado antes de aplicarlo: validar `Up` y `Down`, que no haya drop/create involuntario y que los `UpdateData` del seed sean correctos.
-- Al cambiar entidades: entidad en Domain → ajuste en `RealFenixDbContext` → seed si corresponde → migración nueva → aplicar → build Debug y Release.
+Reglas del flujo clásico (v1/compartido): no editar migraciones ya aplicadas en entornos compartidos — siempre crear migración nueva (en `RealFenixFailures.Infrastructure/Migrations`); revisar el código generado antes de aplicarlo (validar `Up` y `Down`, que no haya drop/create involuntario y que los `UpdateData` del seed sean correctos).
 
 ## Validación
 

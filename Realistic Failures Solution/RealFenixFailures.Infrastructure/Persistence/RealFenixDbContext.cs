@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
 
 namespace RealFenixFailures.Infrastructure.Persistence;
 
@@ -19,6 +20,7 @@ public class RealFenixDbContext : DbContext {
     public DbSet<UserAircraft> UserAircrafts => Set<UserAircraft>();
     public DbSet<AircraftWearableSystem> AircraftWearableSystems => Set<AircraftWearableSystem>();
     public DbSet<AircraftSystemWear> AircraftSystemWears => Set<AircraftSystemWear>();
+    public DbSet<FlightPlan> FlightPlans => Set<FlightPlan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
 
@@ -50,6 +52,7 @@ public class RealFenixDbContext : DbContext {
 
         modelBuilder.Entity<AircraftWearableSystem>(entity => {
             entity.HasKey(x => x.Id);
+            entity.Property(x => x.AtaId).IsRequired().HasDefaultValue(0);
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
             entity.Property(x => x.ShortName).HasMaxLength(20).IsRequired();
             entity.HasMany(x => x.Wears)
@@ -79,6 +82,7 @@ public class RealFenixDbContext : DbContext {
             entity.HasKey(x => x.FenixFailureId);
             entity.Property(x => x.FenixFailureId).HasMaxLength(180).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.CanBeTemporary).HasDefaultValue(false);
             entity.HasOne(x => x.Group)
                   .WithMany(g => g.FailureDefinitions)
                   .HasForeignKey(x => x.GroupId)
@@ -100,6 +104,7 @@ public class RealFenixDbContext : DbContext {
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.ShortName).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.AtaId).IsRequired().HasDefaultValue(0);
         });
 
         #endregion
@@ -149,16 +154,35 @@ public class RealFenixDbContext : DbContext {
         modelBuilder.Entity<FlightSession>(entity => {
             entity.HasKey(x => x.Id);
             entity.HasOne(x => x.UserAircraft).WithMany(a => a.FlightSessions).HasForeignKey(x => x.UserAircraftId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.FlightPlan).WithMany(p => p.Sessions).HasForeignKey(x => x.FlightPlanId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(x => x.OriginIcao).HasMaxLength(10);
+            entity.Property(x => x.DestinationIcao).HasMaxLength(10);
+            entity.Property(x => x.ResultSnapshotJson).HasColumnType("TEXT");
             entity.HasMany(x => x.EventLogs)
                   .WithOne(e => e.FlightSession)
                   .HasForeignKey(e => e.FlightSessionId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<FlightPlan>(entity => {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.OriginIcao).HasMaxLength(10).IsRequired();
+            entity.Property(x => x.DestinationIcao).HasMaxLength(10).IsRequired();
+            entity.Property(x => x.AircraftIcaoType).HasMaxLength(10).IsRequired();
+            entity.Property(x => x.FlightNumber).HasMaxLength(20);
+            entity.Property(x => x.Callsign).HasMaxLength(20);
+            entity.Property(x => x.RouteText).HasMaxLength(2000);
+            entity.Property(x => x.RawData).HasColumnType("TEXT");
+            entity.Property(x => x.Source).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.ValidationMessage).HasMaxLength(500);
+        });
+
         modelBuilder.Entity<TriggeredFailure>(entity => {
             entity.HasKey(x => x.Id);
             entity.HasOne(x => x.FlightSession).WithMany(x => x.TriggeredFailures).HasForeignKey(x => x.FlightSessionId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.FenixFailure).WithMany().HasForeignKey(x => x.FenixFailureId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(x => x.State).HasDefaultValue(FailureLifecycleState.Sent);
+            entity.Property(x => x.CanBeTemporary).HasDefaultValue(false);
             entity.Property(x => x.FailureName).HasMaxLength(200);
             entity.Property(x => x.PresetName).HasMaxLength(120);
             entity.Property(x => x.Ias).HasMaxLength(10);
