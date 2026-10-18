@@ -131,7 +131,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Perfil Bajo" FontSize="13" FontWeight="Bold"
+                            <TextBlock Grid.Column="0" Text="Perfil Bajo" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                             <RadioButton Grid.Column="1" x:Name="RadioLow" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="1" Checked="Profile_Checked"
@@ -139,7 +139,7 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -207,7 +207,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Perfil Moderado" FontSize="13" FontWeight="Bold"
+                            <TextBlock Grid.Column="0" Text="Perfil Moderado" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                             <RadioButton Grid.Column="1" x:Name="RadioModerate" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="2" Checked="Profile_Checked"
@@ -215,7 +215,7 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -283,7 +283,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Perfil Alto" FontSize="13" FontWeight="Bold"
+                            <TextBlock Grid.Column="0" Text="Perfil Alto" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                             <RadioButton Grid.Column="1" x:Name="RadioHigh" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="3" Checked="Profile_Checked"
@@ -291,7 +291,7 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -359,7 +359,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Perfil 7700" FontSize="13" FontWeight="Bold"
+                            <TextBlock Grid.Column="0" Text="Perfil 7700" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                             <Border Grid.Column="1" Background="#2A1C0A" CornerRadius="4" Padding="8,2">
                                 <TextBlock Text="No seleccionable · VATSIM no apto" FontSize="10"
@@ -368,7 +368,7 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>

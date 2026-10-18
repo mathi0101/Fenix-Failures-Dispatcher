@@ -20,6 +20,28 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 - Comprobación previa al commit: Release nuevamente con **0 errores / 0 advertencias**, suite **115/115** y auditoría de dependencias directas/transitivas sin paquetes vulnerables según las fuentes configuradas. El nuevo intento Debug quedó bloqueado por DLL en uso por `RealFenixFailures.UI` y Visual Studio (`MSB3027`/`MSB3021`); no se cerraron procesos del usuario. El build Debug exitoso anterior corresponde a la ejecución inicial del trabajo.
 - Descarga HTTP real, UI y sesión MSFS/Fenix: **no verificadas**. No se amplió el parser para aceptar XML mal formado.
 
+### 2026-10-18 — Fix: crash de cierre por Close() reentrante en el modal
+
+**Qué**
+
+- Al elegir «Cerrar la app por completo» en `CloseChoiceWindow`, `MainWindow_Closing` llamaba a `Close()` dentro del propio evento `Closing` (la ventana ya estaba procesando `WM_CLOSE`): `InvalidOperationException` — «Cannot set Visibility to Visible or call Show, ShowDialog, Close, or WindowInteropHelper.EnsureHandle while a Window is closing» — en `MainWindow.xaml.cs:58`, que llegaba al crash reporter y cerraba la app con cartel y log (`crash-20261018-143622-468.log`).
+- El `Close()` del `case Shutdown` se difiere hasta después de que el handler de `Closing` termina, con `Dispatcher.BeginInvoke(new Action(Close))` (cambio de 1 línea): `IsExitAllowed` ya está en `true`, el `Closing` reentrante disparado por el cierre diferido retorna sin cancelar y la ventana cierra sin excepción. Sin cambios en cancelar, segundo plano/bandeja ni lógica del motor.
+
+**Por qué**
+
+- `Window.Close()` no puede ejecutarse mientras la ventana está en cierre (reentrancia dentro de `Closing`); diferirlo resuelve la causa raíz sin refactor del ciclo de vida.
+
+**Áreas**
+
+- `RealFenixFailures.UI/Views/MainWindow.xaml.cs` (1 línea), `docs/ui/manejo-de-errores-y-arranque.md` (sección nueva), este CHANGELOG.
+
+**Pruebas**
+
+- Harness WPF externo al repo (`%TEMP%\RFCloseHarness`): fuente real de `MainWindow.xaml.cs` linkeada (sin proxy), stubs de `MainWindowViewModel`, `TrayIconService`, `InitializeComponent` y `SettingsPanelHost` para no arrancar la app ni la BD; `Application` con `ShutdownMode` explícito en hilo STA, cierre disparado con `BeginInvoke` y botón del modal accionado por reflexión.
+  - **Antes del fix (rojo)**: se reproduce la excepción reentrante exacta (mismo mensaje y punto que el log de crash), exit code 1.
+  - **Después del fix (verde)**: Cancelar → ventana visible y no cerrada; Segundo plano → oculta, no cerrada, aviso de bandeja; Cerrar app → `Closed` sin excepción. Exit code 0.
+- Build Release de la solución: 0 errores/0 advertencias; `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj -c Release`: **99/99**; `git diff --check` limpio.
+
 ### 2026-10-17 — Modal de confirmación al cerrar la ventana principal
 
 **Qué**

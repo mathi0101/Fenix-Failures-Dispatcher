@@ -53,6 +53,14 @@ Caso raro pero verificado en la práctica: si el constructor de `App` falla (p. 
 - El host sigue leyendo `appsettings.json` del **directorio de trabajo actual** (comportamiento preexistente de `Host.CreateDefaultBuilder`, no cambiado): si se lanza el exe desde otra carpeta sin ese archivo, el arranque ahora falla con cartel y log en vez de morir en silencio.
 - El log de crash se acumula sin rotación (nombre con timestamp): conviene decidir algún día una política de retención.
 
+## Crash al cerrar: Close() reentrante en MainWindow_Closing
+
+Contexto: al pulsar la X (o Alt+F4), `MainWindow_Closing` hace `e.Cancel = true` y muestra el modal `CloseChoiceWindow` con `ShowDialog`. Si el usuario elige «Cerrar la app por completo», el handler llamaba a `Close()` **dentro del propio evento `Closing`**: la ventana todavía está procesando `WM_CLOSE` y el `Close()` reentrante lanza `InvalidOperationException` (*«Cannot set Visibility to Visible or call Show, ShowDialog, Close, or WindowInteropHelper.EnsureHandle while a Window is closing»*) en `MainWindow.xaml.cs:58`. Esa excepción llega a `DispatcherUnhandledException` del crash reporter, que cierra la app con cartel y log de crash (`crash-20261018-143622-468.log`).
+
+Fix (2026-10-18): el `Close()` del `case Shutdown` se difiere hasta después de que el handler de `Closing` termina, con `Dispatcher.BeginInvoke(new Action(Close))`. `IsExitAllowed` ya quedó en `true`, así que el `Closing` reentrante disparado por el cierre diferido retorna sin cancelar y la ventana se cierra sin excepción. No se alteró el resto: cancelar, segundo plano (bandeja) ni la lógica del motor.
+
+Verificación: harness WPF externo al repo (`RFCloseHarness`) que linkea `MainWindow.xaml.cs` real y recorre los tres caminos del modal con stubs; antes del fix reproduce la excepción exacta (rojo) y después del fix cierra sin excepción (verde). Detalle en `CHANGELOG.md` (2026-10-18).
+
 ## Pendiente / no verificado
 
 - Verificación **manual en ejecución real** pendiente de hacer por el usuario: forzar una excepción en runtime con la ventana abierta (cartel + log + cierre), forzar un fallo de arranque real (cartel + log), y mirar el splash durante un arranque con la app publicada. Lo verificado a la fecha es build, tests y smoke test del binario (ver CHANGELOG).

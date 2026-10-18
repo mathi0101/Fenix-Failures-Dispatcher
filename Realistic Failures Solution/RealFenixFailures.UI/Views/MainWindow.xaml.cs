@@ -55,7 +55,7 @@ public partial class MainWindow : Window {
             switch (dialog.Choice) {
                 case CloseChoiceWindow.CloseChoice.Shutdown:
                     IsExitAllowed = true;
-                    Close();
+                    Dispatcher.BeginInvoke(new Action(Close));
                     break;
 
                 case CloseChoiceWindow.CloseChoice.Background:

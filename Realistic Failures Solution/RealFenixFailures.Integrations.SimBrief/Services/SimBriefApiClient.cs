@@ -20,7 +20,7 @@ public sealed class SimBriefApiClient : ISimBriefApiClient {
     }
 
     public async Task<Stream> FetchOfpXmlAsync(string simbriefUserId, CancellationToken ct) {
-        var requestUri = $"{_opts.BaseUrl}?userid={Uri.EscapeDataString(simbriefUserId)}";
+        var requestUri = $"{_opts.BaseUrl}?username={Uri.EscapeDataString(simbriefUserId)}";
         var response = await _http.GetAsync(requestUri, ct);
         response.EnsureSuccessStatusCode();
         // El OFP es texto (XML/JSON); lo devolvemos como un MemoryStream memoria-evaluable más de una vez.
