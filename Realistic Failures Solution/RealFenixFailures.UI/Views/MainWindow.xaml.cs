@@ -1,4 +1,5 @@
-﻿using RealFenixFailures.UI.ViewModels;
+﻿﻿using RealFenixFailures.UI.Services;
+using RealFenixFailures.UI.ViewModels;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
@@ -11,6 +12,13 @@ public partial class MainWindow : Window {
     private const string DonationUrl = "https://ko-fi.com/mathiasgonzalez0101";
 
     private readonly MainWindowViewModel _viewModel;
+    private bool _isCloseDialogOpen;
+
+    /// <summary>
+    /// Servicio de bandeja del sistema, inyectado desde <see cref="App.OnStartup"/>.
+    /// Se usa para avisar (balloon) cuando la ventana pasa a segundo plano.
+    /// </summary>
+    public TrayIconService? TrayIcon { get; set; }
 
     /// <summary>
     /// Cuando es false (default), cerrar la ventana la oculta y la app sigue
@@ -33,7 +41,31 @@ public partial class MainWindow : Window {
             return;
 
         e.Cancel = true;
-        Hide();
+
+        if (_isCloseDialogOpen)
+            return;
+
+        _isCloseDialogOpen = true;
+        try {
+            var dialog = new CloseChoiceWindow { Owner = this };
+            var accepted = dialog.ShowDialog() == true;
+            if (!accepted)
+                return;
+
+            switch (dialog.Choice) {
+                case CloseChoiceWindow.CloseChoice.Shutdown:
+                    IsExitAllowed = true;
+                    Close();
+                    break;
+
+                case CloseChoiceWindow.CloseChoice.Background:
+                    Hide();
+                    TrayIcon?.NotifyMinimizedToTray();
+                    break;
+            }
+        } finally {
+            _isCloseDialogOpen = false;
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {

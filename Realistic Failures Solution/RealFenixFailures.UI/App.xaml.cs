@@ -60,6 +60,7 @@ public partial class App : System.Windows.Application {
         try {
             var newWindow = _host.Services.GetRequiredService<MainWindow>();
             _trayIconService = new TrayIconService(newWindow, RequestExit);
+            newWindow.TrayIcon = _trayIconService;
             _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
             newWindow.Show();
         }

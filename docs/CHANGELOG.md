@@ -4,6 +4,20 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Modal de confirmación al cerrar la ventana principal
+
+**Qué**
+
+- Al hacer clic en la X (o Alt+F4), ya no se pasa a segundo plano de forma inmediata: se muestra un modal (`CloseChoiceWindow`) con tres opciones:
+  - **Seguir en segundo plano**: la app queda en la bandeja (comportamiento anterior) y muestra el aviso de bandeja.
+  - **Cerrar la app por completo**: detiene el motor de fallas y sale (equivale a "Salir" desde la bandeja).
+  - **Cancelar**: vuelve a la ventana sin cambios.
+- `MainWindow.MainWindow_Closing` coordina la elección (flag de reentrada para no abrir el modal dos veces); `TrayIconService` se inyecta en `MainWindow` para el aviso de segundo plano.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **99/99 tests**. No se probó manualmente el flujo visual del modal (requiere ejecutar la app); pendiente de revisión en vivo.
+
 ### 2026-10-17 — Fix OFP: mock con fechas dinámicas y feedback si falta userid
 
 **Qué**
