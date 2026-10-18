@@ -14,7 +14,10 @@ public sealed class MockSimBriefApiClient : ISimBriefApiClient {
 
     public Task<Stream> FetchOfpXmlAsync(string simbriefUserId, CancellationToken ct) {
         _logger.LogInformation("SimBrief mock: generando OFP sintético para userid {UserId}.", simbriefUserId);
-        var xml = """
+        var now = DateTime.UtcNow;
+        var offBlock = now.AddMinutes(30);
+        var eta = offBlock.AddMinutes(95);
+        var xml = $"""
             <?xml version="1.0" encoding="UTF-8"?>
             <OFP>
               <general>
@@ -34,10 +37,10 @@ public sealed class MockSimBriefApiClient : ISimBriefApiClient {
                 <name>Roma Fiumicino</name>
               </destination>
               <times>
-                <orig>2026-10-17 06:30:00</orig>
-                <dest>2026-10-17 08:05:00</dest>
-                <etd>2026-10-17 06:30:00</etd>
-                <eta>2026-10-17 08:05:00</eta>
+                <orig>{offBlock:yyyy-MM-dd HH:mm:ss}</orig>
+                <dest>{eta:yyyy-MM-dd HH:mm:ss}</dest>
+                <etd>{offBlock:yyyy-MM-dd HH:mm:ss}</etd>
+                <eta>{eta:yyyy-MM-dd HH:mm:ss}</eta>
               </times>
               <route>
                 <text>LFBD SID/STAR BORDX LIRF</text>

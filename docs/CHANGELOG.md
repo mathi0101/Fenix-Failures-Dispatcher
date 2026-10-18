@@ -4,6 +4,18 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Fix OFP: mock con fechas dinámicas y feedback si falta userid
+
+**Qué**
+
+- `MockSimBriefApiClient` (DEBUG) generaba el OFP con fechas fijas del 2026-10-17, por lo que al pasar el día el plan siempre quedaba `Expired` («venció») y nunca se podía validar/activar. Ahora genera fechas dinámicas (`UTC+30 min` offblock, `+95 min` eta) para que el OFP sintético siempre quede dentro de la ventana en desarrollo.
+- `CanDownloadOfp` ya no exige userid: el botón «Descargar OFP» queda habilitado con aeronave seleccionada. Si no hay userid de SimBrief configurado en Ajustes, `DownloadOfpAsync` muestra el error explicativo en el estado del OFP («Configurá tu userid de SimBrief en Ajustes…») en lugar de no hacer nada.
+- `DownloadOfpCommand.RaiseCanExecuteChanged()` al seleccionar/deseleccionar aeronave (antes no se notificaba el cambio de habilitación).
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **99/99 tests**. Diagnóstico por lectura del código (fechas fijas vs `DateTime.UtcNow`); no verificado con la API real de SimBrief (pendiente).
+
 ### 2026-10-17 — Front Realistic (Paso 3): userid de SimBrief desde Ajustes
 
 **Qué**

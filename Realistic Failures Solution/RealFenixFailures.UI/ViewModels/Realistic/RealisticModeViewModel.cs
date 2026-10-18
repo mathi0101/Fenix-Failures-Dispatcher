@@ -177,6 +177,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(HasSelectedAircraft));
                 OnPropertyChanged(nameof(SelectedAircraftTitle));
                 ContinueToPrepCommand.RaiseCanExecuteChanged();
+                DownloadOfpCommand.RaiseCanExecuteChanged();
                 RaiseActivationState();
             }
         }
@@ -356,7 +357,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public bool CanDownloadOfp =>
         SelectedAircraft is not null &&
-        !string.IsNullOrWhiteSpace(SimbriefUserId) &&
         !IsEngineActive && !IsOperationPending;
 
     public bool OfpValidated => _ofpPlanForUi?.IsUsable == true;
@@ -597,7 +597,16 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private async Task DownloadOfpAsync() {
-        if (IsOfpDownloading || SelectedAircraft is null || string.IsNullOrWhiteSpace(SimbriefUserId)) return;
+        if (IsOfpDownloading || SelectedAircraft is null) return;
+
+        if (string.IsNullOrWhiteSpace(SimbriefUserId)) {
+            ApplyOfpResult(new FlightPlanDto {
+                ValidationState = ValidationState.Invalid,
+                ValidationMessage = "Configurá tu userid de SimBrief en Ajustes antes de descargar el OFP.",
+            });
+            _logger.LogWarning("Descarga de OFP sin userid de SimBrief configurado en Ajustes.");
+            return;
+        }
 
         IsOfpDownloading = true;
         try {
