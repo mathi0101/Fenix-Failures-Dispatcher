@@ -17,20 +17,23 @@ public sealed class SimBriefOfpReader : ISimBriefOfpReader {
         var doc = XDocument.Parse(content);
 
         var general = doc.Root?.Element("general");
+        var aircraft = doc.Root?.Element("aircraft");
         var origin = doc.Root?.Element("origin");
         var destination = doc.Root?.Element("destination");
         var times = doc.Root?.Element("times");
         var route = doc.Root?.Element("route");
 
-        var aircraftIcao = general?.Element("aircraft_icao")?.Value?.Trim() ?? string.Empty;
+        var aircraftIcao = (aircraft?.Element("icaocode")?.Value ?? general?.Element("aircraft_icao")?.Value)?.Trim() ?? string.Empty;
         var originIcao = origin?.Element("icao_code")?.Value?.Trim() ?? string.Empty;
         var destIcao = destination?.Element("icao_code")?.Value?.Trim() ?? string.Empty;
         var airline = general?.Element("icao_airline")?.Value?.Trim() ?? string.Empty;
         var flightNumber = general?.Element("flight_number")?.Value?.Trim() ?? string.Empty;
-        var etmin = int.TryParse(general?.Element("est_time_enroute_minutes")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes) ? minutes : 0;
+        var etmin = int.TryParse(times?.Element("est_time_enroute")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) ? seconds / 60 : 0;
 
-        var offBlock = ParseUtc(times?.Element("orig")?.Value);
-        var eta = ParseUtc(times?.Element("dest")?.Value);
+        // out = off-block; off = despegue; on = aterrizaje; in = llegada al gate.
+        // orig/dest se conservan para los OFP sintéticos anteriores.
+        var offBlock = ParseUtc(times?.Element("sched_out")?.Value ?? times?.Element("sched_off")?.Value ?? times?.Element("orig")?.Value);
+        var eta = ParseUtc(times?.Element("est_on")?.Value ?? times?.Element("sched_on")?.Value ?? times?.Element("dest")?.Value);
         if (etmin <= 0 && offBlock != default && eta != default) {
             etmin = (int)(eta - offBlock).TotalMinutes;
         }
@@ -59,7 +62,12 @@ public sealed class SimBriefOfpReader : ISimBriefOfpReader {
 
     private static DateTime ParseUtc(string? value) {
         if (string.IsNullOrWhiteSpace(value)) return default;
-        // SimBrief suele devolver "YYYY-MM-DD HH:MM:SS" en UTC.
+        // La API devuelve instantes Unix en segundos (no milisegundos).
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var unixSeconds)) {
+            if (unixSeconds < DateTimeOffset.MinValue.ToUnixTimeSeconds() || unixSeconds > DateTimeOffset.MaxValue.ToUnixTimeSeconds()) return default;
+            return DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+        }
+        // Compatibilidad con fechas textuales, incluido el mock anterior.
         if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed)) {
             return DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
         }

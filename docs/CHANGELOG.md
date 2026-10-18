@@ -4,6 +4,22 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-18 — SimBrief: timestamps Unix del bloque times y OFP de referencia
+
+**Qué y por qué**
+
+- `SimBriefOfpReader.ParseUtc` interpreta segundos Unix con `DateTimeOffset.FromUnixTimeSeconds(...).UtcDateTime`, mantiene fechas textuales UTC/offset y devuelve `default` para valores fuera de rango sin lanzar excepción. Antes los timestamps numéricos se perdían y se reemplazaban por fechas calculadas desde la hora de descarga.
+- Mapeo del bloque real `times`: off-block de `sched_out` (alternativos por elemento ausente: `sched_off`, `orig`), llegada estimada de `est_on` (alternativos: `sched_on`, `dest`); duración de `est_time_enroute` en segundos convertida a minutos. Los límites de validez reciben los mismos instantes UTC. Se conserva el fallback de ICAO del mock anterior (`general/aircraft_icao`) sin reemplazar la lectura real de `aircraft/icaocode` ya presente en el árbol de trabajo.
+- Captura completa aportada por el usuario guardada sin modificaciones en `docs/integraciones/ejemplos/simbrief-ofp-SBSP-SUMU-2026-10-18.txt`. La extensión es intencional: el HTML `<br>` sin cerrar de la captura impide parsearla como XML completo. Se documentan esta limitación, las unidades, los campos y la semántica de los horarios en `docs/integraciones/simbrief.md`; enlace desde el estado del modo Realistic.
+
+**Pruebas**
+
+- Regresión antes del fix: `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj --filter FullyQualifiedName~SimBriefOfpReaderTests --no-restore --verbosity minimal`: **9 fallidas / 8 correctas**; el bloque real no producía los horarios esperados y la prueba existente de ICAO evidenciaba incompatibilidad con el mock anterior.
+- Después: **17/17** pruebas focalizadas correctas; bloque `times` suministrado, duración, alternativa programada, fechas textuales, epoch cero/negativo, espacios, offset y valores inválidos/fuera de rango. Captura guardada comparada byte a byte con el OFP del prompt.
+- Build Debug y Release de `RealFenixFailures.slnx` (`--no-restore`): **0 errores / 0 advertencias**. Suite Release completa: **115/115** correctas.
+- Comprobación previa al commit: Release nuevamente con **0 errores / 0 advertencias**, suite **115/115** y auditoría de dependencias directas/transitivas sin paquetes vulnerables según las fuentes configuradas. El nuevo intento Debug quedó bloqueado por DLL en uso por `RealFenixFailures.UI` y Visual Studio (`MSB3027`/`MSB3021`); no se cerraron procesos del usuario. El build Debug exitoso anterior corresponde a la ejecución inicial del trabajo.
+- Descarga HTTP real, UI y sesión MSFS/Fenix: **no verificadas**. No se amplió el parser para aceptar XML mal formado.
+
 ### 2026-10-17 — Modal de confirmación al cerrar la ventana principal
 
 **Qué**
