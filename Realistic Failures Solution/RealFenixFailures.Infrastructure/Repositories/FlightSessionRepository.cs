@@ -17,7 +17,19 @@ public class FlightSessionRepository : IFlightSessionRepository {
         return await _dbContext.FlightSessions
             .Include(x => x.TriggeredFailures)
             .Include(x => x.EventLogs)
+            .Include(x => x.FlightPlan)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public async Task<IReadOnlyList<FlightSession>> GetUnfinishedAsync(CancellationToken ct) {
+        return await _dbContext.FlightSessions
+            .AsNoTracking()
+            .Include(x => x.TriggeredFailures)
+            .Include(x => x.EventLogs)
+            .Include(x => x.FlightPlan)
+            .Where(x => x.FinishedAt == null)
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync(ct);
     }
 
     public async Task<FlightSession> AddAsync(FlightSession session, CancellationToken ct) {

@@ -70,15 +70,60 @@ public sealed record SessionEventLogDto {
     public int? TriggeredFailureId { get; init; }
 }
 
-/// <summary>Sesión de vuelo del historial (Paso 2), con sus fallas.</summary>
+/// <summary>Resumen de fallas de una sesión finalizada (diseño objetivo §13 - modal de resultados).</summary>
+public sealed record ResultSummaryDto {
+    public int TotalFailures { get; init; }
+    /// <summary>Fallas que seguían activas/armadas al finalizar la sesión.</summary>
+    public int ActiveAtEnd { get; init; }
+    public int ResolvedByPilot { get; init; }
+    public int AutoResolved { get; init; }
+    public int Rejected { get; init; }
+    public int Minor { get; init; }
+    public int Major { get; init; }
+    public int Critical { get; init; }
+
+    public int ResolvedCount => ResolvedByPilot + AutoResolved;
+}
+
+/// <summary>Resultado de una falla dentro del resumen de sesión.</summary>
+public sealed record FailureResultDto {
+    public required int Id { get; init; }
+    public required string FenixFailureId { get; init; }
+    public string FailureName { get; init; } = string.Empty;
+    public FailureSeverity? Severity { get; init; }
+    public FailureLifecycleState State { get; init; }
+    public ResolutionSource? ResolutionSource { get; init; }
+    public DateTime TriggeredAt { get; init; }
+    public ComplexFlightPhaseEnum FlightPhase { get; init; }
+    public DateTime? ResolvedAtUtc { get; init; }
+}
+
+/// <summary>Resultado completo de una sesión para el modal (diseño objetivo §13).</summary>
+public sealed record SessionResultDto {
+    public required int SessionId { get; init; }
+    public DateTime StartedAt { get; init; }
+    public DateTime? FinishedAt { get; init; }
+    public RiskLevel RiskLevel { get; init; }
+    public string? OriginIcao { get; init; }
+    public string? DestinationIcao { get; init; }
+    public TimeSpan? Duration => FinishedAt.HasValue ? FinishedAt.Value - StartedAt : null;
+    public ResultSummaryDto Summary { get; init; } = new();
+    public IReadOnlyList<FailureResultDto> Failures { get; init; } = Array.Empty<FailureResultDto>();
+}
+
+/// <summary>Sesion de vuelo del historial (Paso 2), con sus fallas.</summary>
 public sealed record FlightSessionDto {
     public int Id { get; init; }
     public DateTime StartedAt { get; init; }
     public DateTime? FinishedAt { get; init; }
-    /// <summary>1 = Bajo, 2 = Moderado, 3 = Alto.</summary>
+    /// <summary>1 = Bajo, 2 = Moderado, 3 = Alto, 4 = 7700.</summary>
     public RiskLevel RiskLevel { get; init; }
+    public string? OriginIcao { get; init; }
+    public string? DestinationIcao { get; init; }
+    public DateTime? OffBlockUtc { get; init; }
     public IReadOnlyList<TriggeredFailureDto> TriggeredFailures { get; init; } = Array.Empty<TriggeredFailureDto>();
     public IReadOnlyList<SessionEventLogDto> EventLogs { get; init; } = Array.Empty<SessionEventLogDto>();
+    public ResultSummaryDto? Result { get; init; }
 
     public int FailureCount => TriggeredFailures.Count;
     public TimeSpan? Duration => FinishedAt.HasValue ? FinishedAt.Value - StartedAt : null;

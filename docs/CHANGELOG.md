@@ -4,6 +4,27 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Backend Realistic (Fase 8): resultados de sesión y recuperación
+
+**Qué**
+
+- `ResultSummaryDto`, `FailureResultDto` y `SessionResultDto` (DTOs del modal de resultados, diseño objetivo §13): conteos por estado (`ActiveAtEnd`, `ResolvedByPilot`, `AutoResolved`, `Rejected`), por severidad (`Minor/Major/Critical`) y detalle por falla (estado, fuente de resolución, fase, fecha).
+- `FlightSessionDto` ampliado: `OriginIcao`, `DestinationIcao`, `OffBlockUtc` (del `FlightPlan` asociado) y `Result`. `FlightSessionItemViewModel` del historial muestra la ruta del OFP (`OfpStatusDisplay` ya no es "No registrado" hardcodeado) y `ResultDisplay`/`ResolvedDisplay`.
+- `IFlightSessionService.GetResultAsync(sessionId)`, `GetUnfinishedSessionsAsync()` y `FinalizeSessionAsync(sessionId, finishedAt)`; `IFlightSessionRepository.GetUnfinishedAsync` + impl (incluye `FlightPlan`). `UserAircraftService` incluye `FlightPlan` y mapea ruta/resultado.
+- `FinalizeSessionAsync` marca `FinishedAt` si la sesión está abierta y devuelve el resultado (base de la tarjeta "sesión sin finalizar" del front).
+
+**Por qué**
+
+- Diseño objetivo §6 y §13: historial con info de OFP, modal de resultados y recuperación de sesiones abiertas al reabrir la app.
+
+**Áreas**
+
+- Application (DTOs, `IFlightSessionService`, `FlightSessionService`), Infrastructure (`IFlightSessionRepository`, repo, `UserAircraftService`), UI (`FlightSessionItemViewModel`), tests.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **99/99 tests** (4 nuevos: resumen por estado/severidad, resultado nulo para sesión inexistente, finalización marca `FinishedAt`, sesiones sin finalizar). Pendiente: modal de resultados y "finalizar sesión" en la UI (contrato listo); sin verificación en sesión real.
+
 ### 2026-10-17 — Backend Realistic: pausa que desarma en Fenix + reanudar con restauración opcional
 
 **Qué**

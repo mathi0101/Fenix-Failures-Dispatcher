@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Infrastructure.Persistence;
 
 namespace RealFenixFailures.Infrastructure.Services;
@@ -114,6 +115,7 @@ public class UserAircraftService : IUserAircraftService {
             .Include(s => s.TriggeredFailures)
             .ThenInclude(s => s.FenixFailure)
             .Include(s => s.EventLogs)
+            .Include(s => s.FlightPlan)
             .ToListAsync(ct);
 
         return sessions.Select(ToSessionDto).ToArray();
@@ -164,6 +166,9 @@ public class UserAircraftService : IUserAircraftService {
         StartedAt = f.StartedAt,
         RiskLevel = f.RiskLevel,
         FinishedAt = f.FinishedAt,
+        OriginIcao = f.OriginIcao,
+        DestinationIcao = f.DestinationIcao,
+        OffBlockUtc = f.FlightPlan?.OffBlockUtc,
         TriggeredFailures = f.TriggeredFailures.Select(f => new TriggeredFailureDto {
             Id = f.Id,
             FenixFailureId = f.FenixFailureId,
@@ -183,6 +188,16 @@ public class UserAircraftService : IUserAircraftService {
             AfterEventSeconds = f.AfterEventSeconds
         }).ToArray(),
         EventLogs = f.EventLogs.Select(ToEventLogDto).ToArray(),
+        Result = f.FinishedAt is null || f.TriggeredFailures.Count == 0 ? null : new ResultSummaryDto {
+            TotalFailures = f.TriggeredFailures.Count,
+            ActiveAtEnd = f.TriggeredFailures.Count(x => x.State is FailureLifecycleState.Sent or FailureLifecycleState.Queued or FailureLifecycleState.Active or FailureLifecycleState.Preparing),
+            ResolvedByPilot = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.ResolvedByPilot),
+            AutoResolved = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.AutoResolved),
+            Rejected = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.Rejected),
+            Minor = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Minor),
+            Major = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Major),
+            Critical = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Critical)
+        }
     };
 
     private static SessionEventLogDto ToEventLogDto(SessionEventLog e) => new() {

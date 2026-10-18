@@ -16,4 +16,13 @@ public interface IFlightSessionService {
     /// </summary>
     Task UpdateTriggeredFailureStateAsync(int sessionId, string fenixFailureId, FailureLifecycleState newState,
         ComplexFlightPhaseEnum phase, ResolutionSource? source, DateTime utcNow, CancellationToken ct);
+
+    /// <summary>Calcula el resultado agregado de una sesión (diseño objetivo §13). Nunca lanza por sesión inexistente: devuelve nulo.</summary>
+    Task<SessionResultDto?> GetResultAsync(int sessionId, CancellationToken ct);
+
+    /// <summary>Sesiones sin finalizar (recuperación al reabrir la app; diseño objetivo §6).</summary>
+    Task<IReadOnlyList<FlightSessionDto>> GetUnfinishedSessionsAsync(CancellationToken ct);
+
+    /// <summary>Marca una sesión como finalizada si no lo está y recalcula su resumen. Devuelve el resultado.</summary>
+    Task<SessionResultDto> FinalizeSessionAsync(int sessionId, DateTime finishedAt, CancellationToken ct);
 }

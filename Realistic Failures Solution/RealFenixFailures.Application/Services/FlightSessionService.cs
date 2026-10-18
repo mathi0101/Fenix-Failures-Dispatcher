@@ -98,4 +98,96 @@ public class FlightSessionService : IFlightSessionService {
 
         await _triggeredFailureRepository.SaveChangesAsync(ct);
     }
+
+    public async Task<SessionResultDto?> GetResultAsync(int sessionId, CancellationToken ct) {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+        if (session is null) return null;
+        return ToResultDto(session);
+    }
+
+    public async Task<IReadOnlyList<FlightSessionDto>> GetUnfinishedSessionsAsync(CancellationToken ct) {
+        var sessions = await _sessionRepository.GetUnfinishedAsync(ct);
+        return sessions.Select(ToDto).ToArray();
+    }
+
+    public async Task<SessionResultDto> FinalizeSessionAsync(int sessionId, DateTime finishedAt, CancellationToken ct) {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct) ?? throw new KeyNotFoundException();
+        if (session.FinishedAt is null) {
+            session.FinishedAt = finishedAt.Kind == DateTimeKind.Utc ? finishedAt : finishedAt.ToUniversalTime();
+            await _sessionRepository.SaveChangesAsync(ct);
+        }
+        return ToResultDto(session);
+    }
+
+    private static SessionResultDto ToResultDto(FlightSession session) {
+        var failures = session.TriggeredFailures ?? [];
+        var summary = new ResultSummaryDto {
+            TotalFailures = failures.Count,
+            ActiveAtEnd = failures.Count(f => f.State is FailureLifecycleState.Sent or FailureLifecycleState.Queued or FailureLifecycleState.Active or FailureLifecycleState.Preparing),
+            ResolvedByPilot = failures.Count(f => f.State == FailureLifecycleState.ResolvedByPilot),
+            AutoResolved = failures.Count(f => f.State == FailureLifecycleState.AutoResolved),
+            Rejected = failures.Count(f => f.State == FailureLifecycleState.Rejected),
+            Minor = failures.Count(f => f.Severity == FailureSeverity.Minor),
+            Major = failures.Count(f => f.Severity == FailureSeverity.Major),
+            Critical = failures.Count(f => f.Severity == FailureSeverity.Critical)
+        };
+        return new SessionResultDto {
+            SessionId = session.Id,
+            StartedAt = session.StartedAt,
+            FinishedAt = session.FinishedAt,
+            RiskLevel = session.RiskLevel,
+            OriginIcao = session.OriginIcao,
+            DestinationIcao = session.DestinationIcao,
+            Summary = summary,
+            Failures = failures.Select(f => new FailureResultDto {
+                Id = f.Id,
+                FenixFailureId = f.FenixFailureId,
+                FailureName = f.FailureName ?? f.FenixFailureId,
+                Severity = f.Severity,
+                State = f.State,
+                ResolutionSource = f.ResolutionSource,
+                TriggeredAt = f.TriggeredAt,
+                FlightPhase = f.FlightPhase,
+                ResolvedAtUtc = f.ResolvedAtUtc
+            }).ToArray()
+        };
+    }
+
+    private static FlightSessionDto ToDto(FlightSession f) => new() {
+        Id = f.Id,
+        StartedAt = f.StartedAt,
+        RiskLevel = f.RiskLevel,
+        FinishedAt = f.FinishedAt,
+        OriginIcao = f.OriginIcao,
+        DestinationIcao = f.DestinationIcao,
+        OffBlockUtc = f.FlightPlan?.OffBlockUtc,
+        TriggeredFailures = (f.TriggeredFailures ?? []).Select(tf => new TriggeredFailureDto {
+            Id = tf.Id,
+            FenixFailureId = tf.FenixFailureId,
+            FailureName = tf.FailureName ?? tf.FenixFailureId,
+            TriggeredAt = tf.TriggeredAt,
+            FlightPhase = tf.FlightPhase,
+            Severity = tf.Severity,
+            PresetId = tf.PresetId,
+            PresetName = tf.PresetName,
+            Probability = tf.Probability,
+            ProbabilityGroup = tf.ProbabilityGroup,
+            Ias = tf.Ias,
+            AboveAltitude = tf.AboveAltitude,
+            BelowAltitude = tf.BelowAltitude,
+            Time = tf.Time,
+            AfterEvent = tf.AfterEvent,
+            AfterEventSeconds = tf.AfterEventSeconds
+        }).ToArray(),
+        EventLogs = (f.EventLogs ?? []).Select(e => new SessionEventLogDto {
+            Id = e.Id,
+            OccurredAt = e.OccurredAt,
+            EventCode = e.EventCode,
+            Category = e.Category,
+            Description = e.Description,
+            FlightPhase = e.FlightPhase,
+            TriggeredFailureId = e.TriggeredFailureId
+        }).ToArray(),
+        Result = f.FinishedAt is null ? null : ToResultDto(f).Summary
+    };
 }
