@@ -4,6 +4,17 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Front Realistic (Paso 3): userid de SimBrief desde Ajustes
+
+**Qué**
+
+- `RealisticModeViewModel.SimbriefUserId` pasa de campo editable (TextBox en el Paso 3) a getter de `UserPreferencesService` (el userid de SimBrief se configura en **Ajustes**; ya no se edita desde el modo Realistic). `CanDownloadOfp` y `DownloadOfpAsync` usan ese valor.
+- El botón «Descargar OFP» queda dentro del bloque «OFP y ruta», abajo a la izquierda, más chico (26 px) y con icono de descarga (glifo Segoe MDL2). Mantiene el tooltip explicativo. Se quitó el TextBox del userid del Paso 3.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **99/99 tests**. Sin verificación en sesión real.
+
 ### 2026-10-17 — Backend Realistic (Fase 8): resultados de sesión y recuperación
 
 **Qué**

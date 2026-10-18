@@ -3,6 +3,7 @@ using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.UI.Commands;
+using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -27,6 +28,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly ILogger<RealisticModeViewModel> _logger;
     private readonly IRealisticSessionManager _realisticSessionManager;
     private readonly ISimbriefOfpService _ofpService;
+    private readonly UserPreferencesService _preferences;
 
     private int _currentStep = 1;
     private bool _isLoading;
@@ -69,12 +71,14 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IEngineOrchestrator orchestrator,
         ILogger<RealisticModeViewModel> logger,
         IRealisticSessionManager realisticSessionManager,
-        ISimbriefOfpService ofpService) {
+        ISimbriefOfpService ofpService,
+        UserPreferencesService preferences) {
         _aircraftService = aircraftService;
         _orchestrator = orchestrator;
         _logger = logger;
         _realisticSessionManager = realisticSessionManager;
         _ofpService = ofpService;
+        _preferences = preferences;
 
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
@@ -347,17 +351,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private FlightPlanDto? _ofpPlanForUi;
     private bool _isOfpDownloading;
 
-    /// <summary>Userid de SimBrief del usuario (entrada para descargar el OFP).</summary>
-    private string _simbriefUserId = string.Empty;
-
-    public string SimbriefUserId {
-        get => _simbriefUserId;
-        set {
-            if (SetProperty(ref _simbriefUserId, value)) {
-                DownloadOfpCommand.RaiseCanExecuteChanged();
-            }
-        }
-    }
+    /// <summary>Userid de SimBrief leído de las preferencias de la app (Ajustes). No se edita desde el modo Realistic.</summary>
+    public string SimbriefUserId => _preferences.SimbriefUserId;
 
     public bool CanDownloadOfp =>
         SelectedAircraft is not null &&
