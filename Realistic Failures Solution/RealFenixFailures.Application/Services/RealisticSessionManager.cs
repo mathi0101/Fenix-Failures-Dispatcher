@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Session;
+using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
 using System.ComponentModel;
@@ -137,13 +139,17 @@ public class RealisticSessionManager : IRealisticSessionManager {
     public async Task PauseAsync(CancellationToken ct) {
         if (_engine == null || IsPaused) return;
         await StopLoopAsync();
+        await DisarmActiveFailuresForPauseAsync(ct);
         IsPaused = true;
         _logger.LogInformation("Realistic session paused");
     }
 
-    public async Task ResumeAsync(CancellationToken ct) {
+    public async Task ResumeAsync(CancellationToken ct, bool restoreFailures = false) {
         if (_engine == null || !IsPaused) return;
         try {
+            if (restoreFailures) {
+                await RestoreFailuresAfterPauseAsync(ct);
+            }
             var timer = new PeriodicTimer(_evaluationInterval);
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var loopTask = Task.Run(() => RunEvaluationLoopAsync(timer, cts.Token), cts.Token);
@@ -154,11 +160,96 @@ public class RealisticSessionManager : IRealisticSessionManager {
             _evaluationCts = cts;
             _evaluationLoopTask = loopTask;
             IsPaused = false;
-            _logger.LogInformation("Realistic session resumed");
+            _logger.LogInformation("Realistic session resumed {Restore}", restoreFailures ? "con restauración de fallas" : "sin restauración");
         } catch (Exception ex) {
             _logger.LogError(ex, "Error resuming realistic session");
             SessionError?.Invoke(this, new SessionErrorEventArgs { Message = "Failed to resume session", Exception = ex });
         }
+    }
+
+    /// <summary>
+    /// Desarma en Fenix las fallas activas de la sesión durante la pausa. El documento objetivo fija que la pausa
+    /// debe DESARMAR (el piloto sigue volando sin fallas) aunque el motor siga pensando en memoria.
+    /// Fallas que no se desarman se reportan en log (no se aborta la pausa).
+    /// </summary>
+    private async Task DisarmActiveFailuresForPauseAsync(CancellationToken ct) {
+        if (_sessionScope is null || _engine?.Session is null) return;
+        var repo = _sessionScope.ServiceProvider.GetService<ITriggeredFailureRepository>();
+        if (repo is null) return;
+
+        var active = await repo.GetActiveForSessionAsync(_engine.Session.Session.Id, ct);
+        var failedIds = _engine.Session.FailedFailures.Select(f => f.FenixId).ToHashSet();
+        var armedIds = _engine.Session.ArmedFailures.Select(f => f.FenixId).ToHashSet();
+        var toDisarm = active.Where(x => failedIds.Contains(x.FenixFailureId) || armedIds.Contains(x.FenixFailureId)).ToList();
+
+        foreach (var failure in toDisarm) {
+            try {
+                var ok = await _simulator.DisarmFailureAsync(failure.FenixFailureId, ct);
+                if (ok) {
+                    _logger.LogInformation("Pause: failure disarmed in Fenix: {Id}", failure.FenixFailureId);
+                } else {
+                    _logger.LogWarning("Pause: failed to disarm {Id}", failure.FenixFailureId);
+                }
+            } catch (Exception ex) {
+                _logger.LogWarning(ex, "Pause: error disarming {Id}", failure.FenixFailureId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reconstruye y envía a Fenix el armado de las fallas que estaban en curso antes de la pausa, cuando
+    /// <c>restoreFailures=true</c>. Es una reconstrucción best-effort de la condición desde los campos string
+    /// de la BD; si la condición no se puede reconstruir, la falla NO se re-arma y se registra en log.
+    /// </summary>
+    private async Task RestoreFailuresAfterPauseAsync(CancellationToken ct) {
+        if (_sessionScope is null || _engine?.Session is null) return;
+        var repo = _sessionScope.ServiceProvider.GetService<ITriggeredFailureRepository>();
+        if (repo is null) return;
+
+        var active = await repo.GetActiveForSessionAsync(_engine.Session.Session.Id, ct);
+        foreach (var failure in active) {
+            var armRequest = BuildArmRequestFrom(failure);
+            if (armRequest is null) {
+                _logger.LogWarning("Resume: cannot rebuild arm condition for {Id}; skip", failure.FenixFailureId);
+                continue;
+            }
+            try {
+                var dispatched = await DispatchArmAsync(armRequest, ct);
+                if (dispatched) {
+                    _logger.LogInformation("Resume: failure re-armed in Fenix: {Id}", failure.FenixFailureId);
+                } else {
+                    _logger.LogWarning("Resume: failed to re-arm {Id}", failure.FenixFailureId);
+                }
+            } catch (Exception ex) {
+                _logger.LogWarning(ex, "Resume: error re-arming {Id}", failure.FenixFailureId);
+            }
+        }
+    }
+
+    private FenixArmFailureRequest? BuildArmRequestFrom(TriggeredFailure failure) {
+        // Reconstruir condición desde el TriggeredFailure:
+        // si fallaba (State==Active) se reactiva; si estaba armada preparada se reconstruye la condición.
+        int? Ias = ParseInt(failure.Ias);
+        int? Alt = ParseInt(failure.AboveAltitude);
+        int? Altb = ParseInt(failure.BelowAltitude);
+        int? Time = ParseInt(failure.Time);
+        bool hadAnyCondition = Ias.HasValue || Alt.HasValue || Altb.HasValue || Time.HasValue || !string.IsNullOrEmpty(failure.AfterEvent);
+        var condition = hadAnyCondition
+            ? new FenixArmFailureConditionRequest { Ias = Ias, Alt = Alt, Altb = Altb, Time = Time, AfterEvent = string.IsNullOrEmpty(failure.AfterEvent) ? null : failure.AfterEvent, AfterEventSeconds = ParseInt(failure.AfterEventSeconds) }
+            : null;
+        // failed=true si estaba activa o confirmada; si simplemente estaba preparada (Sent), se deja armada.
+        bool shouldBeFailed = failure.State is FailureLifecycleState.Active;
+        return new FenixArmFailureRequest(failure.FenixFailureId, shouldBeFailed, condition);
+    }
+
+    private static int? ParseInt(string? value) => int.TryParse(value, out var n) ? n : null;
+
+    private Task<bool> DispatchArmAsync(FenixArmFailureRequest request, CancellationToken ct) {
+        var dispatcher = _sessionScope?.ServiceProvider.GetService<IFenixFailureApiDispatcher>();
+        if (dispatcher != null) {
+            return dispatcher.ArmFailureAsync(request, ct);
+        }
+        return Task.FromResult(false);
     }
     #endregion
 

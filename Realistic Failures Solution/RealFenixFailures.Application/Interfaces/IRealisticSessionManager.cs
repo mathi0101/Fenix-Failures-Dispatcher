@@ -12,7 +12,7 @@ public interface IRealisticSessionManager : INotifyPropertyChanged {
     Task<ServiceResult<string>> StartNewSessionAsync(RealisticModeContext context, CancellationToken ct);
     Task StopAsync(CancellationToken ct);
     Task PauseAsync(CancellationToken ct);
-    Task ResumeAsync(CancellationToken ct);
+    Task ResumeAsync(CancellationToken ct, bool restoreFailures = false);
 
     event EventHandler<FailureTriggeredEventArgs>? FailureTriggered;
     event EventHandler<SessionErrorEventArgs>? SessionError;

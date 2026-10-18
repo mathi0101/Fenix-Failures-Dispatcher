@@ -4,6 +4,26 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-17 — Backend Realistic: pausa que desarma en Fenix + reanudar con restauración opcional
+
+**Qué**
+
+- `RealisticSessionManager.PauseAsync` ahora **desarma en Fenix** las fallas activas/armadas de la sesión (`DisarmFailureAsync` por falla, desde `ITriggeredFailureRepository.GetActiveForSessionAsync` + `Session.FailedFailures/ArmedFailures`); el motor sigue pensando en memoria. Fallas no desarmadas quedan en log (no aborta la pausa). Requisito del diseño objetivo §6 (el ATC puede pedir terminar la emergencia; la pausa es la vía).
+- `ResumeAsync(ct, restoreFailures)` (nuevo parámetro opcional, compatible): con `restoreFailures=true` re-arma las fallas en curso reconstruyendo la condición de armado desde la BD (`BuildArmRequestFrom`) vía `IFenixFailureApiDispatcher.ArmFailureAsync`. Best-effort: si la condición no se reconstruye, la falla queda sin re-armar y se registra.
+- `IRealisticSessionManager.ResumeAsync` ampliado; `RealisticModeViewModel.RestoreFailuresOnResume` (default true) alimenta el parámetro en `ResumeSessionAsync`.
+
+**Por qué**
+
+- La pausa del modo Realistic no debe dejar fallas activas en el avión mientras el piloto sigue volando; reactivar debe ofrecer restaurarlas (diseño objetivo §6 y §14).
+
+**Áreas**
+
+- Application (`IRealisticSessionManager`, `RealisticSessionManager`), UI ViewModel (`RealisticModeViewModel`), tests del manager.
+
+**Pruebas**
+
+- Build Release 0 errores/advertencias y **95/95 tests** (2 nuevos: Pausa desarma falla activa en Fenix; Reanudar con restauración no lanza y mantiene la sesión). El desarme/armado real contra Fenix sigue pendiente de verificación en sesión real (los mocks de DEBUG no lo cubren).
+
 ### 2026-10-17 — Backend Realistic: ciclo de vida de fallas con confirmación por Fenix
 
 **Qué**

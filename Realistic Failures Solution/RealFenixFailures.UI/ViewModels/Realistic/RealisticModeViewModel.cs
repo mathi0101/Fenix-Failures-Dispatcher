@@ -55,6 +55,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private bool _isFenixConnected;
     private bool _hasAircraftData;
     private bool _isSessionPaused;
+    private bool _restoreFailuresOnResume = true;
     private ComplexFlightPhaseEnum currentFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private SimpleFlightPhaseEnum simpleFlightPhase = SimpleFlightPhaseEnum.Disconnected;
     private bool _isVatsimConfirmVisible;
@@ -434,6 +435,15 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     /// <summary>
+    /// Al reanudar una sesión pausada, re-armar las fallas que estaban en curso antes de la pausa.
+    /// El diseño objetivo (§6) permite reactivar y restaurar opcionalmente las fallas de la sesión.
+    /// </summary>
+    public bool RestoreFailuresOnResume {
+        get => _restoreFailuresOnResume;
+        set => SetProperty(ref _restoreFailuresOnResume, value);
+    }
+
+    /// <summary>
     /// El motor puede activarse cuando se cumplen TODAS las condiciones.
     /// Si ya está activo, se muestra el botón de detener (no se re-evalúa esto).
     /// </summary>
@@ -680,8 +690,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private async Task ResumeSessionAsync() {
         if (!IsSessionPaused) return;
         try {
-            await _realisticSessionManager.ResumeAsync(CancellationToken.None);
-            _logger.LogInformation("Sesión Realista reanudada manualmente.");
+            await _realisticSessionManager.ResumeAsync(CancellationToken.None, RestoreFailuresOnResume);
+            _logger.LogInformation("Sesión Realista reanudada manualmente{restore}.", RestoreFailuresOnResume ? " (con restauración de fallas)" : string.Empty);
         } catch (Exception ex) {
             _logger.LogError(ex, "Error al reanudar la sesión Realista.");
         }

@@ -206,4 +206,81 @@ public class RealisticSessionManagerTests {
             s => s.StopAsync(1, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    [Fact]
+    public async Task Pause_DisarmsActiveFailuresInFenix() {
+        SetupConnected();
+        SetupValidData();
+        var fenixFailure = new FenixFailureDto("F_ENGINE_1", "Motor 1", Failed: true, FailureCondition: null);
+        SetupFenixFailures(fenixFailure);
+
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+
+        // El repo reporta la falla en curso para la sesión.
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new TriggeredFailure {
+                Id = 5,
+                FlightSessionId = 1,
+                FenixFailureId = "F_ENGINE_1",
+                TriggeredAt = DateTime.UtcNow,
+                FlightPhase = ComplexFlightPhaseEnum.Takeoff,
+                State = FailureLifecycleState.Active
+            } });
+
+        var start = await manager.StartNewSessionAsync(Context(), CancellationToken.None);
+        Assert.True(start.IsSuccess);
+
+        // Esperar a que el tick procese la falla de Fenix como activa en la sesión.
+        await Task.Delay(200);
+
+        await manager.PauseAsync(CancellationToken.None);
+        Assert.True(manager.IsPaused);
+
+        _simulator.Verify(
+            s => s.DisarmFailureAsync("F_ENGINE_1", It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Resume_WithRestoreFailures_TogglesAndDoesNotThrow() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new TriggeredFailure {
+                Id = 6,
+                FlightSessionId = 1,
+                FenixFailureId = "F_HYD_1",
+                TriggeredAt = DateTime.UtcNow,
+                FlightPhase = ComplexFlightPhaseEnum.Climb,
+                State = FailureLifecycleState.Queued
+            } });
+
+        var start = await manager.StartNewSessionAsync(Context(), CancellationToken.None);
+        Assert.True(start.IsSuccess);
+
+        await manager.PauseAsync(CancellationToken.None);
+        Assert.True(manager.IsPaused);
+
+        await manager.ResumeAsync(CancellationToken.None, restoreFailures: true);
+
+        Assert.False(manager.IsPaused);
+        _scope.Verify(s => s.Dispose(), Times.Never);
+    }
+
+    private void SetupFenixFailures(params FenixFailureDto[] failures) {
+        var grouped = new AllFenixFailuresResponseDto {
+            MajorGroups = new List<FenixMajorSystemGroupDto> {
+                new("Systems", "SYS", new List<FenixSystemGroupDto> { new("Group", failures) })
+            }
+        };
+        _simulator
+            .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(grouped));
+    }
 }
