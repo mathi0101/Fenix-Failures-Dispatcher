@@ -104,6 +104,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused && !IsOperationPending);
         CancelStopCommand = new RelayCommand(() => StopConfirmationVisible = false, () => !IsOperationPending);
         DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
+        DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
@@ -130,6 +131,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand ResumeSessionCommand { get; }
     public RelayCommand CancelStopCommand { get; }
     public RelayCommand DownloadOfpCommand { get; }
+    public RelayCommand DiscardPreparedCommand { get; }
     public RelayCommand ConfirmVatsimStartCommand { get; }
     public RelayCommand CancelVatsimStartCommand { get; }
 
@@ -252,12 +254,14 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool IsRiskLowSelected => SelectedRiskLevel == 1;
     public bool IsRiskModerateSelected => SelectedRiskLevel == 2;
     public bool IsRiskHighSelected => SelectedRiskLevel == 3;
+    public bool IsRiskSquawk7700Selected => SelectedRiskLevel == 4;
     public bool HasSelectedRisk => SelectedRiskLevel.HasValue;
 
     public string SelectedRiskDisplay => SelectedRiskLevel switch {
         1 => "Bajo",
         2 => "Moderado",
         3 => "Alto",
+        4 => "7700",
         _ => "—"
     };
 
@@ -289,7 +293,10 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool IsFenixConnected {
         get => _isFenixConnected;
         private set {
-            if (SetProperty(ref _isFenixConnected, value)) RaiseActivationState();
+            if (SetProperty(ref _isFenixConnected, value)) {
+                RaiseActivationState();
+                RefreshPreparedState();
+            }
         }
     }
 
@@ -348,6 +355,15 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             }
         }
     }
+
+    /// <summary>Fallas preparadas en cola mientras Fenix no está disponible (solo la cuenta, sin preview).</summary>
+    public int PreparedCount => _realisticSessionManager.PreparedCount;
+
+    public bool IsSessionActiveWithoutFenix => IsEngineActive && !IsFenixConnected;
+
+    public bool IsDiscardPreparedVisible => IsSessionActiveWithoutFenix && PreparedCount > 0;
+
+    public string DiscardPreparedLabel => $"DESCARTAR PREPARADAS ({PreparedCount})";
 
     private FlightPlanDto? _ofpPlanForUi;
     private bool _isOfpDownloading;
@@ -448,9 +464,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         SelectedRiskLevel.HasValue &&
         OfpValidated &&
         IsSimConnected &&
-        IsFenixConnected &&
-        HasAircraftData &&
-        IsOnGround;
+        HasAircraftData;
 
     /// <summary>Mensaje explicativo del motivo por el que el botón está deshabilitado.</summary>
     public string ActivationBlockReason {
@@ -458,10 +472,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (IsEngineActive) return string.Empty;
             if (SelectedAircraft is null) return "Seleccioná una aeronave para continuar.";
             if (!SelectedRiskLevel.HasValue) return "Seleccioná un perfil de riesgo.";
-            if (!OfpValidated) return "OFP pendiente: el plan de vuelo operacional es obligatorio y su validación aún no tiene backend. La activación queda bloqueada hasta contar con un OFP validado.";
-            if (!IsSimConnected || !IsFenixConnected) return "Conectá MSFS 2024 y el sistema Fenix A320.";
+            if (!OfpValidated) return "OFP pendiente: el plan de vuelo operacional es obligatorio. Descargalo y validalo antes de activar.";
+            if (!IsSimConnected) return "Conectá MSFS 2024 para comenzar el modo Realistic.";
             if (!HasAircraftData) return "MSFS conectado pero sin datos de aeronave disponibles.";
-            if (!IsOnGround) return $"Solo se puede activar en tierra (fase actual: {CurrentFlightPhaseDisplay}).";
             return string.Empty;
         }
     }
@@ -587,7 +600,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private void SelectRisk(string? level) {
-        if (int.TryParse(level, out var value) && value is >= 1 and <= 3) {
+        if (int.TryParse(level, out var value) && value is >= 1 and <= 4) {
             SelectedRiskLevel = value;
         }
     }
@@ -688,7 +701,28 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (e.PropertyName == nameof(IRealisticSessionManager.IsPaused)) {
                 IsSessionPaused = _realisticSessionManager.IsPaused;
             }
+            if (e.PropertyName == nameof(IRealisticSessionManager.PreparedCount)) {
+                RefreshPreparedState();
+            }
         });
+    }
+
+    private async Task DiscardPreparedAsync() {
+        if (!IsDiscardPreparedVisible) return;
+        try {
+            await _realisticSessionManager.DiscardPreparedAsync(CancellationToken.None);
+            RefreshPreparedState();
+            _logger.LogInformation("Prepared failures discarded by user.");
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error al descartar fallas preparadas.");
+        }
+    }
+
+    private void RefreshPreparedState() {
+        OnPropertyChanged(nameof(PreparedCount));
+        OnPropertyChanged(nameof(IsDiscardPreparedVisible));
+        OnPropertyChanged(nameof(DiscardPreparedLabel));
+        DiscardPreparedCommand.RaiseCanExecuteChanged();
     }
 
     private async Task ResumeSessionAsync() {
@@ -737,6 +771,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         OnPropertyChanged(nameof(RiskProfileButtonText));
         OnPropertyChanged(nameof(IsEngineActive));
         OnPropertyChanged(nameof(IsOnGround));
+        OnPropertyChanged(nameof(IsSessionActiveWithoutFenix));
+        OnPropertyChanged(nameof(IsDiscardPreparedVisible));
         ActivateCommand.RaiseCanExecuteChanged();
         BackToStep1Command.RaiseCanExecuteChanged();
         BackToStep2Command.RaiseCanExecuteChanged();
@@ -745,6 +781,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ContinueToPrepCommand.RaiseCanExecuteChanged();
         ResumeSessionCommand.RaiseCanExecuteChanged();
         CancelStopCommand.RaiseCanExecuteChanged();
+        DiscardPreparedCommand.RaiseCanExecuteChanged();
     }
 
     #endregion

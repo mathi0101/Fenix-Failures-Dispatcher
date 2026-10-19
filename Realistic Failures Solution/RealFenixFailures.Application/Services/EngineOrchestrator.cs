@@ -192,8 +192,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
     public async Task StartRealisticModeAsync(int aircraftId, RiskLevel risk, CancellationToken ct) {
         await _operationLock.WaitAsync(ct);
         try {
-            if (!ConnectionStatus.IsSimConnectConnected || !ConnectionStatus.IsFenixConnected) {
-                _logger.LogInformation("Tried to start Realistic mode but there is a system disconnected: {@state}", connectionStatus);
+            if (!ConnectionStatus.IsSimConnectConnected) {
+                _logger.LogInformation("Tried to start Realistic mode but SimConnect is disconnected: {@state}", connectionStatus);
                 return;
             }
             if (IsEngineActive && CurrentMode != UserAppMode.None) {

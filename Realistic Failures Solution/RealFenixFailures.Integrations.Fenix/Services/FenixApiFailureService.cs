@@ -57,13 +57,13 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
     #endregion
 
-    public async Task<AllFenixFailuresResponseDto> GetAllFailuresAsync(CancellationToken ct) {
+    public async Task<AllFenixFailuresResponseDto?> GetAllFailuresAsync(CancellationToken ct) {
         try {
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
             using (var stream = await _apiClient.GetManualFailuresAsync(cts.Token)) {
                 if (stream is null) {
                     UpdateHealthState(false);
-                    return new AllFenixFailuresResponseDto();
+                    return null;
                 }
                 var result = await _jsonReader.ReadAsync(stream, ct);
 
@@ -79,6 +79,10 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
     public async Task<bool> ResetAllFailuresAsync(CancellationToken ct) {
         var failures = await GetAllFailuresAsync(ct);
+        if (failures is null) {
+            _logger.LogWarning("Reset skipped: Fenix failure stream not readable");
+            return false;
+        }
         var activeFailures = failures.GetFailuresList().Where(f => f.Failed || f.FailureCondition is not null).ToList();
         if (activeFailures.Count > 0) {
             _logger.LogInformation("Resetting {Count} active Fenix failures.", activeFailures.Count);
@@ -90,7 +94,7 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
 
         failures = await GetAllFailuresAsync(ct);
-        return failures.GetFailuresList().All(f => !f.Failed);
+        return failures is not null && failures.GetFailuresList().All(f => !f.Failed);
     }
 
     public async Task<bool> IsApiAvailableAsync(CancellationToken ct) {

@@ -15,6 +15,14 @@ public class FenixFailureDefinitionRepository : IFenixFailureDefinitionRepositor
     public async Task<bool> HasAnyData(CancellationToken ct) {
         return await _dbContext.FenixFailureDefinitions.AnyAsync(ct);
     }
+
+    public async Task<IReadOnlyList<FenixFailureDefinition>> GetAllWithSystemsAsync(CancellationToken ct) {
+        return await _dbContext.FenixFailureDefinitions
+            .Include(x => x.Group)
+            .ThenInclude(x => x.System)
+            .AsNoTracking()
+            .ToListAsync(ct);
+    }
     public async Task LoadNewFailuresAsync(IReadOnlyCollection<FenixFailureSystem> systems, CancellationToken ct) {
         if (systems is null || systems.Count == 0)
             return;

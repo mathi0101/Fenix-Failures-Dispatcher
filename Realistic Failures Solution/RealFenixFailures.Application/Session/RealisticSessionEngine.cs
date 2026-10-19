@@ -5,6 +5,8 @@ using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
+using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Services;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Session;
@@ -20,29 +22,22 @@ namespace RealFenixFailures.Application.Session;
 /// </remarks>
 public class RealisticSessionEngine : INotifyPropertyChanged {
 
-    #region Constants
-    /// <summary>Base probability that a given candidate failure is triggered on a tick where it is evaluated.</summary>
-    private const double BaseProbability = 0.10;
-
-    /// <summary>Minimum time (seconds) that must elapse since the last triggered failure before another can fire.</summary>
-    private const int MinCooldownSeconds = 60;
-
-    /// <summary>Maximum number of failures that may be active simultaneously in a session.</summary>
-    private const int MaxSimultaneousActiveFailures = 3;
-    #endregion
-
     #region Fields
     private readonly ISimulatorConnectionService _simulator;
     private readonly ILogger<RealisticSessionEngine> _logger;
     private readonly IFlightSessionService _sessionService;
     private readonly IPresetService _presetService;
-    private readonly IFailureTrigger _failureTrigger;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
-    private readonly Random _random = Random.Shared;
+    private readonly IFenixFailureDefinitionRepository? _fenixFailureDefinitions;
+    private readonly RealisticModeSettings _settings;
+    private readonly RealisticFailurePolicy _policy;
     private readonly object _eventQueueLock = new();
     private readonly Queue<FlightEventDto> _pendingFlightEvents = new();
     private bool _subscribedToFlightEvents;
+    private bool _hasEverHadFenixRead;
+    private bool _groundSeeded;
+    private DateTime? _lastCadenceTickUtc;
 
 
     private RealisticSession? _session;
@@ -62,6 +57,11 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
     public bool IsRunning => Session != null;
 
+    public PreparedFailureQueue Queue { get; }
+    public int PreparedCount => Queue.Count;
+    public event EventHandler? PreparedQueueChanged;
+    public int DiscardPrepared() => Queue.DiscardAll();
+
     #endregion
 
     #region Constructor
@@ -70,35 +70,45 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         ILogger<RealisticSessionEngine> logger,
         IFlightSessionService sessionService,
         IPresetService presetService,
-        IFailureTrigger failureTrigger,
         IFlightEventDetector flightEventDetector,
-        ITriggeredFailureRepository triggeredFailureRepository) {
+        ITriggeredFailureRepository triggeredFailureRepository,
+        RealisticModeSettings? settings = null,
+        RealisticFailurePolicy? policy = null,
+        IFenixFailureDefinitionRepository? fenixFailureDefinitions = null) {
         _simulator = simulator ?? throw new ArgumentNullException(nameof(simulator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _sessionService = sessionService;
         _presetService = presetService;
-        _failureTrigger = failureTrigger ?? throw new ArgumentNullException(nameof(failureTrigger));
         _flightEventDetector = flightEventDetector ?? throw new ArgumentNullException(nameof(flightEventDetector));
         _triggeredFailureRepository = triggeredFailureRepository ?? throw new ArgumentNullException(nameof(triggeredFailureRepository));
+        _settings = SnapshotSettings(settings);
+        _policy = policy ?? new RealisticFailurePolicy(new FailureRuleEvaluator());
+        _fenixFailureDefinitions = fenixFailureDefinitions;
+        Queue = new PreparedFailureQueue(_settings.PreparedQueueLimit);
+        Queue.Changed += (_, _) => {
+            OnPropertyChanged(nameof(PreparedCount));
+            PreparedQueueChanged?.Invoke(this, EventArgs.Empty);
+        };
     }
     #endregion
 
     #region Public API
 
+    public void ResetCadence() => _lastCadenceTickUtc = _policy.UtcNow;
+
     public async Task<StartSessionResult> TryStartSession(RealisticModeContext context, CancellationToken ct) {
         var conn = await _simulator.GetConnectionStatusAsync(ct);
         var data = await _simulator.GetSimulatorData(ct);
 
-        if (!conn.IsSimConnectConnected || !conn.IsFenixConnected)
+        if (!conn.IsSimConnectConnected)
             return new StartSessionResult(false, "Simulator connection not detected yet");
 
         if (!data.IsSuccess || data.Value is null)
             return new StartSessionResult(false, "Simulator data unavailable");
 
         var snapshot = data.Value;
-        bool isAircraftParkedAndEnginesOff = snapshot.IsOnGround && !(snapshot.Engine1IsRunning || snapshot.Engine2IsRunning);
-        if (!isAircraftParkedAndEnginesOff)
-            return new StartSessionResult(false, "Aircraft must be on gate with all engines off");
+        if (!snapshot.HasSimulatorData)
+            return new StartSessionResult(false, "Simulator data unavailable (HasSimulatorData=false)");
 
         // Cargar presets ANTES de persistir la sesión: si la carga falla, no queda sesión persistida huérfana.
         var presets = (await _presetService.GetRealisticPresetsAsync(ct)).ToList();
@@ -106,17 +116,25 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         Session = new RealisticSession(newSession, context.Aircraft) {
             AvailablePresets = presets
         };
+        foreach (var preset in Session.AvailablePresets)
+            foreach (var def in preset.PresetFailureDefinitions)
+                def.Preset ??= preset;
 
         try {
-            await _sessionService.AddEventLogAsync(newSession.Id, SessionEventCategory.SessionStarted, "SESSION_STARTED", "Sesión realista iniciada", ComplexFlightPhaseEnum.Unknown, DateTime.UtcNow, ct);
+            await _sessionService.AddEventLogAsync(newSession.Id, SessionEventCategory.SessionStarted, "SESSION_STARTED", "Sesión realista iniciada", ComplexFlightPhaseEnum.Unknown, _policy.UtcNow, ct);
         } catch (Exception) {
             try {
-                await _sessionService.StopAsync(newSession.Id, DateTime.UtcNow, CancellationToken.None);
+                await _sessionService.StopAsync(newSession.Id, _policy.UtcNow, CancellationToken.None);
             } catch (Exception stopEx) {
                 _logger.LogWarning(stopEx, "Failed to close session {SessionId} after start-event registration failure", newSession.Id);
             }
             Session = null;
             throw;
+        }
+
+        _lastCadenceTickUtc = _policy.UtcNow;
+        if (_settings.GroundFailureEnabled && snapshot.IsOnGround && !(snapshot.Engine1IsRunning || snapshot.Engine2IsRunning)) {
+            await SeedGroundFailuresAsync(ct);
         }
 
         SubscribeToFlightEvents();
@@ -129,14 +147,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         try {
             if (Session!.Session.FinishedAt == null) {
                 try {
-                    await _sessionService.AddEventLogAsync(Session.Session.Id, SessionEventCategory.SessionStopped, "SESSION_STOPPED", "Sesión realista detenida", Session.CurrentFlightPhase, DateTime.UtcNow, ct);
+                    await _sessionService.AddEventLogAsync(Session.Session.Id, SessionEventCategory.SessionStopped, "SESSION_STOPPED", "Sesión realista detenida", Session.CurrentFlightPhase, _policy.UtcNow, ct);
                 } catch (Exception ex) {
                     _logger.LogWarning(ex, "Failed to register stop event for session {SessionId}", Session.Session.Id);
                 }
-                await _sessionService.StopAsync(Session.Session.Id, DateTime.UtcNow, ct);
+                await _sessionService.StopAsync(Session.Session.Id, _policy.UtcNow, ct);
             }
             Session = null;
         } finally {
+            Queue.DiscardAll();
             ClearPendingFlightEvents();
             UnsubscribeFromFlightEvents();
         }
@@ -150,20 +169,66 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     public async Task<EvaluationResult> EvaluateAsync(CancellationToken ct) {
         if (!IsRunning) return EvaluationResult.Disconnected();
         try {
-            (SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures) = await GetSimulatorData(ct);
+            var conn = await _simulator.GetConnectionStatusAsync(ct);
+            if (!conn.IsSimConnectConnected) {
+                _logger.LogWarning("SimConnect no disponible durante la evaluación; pausando evaluación.");
+                _lastCadenceTickUtc = _policy.UtcNow;
+                return EvaluationResult.Disconnected();
+            }
+
+            var rawDataResult = await _simulator.GetSimulatorData(ct);
+            var rawData = rawDataResult.Value;
+            if (!rawDataResult.IsSuccess || rawData is null) {
+                _logger.LogWarning("Datos del simulador no disponibles durante la evaluación; pausando evaluación.");
+                _lastCadenceTickUtc = _policy.UtcNow;
+                return EvaluationResult.Disconnected();
+            }
 
             if (!rawData.HasSimulatorData) {
                 _logger.LogDebug("Skipping realistic evaluation tick: no simulator data in snapshot (HasSimulatorData=false)");
+                _lastCadenceTickUtc = _policy.UtcNow;
                 return EvaluationResult.NoAction();
             }
 
+            var fenixAvailable = false;
+            IReadOnlyList<FenixFailureDto>? failuresList = null;
+            if (conn.IsFenixConnected) {
+                var fenixResult = await _simulator.GetCurrentFenixFailures(ct);
+                fenixAvailable = fenixResult.IsSuccess && fenixResult.Value is not null;
+                failuresList = fenixResult.Value?.GetFailuresList();
+            }
+            if (fenixAvailable) _hasEverHadFenixRead = true;
+
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             await DrainFlightEventsAsync(currentPhase, ct);
-            Session!.ProcessSimData(rawData, failures, currentPhase);
+            Session!.ProcessSimData(rawData, failuresList ?? Session.AllFenixFailures, currentPhase);
+
+            if (currentPhase != ComplexFlightPhaseEnum.OnGate && Queue.HasGround) {
+                var discarded = Queue.DiscardGround();
+                _logger.LogInformation("Fallas preparadas de tierra descartadas al salir de OnGate (fase {Phase}): {Count}", currentPhase, discarded);
+            }
+
+            if (!fenixAvailable) {
+                if (_hasEverHadFenixRead) {
+                    _logger.LogDebug("Fenix no disponible tras haber estado disponible: la sesión espera sin elegir/enviar/reconciliar.");
+                    _lastCadenceTickUtc = _policy.UtcNow;
+                    return EvaluationResult.NoAction();
+                }
+                if (Queue.Count >= _settings.PreparedQueueLimit) {
+                    _lastCadenceTickUtc = _policy.UtcNow;
+                    return EvaluationResult.NoAction();
+                }
+                var activeOwned = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
+                return await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct);
+            }
+
             await ReconcileFailureLifecycleAsync(currentPhase, ct);
-        } catch (SimulatorDataUnavailableException ex) {
-            _logger.LogWarning("Error al recibir datos en EvaluateAsync, Ex: {a}", ex.Message);
-            return EvaluationResult.Disconnected();
+
+            var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
+            var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
+            if (flush.Attempted) return EvaluationResult.Completed(flush.Sent);
+
+            return await TryChooseAsync(currentPhase, activeAfterReconcile, fenixAvailable: true, ct);
         } catch (OperationCanceledException) {
             // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
             throw;
@@ -172,13 +237,40 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             await StopSession(CancellationToken.None);
             throw;
         }
-
-        return await TryTriggerFailureAsync(ct);
     }
 
     #endregion
 
     #region Privates
+
+    private static RealisticModeSettings SnapshotSettings(RealisticModeSettings? source) {
+        if (source is null) return new RealisticModeSettings();
+        return new RealisticModeSettings {
+            EvaluationIntervalSeconds = source.EvaluationIntervalSeconds,
+            PreparedQueueLimit = source.PreparedQueueLimit,
+            GroundFailureEnabled = source.GroundFailureEnabled,
+            ThinkingLinesCap = source.ThinkingLinesCap,
+            EvaluationDeltaCapSeconds = source.EvaluationDeltaCapSeconds,
+            RespiteClampSeconds = source.RespiteClampSeconds,
+            GroundFailureIds = [.. source.GroundFailureIds],
+            GroundFailureRanges = source.GroundFailureRanges
+                .Select(r => new GroundFailureRangeSettings { RiskLevel = r.RiskLevel, Min = r.Min, Max = r.Max }).ToList(),
+            Profiles = source.Profiles
+                .Select(p => new RealisticProfileSettings {
+                    RiskLevel = p.RiskLevel, MinorCap = p.MinorCap, MajorCap = p.MajorCap, CriticalCap = p.CriticalCap,
+                    MinorPerHour = p.MinorPerHour, MajorPerHour = p.MajorPerHour, CriticalPerHour = p.CriticalPerHour,
+                    CriticalRespiteSeconds = p.CriticalRespiteSeconds
+                }).ToList(),
+            Ofp = new OfpWindowSettings {
+                PreStartWindowHours = source.Ofp?.PreStartWindowHours ?? 0,
+                PostArrivalWindowHours = source.Ofp?.PostArrivalWindowHours ?? 0
+            },
+            Wear = new WearSettings {
+                AmplificationFactor = source.Wear?.AmplificationFactor ?? 0,
+                ThresholdNoticePct = source.Wear?.ThresholdNoticePct ?? 0
+            }
+        };
+    }
 
     private void SubscribeToFlightEvents() {
         if (_subscribedToFlightEvents) return;
@@ -241,23 +333,23 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         var active = await _triggeredFailureRepository.GetActiveForSessionAsync(session.Session.Id, ct);
         if (active.Count == 0) return;
 
-        var failedById = session.FailedFailures.ToDictionary(f => f.FenixId);
-        var armedById = session.ArmedFailures.ToDictionary(f => f.FenixId);
-        var utcNow = DateTime.UtcNow;
+        var liveById = session.AllFenixFailures.ToDictionary(f => f.FenixId);
+        var utcNow = _policy.UtcNow;
 
         foreach (var failure in active) {
-            var liveFailed = failedById.TryGetValue(failure.FenixFailureId, out var ff) ? ff.Failed : false;
-            var liveArmed = armedById.ContainsKey(failure.FenixFailureId);
+            if (!liveById.TryGetValue(failure.FenixFailureId, out var live)) {
+                continue;
+            }
 
             switch (failure.State) {
-                case FailureLifecycleState.Sent when liveFailed:
+                case FailureLifecycleState.Sent when live.Failed:
                     await _sessionService.UpdateTriggeredFailureStateAsync(
                         session.Session.Id, failure.FenixFailureId, FailureLifecycleState.Active,
                         phase, null, utcNow, ct);
                     _logger.LogInformation("Failure confirmed active by Fenix: {Id}", failure.FenixFailureId);
                     break;
 
-                case FailureLifecycleState.Active when !liveFailed && !liveArmed:
+                case FailureLifecycleState.Active when !live.Failed && !live.IsArmed:
                     await _sessionService.UpdateTriggeredFailureStateAsync(
                         session.Session.Id, failure.FenixFailureId, FailureLifecycleState.ResolvedByPilot,
                         phase, ResolutionSource.Pilot, utcNow, ct);
@@ -267,130 +359,284 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         }
     }
 
-    private static double RiskProbabilityMultiplier(RiskLevel riskLevel) => riskLevel switch {
-        RiskLevel.Low => 0.5,
-        RiskLevel.Moderate => 1.0,
-        RiskLevel.High => 1.75,
-        _ => 1.0
-    };
-
-    private async Task<EvaluationResult> TryTriggerFailureAsync(CancellationToken ct) {
+    private async Task<EvaluationResult> TryChooseAsync(ComplexFlightPhaseEnum phase, IReadOnlyList<TriggeredFailure> activeOwned, bool fenixAvailable, CancellationToken ct) {
         var session = Session!;
-        var now = DateTime.UtcNow;
+        var now = _policy.UtcNow;
+        var elapsedSeconds = _lastCadenceTickUtc is DateTime lastTick
+            ? Math.Min((now - lastTick).TotalSeconds, Math.Max(0, _settings.EvaluationDeltaCapSeconds))
+            : 0;
+        _lastCadenceTickUtc = now;
 
-        if (session.LastTriggeredAtUtc is DateTime lastTriggered
-            && (now - lastTriggered).TotalSeconds < MinCooldownSeconds) {
-            _logger.LogDebug("Skipping trigger evaluation: cooldown active ({Elapsed}s < {MinCooldown}s)",
-                (now - lastTriggered).TotalSeconds, MinCooldownSeconds);
+        if (session.CriticalRespiteUntilUtc is DateTime respiteUntil && now < respiteUntil) {
+            _logger.LogDebug("Critical respite activo hasta {Until}; no se eligen fallas nuevas", respiteUntil);
             return EvaluationResult.NoAction();
         }
 
-        if (session.ActiveFailureCount >= MaxSimultaneousActiveFailures) {
-            _logger.LogDebug("Skipping trigger evaluation: max simultaneous failures reached ({Count}/{Max})",
-                session.ActiveFailureCount, MaxSimultaneousActiveFailures);
+        var profile = RealisticProfileCatalog.Resolve(_settings, session.RiskLevel);
+        var used = CountOwnedBySeverity(activeOwned);
+        var queueIds = new HashSet<string>();
+        foreach (var q in Queue.Snapshot()) {
+            used[q.Severity] = used.GetValueOrDefault(q.Severity) + 1;
+            queueIds.Add(q.FenixFailureId);
+        }
+
+        var excluded = new HashSet<string>(session.ActiveFenixFailureIds);
+        foreach (var f in activeOwned) excluded.Add(f.FenixFailureId);
+        excluded.UnionWith(queueIds);
+
+        var candidates = _policy.EvaluateEligible(
+                session.AvailablePresets.SelectMany(p => p.PresetFailureDefinitions),
+                phase, session.RiskLevel, excluded)
+            .DistinctBy(c => c.FenixFailureId)
+            .ToList();
+
+        var eligibleBySeverity = candidates
+            .GroupBy(c => c.FenixFailure?.Severity ?? FailureSeverity.Minor)
+            .Where(g => HasSeverityRoom(used, g.Key, profile))
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<PresetFailureDefinition>)g.ToList());
+
+        if (!_policy.RollTick(profile, elapsedSeconds, eligibleBySeverity, out var chosenSeverity)) {
             return EvaluationResult.NoAction();
         }
 
-        var candidatePresets = session.AvailablePresets
-            .Where(p => p.FlightPhase == session.CurrentFlightPhase)
-            .ToArray();
-        if (candidatePresets.Length == 0) {
-            _logger.LogDebug("No candidate presets for current phase {Phase}", session.CurrentFlightPhase);
+        var chosen = _policy.ChooseCandidate(eligibleBySeverity[chosenSeverity]);
+        if (chosen is null) return EvaluationResult.NoAction();
+
+        if (!fenixAvailable) {
+            var item = new PreparedFailureItem(
+                chosen, chosen.FenixFailureId, chosen.FenixFailure?.Name ?? chosen.FenixFailureId,
+                chosen.Preset?.Name ?? string.Empty,
+                chosen.FenixFailure?.Severity ?? FailureSeverity.Minor, false, phase, now);
+            if (Queue.TryEnqueue(item)) {
+                _logger.LogInformation("Failure prepared (queued, no Fenix): {Id} ({Name}) phase {Phase}", chosen.FenixFailureId, item.Description, phase);
+            }
             return EvaluationResult.NoAction();
         }
 
-        _random.Shuffle(candidatePresets);
-        var effectiveProbability = BaseProbability * RiskProbabilityMultiplier(session.RiskLevel);
-        var activeFenixFailureIds = session.ActiveFenixFailureIds;
+        return await SendFailureAndRecordAsync(session, chosen, phase, now, ct);
+    }
 
-        foreach (var preset in candidatePresets) {
-            var chosen = _failureTrigger.TryTriggerFailure(preset, session.CurrentFlightPhase, session.RiskLevel, effectiveProbability, activeFenixFailureIds);
-            if (chosen == null) continue;
+    private async Task<EvaluationResult> SendFailureAndRecordAsync(RealisticSession session, PresetFailureDefinition chosen, ComplexFlightPhaseEnum phase, DateTime now, CancellationToken ct) {
+        var armed = await _simulator.ExecuteFailureAsync(chosen, ct);
+        if (!armed) {
+            _logger.LogWarning("Fenix rechazó el armado de {Id}; no-evento, sin persistir.", chosen.FenixFailureId);
+            return EvaluationResult.NoAction();
+        }
 
-            var armed = await _simulator.ExecuteFailureAsync(chosen, ct);
-            if (!armed) continue;
-
+        try {
+            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, phase, now, ct);
+        } catch (OperationCanceledException ex) {
+            // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token
+            // independiente (seguro pese a la cancelación) y recién después se propaga la cancelación.
+            _logger.LogWarning(ex, "Persistence of triggered failure {FenixFailureId} canceled; attempting disarm before propagating cancellation",
+                chosen.FenixFailureId);
             try {
-                await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, session.CurrentFlightPhase, now, ct);
-            } catch (OperationCanceledException ex) {
-                // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token
-                // independiente (seguro pese a la cancelación) y recién después se propaga la cancelación.
-                _logger.LogWarning(ex, "Persistence of triggered failure {FenixFailureId} canceled; attempting disarm before propagating cancellation",
-                    chosen.FenixFailureId);
-                try {
-                    var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, CancellationToken.None);
-                    if (disarmed) {
-                        _logger.LogWarning("Persistence canceled but disarm succeeded for {FenixFailureId}; failure not recorded",
-                            chosen.FenixFailureId);
-                    } else {
-                        _logger.LogCritical("Compensation failed: persistence canceled AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
-                            chosen.FenixFailureId);
-                    }
-                } catch (Exception disarmEx) {
-                    _logger.LogCritical(disarmEx, "Compensation failed: disarm threw while compensating canceled persistence for {FenixFailureId}; failure may remain armed",
-                        chosen.FenixFailureId);
-                }
-                throw;
-            } catch (Exception ex) {
-                _logger.LogError(ex, "Failed to persist triggered failure {FenixFailureId} for session {SessionId}; attempting disarm",
-                    chosen.FenixFailureId, session.Session.Id);
-                var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, ct);
+                var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, CancellationToken.None);
                 if (disarmed) {
-                    _logger.LogWarning("Persistence failed but disarm succeeded for {FenixFailureId}; failure not recorded",
+                    _logger.LogWarning("Persistence canceled but disarm succeeded for {FenixFailureId}; failure not recorded",
                         chosen.FenixFailureId);
                 } else {
-                    _logger.LogCritical("Compensation failed: persistence failed AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                    _logger.LogCritical("Compensation failed: persistence canceled AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
                         chosen.FenixFailureId);
                 }
-                return EvaluationResult.NoAction();
+            } catch (Exception disarmEx) {
+                _logger.LogCritical(disarmEx, "Compensation failed: disarm threw while compensating canceled persistence for {FenixFailureId}; failure may remain armed",
+                    chosen.FenixFailureId);
             }
-
-            session.RecordTriggeredFailure(now);
-
-            _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
-                chosen.FenixFailureId, preset.Name, session.CurrentFlightPhase, session.Session.Id);
-
-            var info = new TriggeredFailureInfo(
-                chosen.FenixFailureId,
-                chosen.FenixFailure?.Name ?? chosen.FenixFailureId,
-                preset.Name,
-                now);
-            return EvaluationResult.Completed([info]);
+            throw;
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Failed to persist triggered failure {FenixFailureId} for session {SessionId}; attempting disarm",
+                chosen.FenixFailureId, session.Session.Id);
+            var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, ct);
+            if (disarmed) {
+                _logger.LogWarning("Persistence failed but disarm succeeded for {FenixFailureId}; failure not recorded",
+                    chosen.FenixFailureId);
+            } else {
+                _logger.LogCritical("Compensation failed: persistence failed AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                    chosen.FenixFailureId);
+            }
+            return EvaluationResult.NoAction();
         }
 
-        return EvaluationResult.NoAction();
+        session.RecordTriggeredFailure(now);
+        if (chosen.FenixFailure?.Severity == FailureSeverity.Critical) {
+            var profile = RealisticProfileCatalog.Resolve(_settings, session.RiskLevel);
+            session.CriticalRespiteUntilUtc = now + _policy.EffectiveRespite(profile, _settings.RespiteClampSeconds);
+        }
+
+        _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
+            chosen.FenixFailureId, chosen.Preset?.Name ?? string.Empty, phase, session.Session.Id);
+
+        var info = new TriggeredFailureInfo(
+            chosen.FenixFailureId,
+            chosen.FenixFailure?.Name ?? chosen.FenixFailureId,
+            chosen.Preset?.Name ?? string.Empty,
+            now);
+        return EvaluationResult.Completed([info]);
     }
-    private async Task<(SimulatorAircraftStateSnapshot rawData, IReadOnlyList<FenixFailureDto> failures)> GetSimulatorData(CancellationToken ct) {
-        const string msgSimConn = "Simulator connection unavailable (Fenix={Fenix}, SimConnect={SimConnect}). Pausing evaluation.";
-        const string msgSimData = "Simulator data corrupted (Fenix={Fenix}, SimConnect={SimConnect}). Pausing evaluation.";
-        var conn = await _simulator.GetConnectionStatusAsync(ct);
-        if (!conn.IsFenixConnected || !conn.IsSimConnectConnected) {
-            _logger.LogWarning(
-                msgSimConn,
-                conn.IsFenixConnected, conn.IsSimConnectConnected);
-            throw new SimulatorDataUnavailableException(msgSimConn);
+
+    private static Dictionary<FailureSeverity, int> CountOwnedBySeverity(IReadOnlyList<TriggeredFailure> activeOwned) {
+        var counts = new Dictionary<FailureSeverity, int>();
+        foreach (var f in activeOwned) {
+            if (f.Severity is FailureSeverity s) counts[s] = counts.GetValueOrDefault(s) + 1;
+        }
+        return counts;
+    }
+
+    private static bool HasSeverityRoom(Dictionary<FailureSeverity, int> used, FailureSeverity severity, RealisticProfileSettings profile) {
+        var cap = severity switch {
+            FailureSeverity.Minor => profile.MinorCap,
+            FailureSeverity.Major => profile.MajorCap,
+            FailureSeverity.Critical => profile.CriticalCap,
+            _ => null
+        };
+        return cap is null || used.GetValueOrDefault(severity) < cap.Value;
+    }
+
+    private async Task<(List<TriggeredFailureInfo> Sent, bool Attempted)> FlushPreparedAsync(ComplexFlightPhaseEnum phase, IReadOnlyList<TriggeredFailure> activeOwned, CancellationToken ct) {
+        if (Queue.Count == 0) return ([], false);
+        var session = Session!;
+        var now = _policy.UtcNow;
+        var profile = RealisticProfileCatalog.Resolve(_settings, session.RiskLevel);
+        var used = CountOwnedBySeverity(activeOwned);
+        var excludedIds = new HashSet<string>(activeOwned.Select(f => f.FenixFailureId));
+        foreach (var q in Queue.Snapshot()) used[q.Severity] = used.GetValueOrDefault(q.Severity) + 1;
+
+        var sent = new List<TriggeredFailureInfo>();
+
+        if (Queue.HasGround && phase == ComplexFlightPhaseEnum.OnGate) {
+            var attempted = false;
+            while (true) {
+                var ground = Queue.TryTakeFirstGround();
+                if (ground is null) break;
+                attempted = true;
+                var result = await TrySendPreparedItemAsync(ground, phase, now, used, excludedIds, profile, ct);
+                if (result == PreparedSendResult.Sent) {
+                    sent.Add(ToInfo(ground, now));
+                } else if (result == PreparedSendResult.Keep) {
+                    Queue.RequeueFront(ground);
+                    break;
+                }
+            }
+            return (sent, attempted);
         }
 
-        var rawSimulatorDataResult = await _simulator.GetSimulatorData(ct);
-        var fenixFailuresResult = await _simulator.GetCurrentFenixFailures(ct);
-        var rawDataValue = rawSimulatorDataResult.Value;
-        var fenixFailuresValue = fenixFailuresResult.Value;
-        if (!rawSimulatorDataResult.IsSuccess || rawDataValue is null
-            || !fenixFailuresResult.IsSuccess || fenixFailuresValue is null) {
-            _logger.LogWarning(
-                msgSimData,
-                fenixFailuresResult.IsSuccess, rawSimulatorDataResult.IsSuccess);
-            throw new SimulatorDataUnavailableException(msgSimData);
+        var airborne = Queue.TryTakeFirstAirborne();
+        if (airborne is null) return (sent, false);
+
+        var airborneResult = await TrySendPreparedItemAsync(airborne, phase, now, used, excludedIds, profile, ct);
+        if (airborneResult == PreparedSendResult.Sent) {
+            sent.Add(ToInfo(airborne, now));
+        } else if (airborneResult == PreparedSendResult.Keep) {
+            Queue.RequeueFront(airborne);
+        }
+        return (sent, true);
+    }
+
+    private static TriggeredFailureInfo ToInfo(PreparedFailureItem item, DateTime now) =>
+        new(item.FenixFailureId, item.Description, item.PresetName, now);
+
+    private enum PreparedSendResult { Sent, DroppedNoEvent, Keep }
+
+    private async Task<PreparedSendResult> TrySendPreparedItemAsync(PreparedFailureItem item, ComplexFlightPhaseEnum phase, DateTime now, Dictionary<FailureSeverity, int> used, HashSet<string> excludedIds, RealisticProfileSettings profile, CancellationToken ct) {
+        var session = Session!;
+        if (excludedIds.Contains(item.FenixFailureId)) {
+            _logger.LogWarning("Preparada descartada (ya enviada o activa): {Id}", item.FenixFailureId);
+            return PreparedSendResult.DroppedNoEvent;
+        }
+        var stillEligible = _policy.EvaluateEligible(new[] { item.Definition }, phase, session.RiskLevel, excludedIds);
+        if (stillEligible.Count == 0) {
+            _logger.LogInformation("Preparada descartada (ya no elegible físicamente en fase {Phase}): {Id}", phase, item.FenixFailureId);
+            return PreparedSendResult.DroppedNoEvent;
+        }
+        if (session.CriticalRespiteUntilUtc is DateTime respiteUntil && now < respiteUntil) {
+            return PreparedSendResult.Keep;
+        }
+        if (!HasSeverityRoom(used, item.Severity, profile)) {
+            _logger.LogInformation("Preparada conservada (cupo de severidad temporalmente lleno): {Id}", item.FenixFailureId);
+            return PreparedSendResult.Keep;
         }
 
-        var failures = fenixFailuresValue.GetFailuresList();
-        return (rawDataValue, failures);
+        var sendResult = await SendFailureAndRecordAsync(session, item.Definition, phase, now, ct);
+        if (sendResult.TriggeredFailures.Count == 1) {
+            used[item.Severity] = used.GetValueOrDefault(item.Severity) + 1;
+            excludedIds.Add(item.FenixFailureId);
+            return PreparedSendResult.Sent;
+        }
+
+        var connection = await _simulator.GetConnectionStatusAsync(ct);
+        if (!connection.IsFenixConnected) {
+            _logger.LogWarning("Preparada conservada por pérdida de conexión Fenix ({Id}); se reintenta en el próximo tick.", item.FenixFailureId);
+            return PreparedSendResult.Keep;
+        }
+        _logger.LogWarning("Preparada rechazada por Fenix ({Id}); no-evento, sin persistir.", item.FenixFailureId);
+        return PreparedSendResult.DroppedNoEvent;
+    }
+
+    private async Task SeedGroundFailuresAsync(CancellationToken ct) {
+        if (_groundSeeded) return;
+        _groundSeeded = true;
+        var session = Session!;
+        var candidates = await BuildGroundCandidatesAsync(ct);
+        if (candidates.Count == 0) {
+            _logger.LogWarning("No hay candidatos de fallas de tierra elegibles; no se siembran fallas de tierra.");
+            return;
+        }
+        var (min, max) = RealisticProfileCatalog.GroundRange(_settings, session.RiskLevel);
+        var desired = _policy.Next(min, max + 1);
+        var usedSystems = new HashSet<int>();
+        var selected = new List<(PresetFailureDefinition Def, string PresetName)>();
+        foreach (var candidate in candidates.OrderBy(_ => _policy.Next(0, int.MaxValue))) {
+            if (selected.Count >= desired) break;
+            var bucket = candidate.Def.FenixFailure?.Group?.SystemId ?? 0;
+            if (usedSystems.Contains(bucket)) continue;
+            usedSystems.Add(bucket);
+            selected.Add(candidate);
+        }
+        if (selected.Count < desired) {
+            _logger.LogWarning("Menos candidatos de tierra que el rango deseado: {Actual} de {Desired} (perfil {Risk})", selected.Count, desired, session.RiskLevel);
+        }
+        var now = _policy.UtcNow;
+        foreach (var (def, presetName) in selected) {
+            var item = new PreparedFailureItem(
+                def, def.FenixFailureId, def.FenixFailure?.Name ?? def.FenixFailureId, presetName,
+                def.FenixFailure?.Severity ?? FailureSeverity.Minor, true, ComplexFlightPhaseEnum.OnGate, now);
+            Queue.TryEnqueue(item);
+        }
+        _logger.LogInformation("Fallas de tierra sembradas: {Count}", selected.Count);
+    }
+
+    private async Task<List<(PresetFailureDefinition Def, string PresetName)>> BuildGroundCandidatesAsync(CancellationToken ct) {
+        var whitelist = new HashSet<string>(_settings.GroundFailureIds ?? []);
+        var result = new List<(PresetFailureDefinition Def, string PresetName)>();
+        if (whitelist.Count == 0) return result;
+
+        Dictionary<string, FenixFailureDefinition>? definitions = null;
+        if (_fenixFailureDefinitions is not null) {
+            definitions = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct))
+                .ToDictionary(d => d.FenixFailureId);
+        }
+
+        var seen = new HashSet<string>();
+        foreach (var preset in Session!.AvailablePresets) {
+            if (preset.FlightPhase != ComplexFlightPhaseEnum.OnGate) continue;
+            foreach (var def in preset.PresetFailureDefinitions) {
+                if (!whitelist.Contains(def.FenixFailureId) || seen.Contains(def.FenixFailureId)) continue;
+                if (def.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
+                if (def.FenixFailure is null) continue;
+                if (definitions is not null && definitions.TryGetValue(def.FenixFailureId, out var entity) && entity.Group is not null) {
+                    def.FenixFailure.Severity = entity.Severity;
+                    def.FenixFailure.Group = entity.Group;
+                }
+                var severity = def.FenixFailure.Severity;
+                if (severity is not (FailureSeverity.Minor or FailureSeverity.Major)) continue;
+                seen.Add(def.FenixFailureId);
+                result.Add((def, preset.Name));
+            }
+        }
+        return result;
     }
 
     #endregion
-
-    private sealed class SimulatorDataUnavailableException : Exception {
-        public SimulatorDataUnavailableException(string message) : base(message) { }
-    }
 
 }

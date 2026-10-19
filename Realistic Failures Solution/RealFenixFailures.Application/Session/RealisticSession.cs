@@ -61,6 +61,9 @@ public class RealisticSession : INotifyPropertyChanged {
             }
         }
     }
+
+    /// <summary>Fin del respiro general tras una falla crítica (UTC); el motor no arma ni encola nuevas hasta ese instante.</summary>
+    public DateTime? CriticalRespiteUntilUtc { get; set; }
     public SimulatorAircraftStateSnapshot LastSimData {
         get => lastSimData;
         private set {

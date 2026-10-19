@@ -9,10 +9,13 @@ public interface IRealisticSessionManager : INotifyPropertyChanged {
 
     bool IsPaused { get; }
 
+    int PreparedCount { get; }
+
     Task<ServiceResult<string>> StartNewSessionAsync(RealisticModeContext context, CancellationToken ct);
     Task StopAsync(CancellationToken ct);
     Task PauseAsync(CancellationToken ct);
     Task ResumeAsync(CancellationToken ct, bool restoreFailures = false);
+    Task<int> DiscardPreparedAsync(CancellationToken ct);
 
     event EventHandler<FailureTriggeredEventArgs>? FailureTriggered;
     event EventHandler<SessionErrorEventArgs>? SessionError;

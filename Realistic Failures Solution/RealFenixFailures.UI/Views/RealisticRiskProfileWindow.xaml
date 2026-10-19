@@ -121,7 +121,7 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" MaxHeight="560">
             <StackPanel Margin="16,14,16,0">
 
-                <TextBlock Text="Diseño objetivo (pendiente del motor): cómo se comportará el motor cuando esté implementado. Comportamiento actual: lo que el motor de hoy puede hacer. Elegí un perfil y confirmalo; la elección queda fija al iniciar la sesión."
+                <TextBlock Text="Diseño objetivo: el perfil completo del modo Realistic. Comportamiento actual: lo que el motor implementado de hoy soporta (topes y cadencias por perfil; temporales y calibración de cadencias aún pendientes). Elegí un perfil y confirmalo; la elección queda fija al iniciar la sesión."
                            FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                 <Expander Style="{StaticResource RiskExpanderStyle}" Tag="#4CAF50">
@@ -130,16 +130,21 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Perfil Bajo" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                            <RadioButton Grid.Column="1" x:Name="RadioLow" Style="{StaticResource RiskRadioStyle}"
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Green.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM seguro" FontSize="10"
+                                           Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioLow" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="1" Checked="Profile_Checked"
                                          ToolTip="Seleccionar perfil Bajo"/>
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -195,7 +200,7 @@
                                        Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                         </Grid>
                         <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
-                        <TextBlock Text="Solo fallas menores (Minor) · máx. 3 simultáneas · espera de 60 s entre fallas."
+                        <TextBlock Text="Minor y Major con cadencia baja · simultáneas: Minor 5 · Major 2 · Critical 0."
                                    FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Expander>
@@ -206,16 +211,21 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Perfil Moderado" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                            <RadioButton Grid.Column="1" x:Name="RadioModerate" Style="{StaticResource RiskRadioStyle}"
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Green.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM ideal" FontSize="10"
+                                        Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioModerate" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="2" Checked="Profile_Checked"
                                          ToolTip="Seleccionar perfil Moderado"/>
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -271,7 +281,7 @@
                                        Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                         </Grid>
                         <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
-                        <TextBlock Text="Minor y Major · máx. 3 simultáneas · espera de 60 s entre fallas."
+                        <TextBlock Text="Minor, Major y Critical con cadencia media · simultáneas: Minor 7 · Major 4 · Critical 1."
                                    FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Expander>
@@ -282,16 +292,21 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Perfil Alto" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                            <RadioButton Grid.Column="1" x:Name="RadioHigh" Style="{StaticResource RiskRadioStyle}"
+                            <Border Grid.Column="1" Background="#2A1C0A" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM no recomendado" FontSize="10"
+                                Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioHigh" Style="{StaticResource RiskRadioStyle}"
                                          GroupName="Profiles" Tag="3" Checked="Profile_Checked"
                                          ToolTip="Seleccionar perfil Alto"/>
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -347,7 +362,7 @@
                                        Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                         </Grid>
                         <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
-                        <TextBlock Text="Minor, Major y Critical · máx. 3 simultáneas · espera de 60 s entre fallas."
+                        <TextBlock Text="Todas las severidades con cadencia alta · simultáneas: Minor 10 · Major 5 · Critical 2 · respiro tras crítica 10 min."
                                    FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Expander>
@@ -358,17 +373,21 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Perfil 7700" FontSize="13" FontWeight="Bold" Height="20px"
                                        Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                            <Border Grid.Column="1" Background="#2A1C0A" CornerRadius="4" Padding="8,2">
-                                <TextBlock Text="No seleccionable · VATSIM no apto" FontSize="10"
-                                           Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Red.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM no apto" FontSize="10"
+                                           Foreground="{StaticResource Brush.Accent.Red.Primary}"/>
                             </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioSquawk7700" Style="{StaticResource RiskRadioStyle}"
+                                         GroupName="Profiles" Tag="4" Checked="Profile_Checked"
+                                         ToolTip="Seleccionar perfil 7700"/>
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <TextBlock Text="DISEÑO OBJETIVO (PENDIENTE DEL MOTOR)" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
                         <Grid Style="{StaticResource DetailRowStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150"/>
@@ -424,7 +443,7 @@
                                        Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                         </Grid>
                         <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
-                        <TextBlock Text="Sin comportamiento actual: es un perfil de riesgo, no un código de transpondedor. Pendiente de backend; solo consulta. No intenta modificar el avión."
+                        <TextBlock Text="Sin límites de simultáneas · cadencia alta · respiro tras crítica 5 min."
                                    FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Expander>

@@ -457,6 +457,17 @@ Terminado el backend del OFP y su enganche en el front (Paso 3): descargar, vali
 
 **Verificación**: build Release 0 errores/advertencias y **91/91 tests** (3 nuevos: parser del OFP, OFP válido en ventana persiste, ICAO distinto inválido). Sin verificación con la API real de SimBrief (pendiente de network/test manual).
 
+## Tareas 1 y 2 — perfiles con topes/cadencias y arranque sin Fenix con cola (2026-10-19)
+
+Implementadas las tareas 1 y 2 del diseño objetivo (perfiles de riesgo y arranque en tierra sin Fenix):
+
+- **Perfiles con topes por severidad y cadencias** — `RealisticProfileCatalog` (Domain) define por perfil (Bajo/Moderado/Alto/7700) máximos simultáneos `Minor/Major/Critical`, tasas por hora (risa Poisson en `RealisticFailurePolicy`) y rangos de fallas de tierra; `FailureRuleEvaluator` permite a Low Minor+Major y a 7700 todas (antes Low solo Minor). `RiskLevel.Squawk7700` nuevo (valor 4) incluido en la selección de la UI. Los topes cuentan solo fallas propias activas + reservas de cola (una vez): `GetActiveForSessionAsync` + snapshot de `PreparedFailureQueue`.
+- **Arranque sin gate de Fenix** — `TryStartSession` ya no exige Fenix conectado ni fase en gate con motores apagados; solo SimConnect + datos de simulación. En gate con motores apagados siembra fallas de tierra (whitelist conservadora, excluye IR_ALIGNMENT, severidad Minor/Major, sistemas distintos), que se descartan al dejar OnGate (no se resiembra). Sin Fenix, las fallas elegidas se preparan en `PreparedFailureQueue` (acotada por `PreparedQueueLimit`, tierra con prioridad) y se envían al restablecerse; el motor espera sin resolver si Fenix estuvo disponible y cae. `EngineOrchestrator.StartRealisticModeAsync` y `CanActivate` ya no exigen Fenix.
+- **UI** — `CanActivate` sin Fenix ni `IsOnGround`; rango de riesgo 1..4 con «7700»; botón `DiscardPreparedCommand` visible solo en sesión activa sin Fenix con cola no vacía (sin revelar fallas); textos de topes reales en las tarjetas del modal de perfiles; fila Fenix marcada «opcional» en la sesión.
+- **Config** — sección `RealisticMode:Profiles` (topes/cadencias/rangos) y `GroundFailureIds`/`GroundFailureRanges`/`EvaluationDeltaCapSeconds`/`RespiteClampSeconds` en `FailureEngineSettings`/appsettings; `SnapshotSettings` copia la configuración por sesión sin mutar la global.
+
+**Verificación**: build Release de `Application`, `UI` y `TestUnits` con 0 errores/advertencias; **145/145 tests** (engine reescrito: 35 casos con reloj/random deterministas; catálogo y manager nuevos). **No verificado**: build de la solución completa en una sola ejecución, ni integración MSFS/Fenix real (mocks de DEBUG no reemplazan la prueba manual).
+
 ## Limitaciones restantes (no resueltas)
 
 1. **Fallas de Training/Custom fuera del feed de eventos** — el log en pantalla (`MainWindowViewModel.LogEntries`) solo recibe eventos del detector; las fallas disparadas por los modos Training/Custom no llegan a ese feed. Referencia: `MainWindowViewModel.FlightEventDetector_FlightEventDetected`.

@@ -4,6 +4,24 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Tareas 1 y 2 del modo Realistic: perfiles con topes/cadencias y arranque sin Fenix con cola
+
+**Qué y por qué**
+
+- Catálogo de perfiles con topes por severidad, tasas por hora (Poisson) y rangos de fallas de tierra: `RealisticProfileCatalog`, `RealisticProfileSettings` y `RealisticFailurePolicy` (nuevos en Domain/Application); `FailureRuleEvaluator` permite a Low Minor+Major y a 7700 todas; `RiskLevel.Squawk7700` (valor 4) seleccionable en la UI.
+- Arranque sin gate de Fenix: `RealisticSessionEngine.TryStartSession` exige solo SimConnect + datos; siembra de fallas de tierra en OnGate con motores apagados (whitelist conservadora, sin IR_ALIGNMENT, sistemas distintos) y descarte al salir de OnGate; cola de preparadas acotada (`PreparedFailureQueue`, tierra primero) cuando Fenix no responde, con flush revalidado al restablecerse; espera sin resolver si Fenix estuvo disponible y cae.
+- Orquestador y ViewModel dejan de exigir Fenix/IsOnGround para activar; en la UI se expone `PreparedCount`/`DiscardPreparedCommand` (sesión activa sin Fenix, sin revelar fallas), textos de topes reales en el modal de perfiles y «7700» en la selección de riesgo.
+- Configuración por claves (`RealisticMode:Profiles`, `GroundFailureIds`, `GroundFailureRanges`, `EvaluationDeltaCapSeconds`, `RespiteClampSeconds`) con snapshot por sesión (`SnapshotSettings`); `RealisticSessionManager` expone la cola al UI y mantiene la evaluación con Fenix caído.
+
+**Áreas**
+
+- Application (engine, cola, política, manager, orquestador), Domain (catálogo, settings, evaluador, `RiskLevel`), Infrastructure (repo con `GetAllWithSystemsAsync`), UI (ViewModel, panel Paso 3, modal de perfiles, appsettings), TestUnits (engine reescrito + catálogo + manager).
+
+**Pruebas**
+
+- Build Release de `Application`, `UI` y `TestUnits`: 0 errores / 0 advertencias; `dotnet test …TestUnits.csproj -c Release`: **145/145** (engine 35 casos con reloj/random deterministas; catálogo y manager nuevos).
+- No verificado: build de la solución completa en una sola ejecución; integración MSFS/Fenix real (los mocks de DEBUG no reemplazan la prueba manual).
+
 ### 2026-10-19 — Política EOL: normalización LF de textos con .gitattributes/.editorconfig
 
 **Qué y por qué**

@@ -18,6 +18,11 @@ public class RealisticModeSettings {
     public int PreparedQueueLimit { get; set; } = 5;
     public bool GroundFailureEnabled { get; set; } = true;
     public int ThinkingLinesCap { get; set; } = 50;
+    public double EvaluationDeltaCapSeconds { get; set; } = 300;
+    public int RespiteClampSeconds { get; set; } = 900;
+    public List<string> GroundFailureIds { get; set; } = [];
+    public List<GroundFailureRangeSettings> GroundFailureRanges { get; set; } = [];
+    public List<RealisticProfileSettings> Profiles { get; set; } = [];
     public OfpWindowSettings Ofp { get; set; } = new();
     public WearSettings Wear { get; set; } = new();
 }

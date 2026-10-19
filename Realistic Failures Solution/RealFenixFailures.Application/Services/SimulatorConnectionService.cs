@@ -52,12 +52,17 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
 
     #region Failures Handler
 
-    public async Task<ServiceResult<AllFenixFailuresResponseDto>> GetCurrentFenixFailures(CancellationToken ct) {
+    public async Task<ServiceResult<AllFenixFailuresResponseDto?>> GetCurrentFenixFailures(CancellationToken ct) {
         try {
-            return ServiceResult<AllFenixFailuresResponseDto>.Ok(await _fenixFailureApiDispatcher.GetAllFailuresAsync(ct));
+            var dto = await _fenixFailureApiDispatcher.GetAllFailuresAsync(ct);
+            if (dto is null) {
+                _logger.LogWarning("GetCurrentFenixFailures: la lectura del listado de fallas no devolvió stream (Fenix no disponible).");
+                return ServiceResult<AllFenixFailuresResponseDto?>.Fail(new InvalidOperationException("Fenix failure stream not read"));
+            }
+            return ServiceResult<AllFenixFailuresResponseDto?>.Ok(dto);
         } catch (Exception ex) {
             _logger.LogError("GetCurrentFenixFailures Error: {a}", ex.Message);
-            return ServiceResult<AllFenixFailuresResponseDto>.Fail(ex);
+            return ServiceResult<AllFenixFailuresResponseDto?>.Fail(ex);
         }
     }
 

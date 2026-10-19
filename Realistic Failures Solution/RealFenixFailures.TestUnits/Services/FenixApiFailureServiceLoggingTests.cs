@@ -66,7 +66,7 @@ public class FenixApiFailureServiceLoggingTests {
         var result = await service.GetAllFailuresAsync(CancellationToken.None);
 
         Assert.Empty(TransitionLogs(_entries));
-        Assert.Empty(result.MajorGroups);
+        Assert.Null(result);
     }
 
     [Fact]

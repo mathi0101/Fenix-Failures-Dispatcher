@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Session;
@@ -7,6 +8,7 @@ using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
+using RealFenixFailures.Domain.Services;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Services;
@@ -23,6 +25,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ISimulatorConnectionService _simulator;
     private readonly IFlightEventDetector _flightEventDetector;
+    private readonly RealisticModeSettings? _realisticModeSettings;
+    private readonly Func<IFailureRuleEvaluator, RealisticFailurePolicy>? _policyFactory;
 
     private RealisticSessionEngine? _engine;
     private IServiceScope? _sessionScope;
@@ -50,6 +54,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
     #region Properties
     public RealisticSession? SessionState => _engine?.Session;
 
+    public int PreparedCount => _engine?.PreparedCount ?? 0;
+
     public bool IsPaused {
         get => _isPaused;
         private set {
@@ -68,13 +74,18 @@ public class RealisticSessionManager : IRealisticSessionManager {
         IServiceScopeFactory scopeFactory,
         ISimulatorConnectionService simulatorConnectionService,
         IFlightEventDetector flightEventDetector,
-        TimeSpan? evaluationInterval = null) {
+        TimeSpan? evaluationInterval = null,
+        IOptions<FailureEngineSettings>? settings = null,
+        Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _scopeFactory = scopeFactory;
         _simulator = simulatorConnectionService;
         _flightEventDetector = flightEventDetector;
-        _evaluationInterval = evaluationInterval ?? TimeSpan.FromSeconds(EvaluationIntervalSeconds);
+        _realisticModeSettings = settings?.Value?.RealisticMode;
+        _policyFactory = policyFactory;
+        var intervalSeconds = settings?.Value?.RealisticMode.EvaluationIntervalSeconds ?? EvaluationIntervalSeconds;
+        _evaluationInterval = evaluationInterval ?? TimeSpan.FromSeconds(intervalSeconds);
     }
     #endregion
 
@@ -84,14 +95,19 @@ public class RealisticSessionManager : IRealisticSessionManager {
         IServiceScope? scope = null;
         try {
             scope = _scopeFactory.CreateScope();
+            var evaluator = scope.ServiceProvider.GetService<IFailureRuleEvaluator>() ?? new FailureRuleEvaluator();
+            var policy = _policyFactory is null ? new RealisticFailurePolicy(evaluator) : _policyFactory(evaluator);
             var engine = new RealisticSessionEngine(
                 _simulator,
                 _loggerFactory.CreateLogger<RealisticSessionEngine>(),
                 scope.ServiceProvider.GetRequiredService<IFlightSessionService>(),
                 scope.ServiceProvider.GetRequiredService<IPresetService>(),
-                scope.ServiceProvider.GetRequiredService<IFailureTrigger>(),
                 _flightEventDetector,
-                scope.ServiceProvider.GetRequiredService<ITriggeredFailureRepository>());
+                scope.ServiceProvider.GetRequiredService<ITriggeredFailureRepository>(),
+                settings: _realisticModeSettings,
+                policy: policy,
+                fenixFailureDefinitions: scope.ServiceProvider.GetService<IFenixFailureDefinitionRepository>());
+            engine.PreparedQueueChanged += Engine_PreparedQueueChanged;
 
             var result = await engine.TryStartSession(context, ct);
             if (result.Started == false) {
@@ -128,12 +144,20 @@ public class RealisticSessionManager : IRealisticSessionManager {
             await StopLoopAsync();
             await _engine!.StopSession(ct);
         } finally {
+            _engine.PreparedQueueChanged -= Engine_PreparedQueueChanged;
             _engine = null;
             _sessionScope?.Dispose();
             _sessionScope = null;
             IsPaused = false;
+            OnPropertyChanged(nameof(PreparedCount));
         }
         _logger.LogInformation("Realistic session stopped");
+    }
+
+    public Task<int> DiscardPreparedAsync(CancellationToken ct) {
+        var engine = _engine;
+        if (engine is null) return Task.FromResult(0);
+        return Task.FromResult(engine.DiscardPrepared());
     }
 
     public async Task PauseAsync(CancellationToken ct) {
@@ -150,6 +174,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
             if (restoreFailures) {
                 await RestoreFailuresAfterPauseAsync(ct);
             }
+            _engine.ResetCadence();
             var timer = new PeriodicTimer(_evaluationInterval);
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var loopTask = Task.Run(() => RunEvaluationLoopAsync(timer, cts.Token), cts.Token);
@@ -358,6 +383,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
     #endregion
 
     #region Privates
-
+    private void Engine_PreparedQueueChanged(object? sender, EventArgs e) {
+        OnPropertyChanged(nameof(PreparedCount));
+    }
     #endregion
 }

@@ -19,7 +19,7 @@ public partial class RealisticRiskProfileWindow : Window {
 
     private void Profile_Checked(object sender, RoutedEventArgs e) {
         if (sender is not RadioButton rb) return;
-        if (int.TryParse(rb.Tag as string, out var value) && value is >= 1 and <= 3)
+        if (int.TryParse(rb.Tag as string, out var value) && value is >= 1 and <= 4)
             SelectProfile(value);
     }
 
@@ -28,7 +28,8 @@ public partial class RealisticRiskProfileWindow : Window {
         RadioLow.IsChecked = profile == 1;
         RadioModerate.IsChecked = profile == 2;
         RadioHigh.IsChecked = profile == 3;
-        ConfirmButton.IsEnabled = profile.HasValue;
+        RadioSquawk7700.IsChecked = profile == 4;
+        ConfirmButton.IsEnabled = profile.HasValue && profile is >= 1 and <= 4;
     }
 
     private void ConfirmProfile_Click(object sender, RoutedEventArgs e) {

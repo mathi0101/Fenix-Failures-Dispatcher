@@ -1,15 +1,18 @@
-// RealFenixFailures.TestUnits/Services/RealisticSessionManagerTests.cs
+﻿// RealFenixFailures.TestUnits/Services/RealisticSessionManagerTests.cs
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Services;
+using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
+using RealFenixFailures.Domain.Services;
+using RealFenixFailures.TestUnits.Mocks;
 
 namespace RealFenixFailures.TestUnits.Services;
 
@@ -19,10 +22,12 @@ public class RealisticSessionManagerTests {
     private readonly Mock<IPresetService> _presetService = new();
     private readonly Mock<IFailureTrigger> _failureTrigger = new();
     private readonly Mock<IFlightEventDetector> _flightEventDetector = new()!;
+    private readonly MockRandom _random = new();
+    private DateTime _now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
     private Mock<ITriggeredFailureRepository> _triggeredFailureRepository = null!;
     private Mock<IServiceScope> _scope = null!;
 
-    private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null) {
+    private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -46,7 +51,8 @@ public class RealisticSessionManagerTests {
             scopeFactory.Object,
             _simulator.Object,
             _flightEventDetector.Object,
-            evaluationInterval);
+            evaluationInterval,
+            policyFactory: policyFactory);
     }
 
     private void SetupConnected() {
@@ -55,7 +61,7 @@ public class RealisticSessionManagerTests {
             .ReturnsAsync(new ConnectionStatusDto(true, true, SimpleFlightPhaseEnum.OnGround));
     }
 
-    private void SetupValidData() {
+    private void SetupValidData(IEnumerable<PresetFailureDefinition>? definitions = null) {
         _simulator
             .Setup(s => s.GetSimulatorData(It.IsAny<CancellationToken>()))
             .ReturnsAsync(ServiceResult<SimulatorAircraftStateSnapshot>.Ok(new SimulatorAircraftStateSnapshot {
@@ -66,17 +72,22 @@ public class RealisticSessionManagerTests {
             }));
         _sessionService
             .Setup(s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new FlightSession { Id = 1, StartedAt = DateTime.UtcNow, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+            .ReturnsAsync(new FlightSession { Id = 1, StartedAt = _now, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+        var presets = definitions is null
+            ? new List<FailurePreset>()
+            : new List<FailurePreset> {
+                new() { Id = 1, Name = "PRESET", FlightPhase = ComplexFlightPhaseEnum.Unknown, PresetFailureDefinitions = definitions.ToList() }
+            };
         _presetService
             .Setup(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<FailurePreset>());
+            .ReturnsAsync(presets);
     }
 
     /// <summary>Fenix responde fallas vacías: un tick normal no arma nada y no falla.</summary>
     private void SetupFenixFailuresOk() {
         _simulator
             .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(new AllFenixFailuresResponseDto()));
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto?>.Ok(new AllFenixFailuresResponseDto()));
     }
 
     private static RealisticModeContext Context() =>
@@ -281,6 +292,54 @@ public class RealisticSessionManagerTests {
         };
         _simulator
             .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto>.Ok(grouped));
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto?>.Ok(grouped));
+    }
+
+    [Fact]
+    public async Task EvaluationLoop_PreparesWithoutFenix_CountAndDiscardReflected() {
+        // Arranque sin Fenix: el loop de evaluación (interval corto en test) prepara en cola
+        // y PreparedCount/DiscardPreparedAsync reflejan la cola del engine.
+        _simulator
+            .Setup(s => s.GetConnectionStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConnectionStatusDto(true, false, SimpleFlightPhaseEnum.OnGround));
+        SetupValidData(new[] { new PresetFailureDefinition {
+            FenixFailureId = "F_ENGINE_1",
+            Probability = 1.0,
+            FenixFailure = new FenixFailureDefinition {
+                FenixFailureId = "F_ENGINE_1",
+                Name = "Motor 1",
+                Severity = FailureSeverity.Minor,
+                Group = new FenixFailureGroup {
+                    Name = "G-ENGINE",
+                    System = new FenixFailureSystem { Name = "S-ENGINE", ShortName = "S" }
+                }
+            }
+        } });
+        Func<IFailureRuleEvaluator, RealisticFailurePolicy> policyFactory =
+            _ => new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random);
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20), policyFactory);
+
+        var preparedChanged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.PropertyChanged += (s, e) => {
+            if (e.PropertyName == nameof(manager.PreparedCount) && manager.PreparedCount > 0) preparedChanged.TrySetResult();
+        };
+
+        var start = await manager.StartNewSessionAsync(Context(), CancellationToken.None);
+        Assert.True(start.IsSuccess);
+        Assert.Equal(0, manager.PreparedCount);
+
+        _now = _now.AddHours(1);
+        _random.SetupNextDouble(0.0);
+        _random.SetupNextDouble(0.0);
+        await preparedChanged.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(manager.PreparedCount > 0);
+
+        var discarded = await manager.DiscardPreparedAsync(CancellationToken.None);
+        Assert.True(discarded > 0);
+
+        await manager.StopAsync(CancellationToken.None);
+        Assert.Equal(0, manager.PreparedCount);
+        Assert.Null(manager.SessionState);
     }
 }

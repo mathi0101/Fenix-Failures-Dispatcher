@@ -648,21 +648,10 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Fenix" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="✘ Pendiente"/>
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsFenixConnected}" Value="True">
-                                                        <Setter Property="Text" Value="✔ Cumplido"/>
-                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Green.Primary}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <TextBlock Grid.Column="0" Text="Fenix (opcional)" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="No es requisito para activar: sin Fenix la sesión prepara fallas en cola y las envía cuando Fenix está disponible."/>
+                                    <TextBlock Grid.Column="1" Text="✔ Opcional (prepara en cola)" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
@@ -712,7 +701,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="Obligatorio para activar. La descarga/validación está pendiente del backend."/>
+                                               ToolTip="Obligatorio para activar. Se descarga y valida desde SimBrief; el backend de descarga/validación ya está implementado."/>
                                     <TextBlock Grid.Column="1" Text="✘ Pendiente" FontSize="11" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
                                 </Grid>
@@ -753,6 +742,17 @@
                         <StackPanel>
                             <TextBlock Text="FALLAS DE LA SESIÓN ACTUAL" FontSize="10" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,4"/>
+                            <Border Background="#111318" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                    Visibility="{Binding IsSessionActiveWithoutFenix, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Fenix no está disponible: la sesión prepara fallas en cola y las envía cuando Fenix vuelva. Sin Fenix nunca se arma una falla en el avión."
+                                           FontSize="11" Foreground="{StaticResource Brush.Accent.Amber.Primary}" TextWrapping="Wrap"/>
+                            </Border>
+                            <Button Content="{Binding DiscardPreparedLabel}" Height="30" Padding="14,0"
+                                    HorizontalAlignment="Left" Margin="0,0,0,8"
+                                    Style="{StaticResource GhostButtonStyle}"
+                                    Command="{Binding DiscardPreparedCommand}"
+                                    Visibility="{Binding IsDiscardPreparedVisible, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="Descarta las fallas preparadas en cola (Fenix no disponible) sin enviarlas ni armar nada."/>
                             <TextBlock Text="Estado: Enviada (sin confirmación) — ninguna falla se muestra como activa confirmada."
                                        FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10" TextWrapping="Wrap"/>
                             <ItemsControl ItemsSource="{Binding LiveTriggeredFailures}" MaxHeight="140">

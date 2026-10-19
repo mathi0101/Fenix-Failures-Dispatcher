@@ -31,9 +31,8 @@ public class FailureRuleEvaluator : IFailureRuleEvaluator {
     }
 
     private static bool IsSeverityAllowed(FailureSeverity severity, RiskLevel riskLevel) => riskLevel switch {
-        RiskLevel.Low => severity == FailureSeverity.Minor,
-        RiskLevel.Moderate => severity is FailureSeverity.Minor or FailureSeverity.Major,
-        RiskLevel.High => true,
-        _ => false
+        RiskLevel.Low => severity is FailureSeverity.Minor or FailureSeverity.Major,
+        RiskLevel.Squawk7700 => true,
+        _ => true
     };
 }
