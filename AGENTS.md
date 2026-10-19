@@ -53,11 +53,22 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - **En desarrollo no se mantienen migraciones**: `App.xaml.cs` arranca con `EnsureCreatedAsync()`, que crea el esquema completo desde el modelo (con seeds) en una base nueva; al cambiar el esquema hay que **borrar `realfenixfailures.db`** para regenerarla. No generar migraciones nuevas en esta etapa (ver `docs/desarrollo.md`).
 - Cuando el esquema esté cerca de producción: generar **una única migración inicial** y volver al flujo clásico (no editar migraciones aplicadas en entornos compartidos; revisar `Up`/`Down` antes de aplicar).
 
+## Trabajo multi-agente (misma PC, misma rama)
+
+Este proyecto se desarrolla con **varios agentes de IA y el usuario editando y debuggeando al mismo tiempo, en la misma PC y sobre la misma rama**. El árbol de trabajo es el estado compartido y cambia sin aviso; siempre esperar y contemplar desarrollos o ediciones de otra tarea (o del usuario):
+
+- **Nunca asumir que un archivo sigue como se lo leyó**: si pasó el tiempo o trabajó otra tarea, releer el archivo justo antes de editarlo y aplicar los cambios sobre la versión vigente.
+- **No pisar trabajo ajeno**: ediciones, formato, contenido o archivos que no son de la tarea actual se dejan tal cual; no "arreglar" líneas de otros ni reformatear archivos que otra tarea está tocando.
+- **Antes de operar sobre el índice o compilar**: otro agente puede estar commiteando o builddeando al mismo tiempo; verificar siempre `git status` y `git diff` antes de cualquier operación de staging. Si un comando falla por estado cambiante, releer y reintentar en vez de asumir que fue culpa del código propio.
+- **Commits selectivos obligatorios**: cada tarea commitea **solamente sus cambios relacionados**. Nunca usar `git add -A` ni `git add .`; preparar solo los archivos de la tarea (`git add <archivos>` explícito) y revisar `git status` + `git diff --cached` antes del commit para confirmar que no entró trabajo ajeno (de otros agentes o del usuario). Los archivos no relacionados quedan sin preparar, tal como estaban.
+- **No deshacer ni revertir cambios ajenos** (checkout, stash, clean, reset, amend) sin pedido expreso del usuario: el árbol puede contener WIP de otra tarea o ediciones del propio usuario.
+
 ## Git
 
 - `master` estable; `dev` es la rama de integración; trabajar en ramas `feature/*`, `fix/*`, `docs/*`, `refactor/*`, `test/*` o `chore/*` creadas desde `dev`.
 - No hacer commits salvo pedido expreso del usuario.
 - Commits con **Conventional Commits** (`feat/fix/docs/refactor/test/chore`, opcional scope) y cuerpo de viñetas según [docs/desarrollo.md](docs/desarrollo.md).
+- **Cada tarea commitea solo sus cambios relacionados** (regla de commits selectivos en la sección *Trabajo multi-agente*).
 
 ## Gotchas verificadas
 

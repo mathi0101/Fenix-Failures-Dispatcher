@@ -71,6 +71,15 @@ Históricas: se registran para evitar regresión y no como avisos presentes. Los
 - No reescribir historia existente (sin rebase/amend sobre commits ya compartidos).
 - Todo cambio significativo actualiza el doc de estado afectado y agrega entrada a [CHANGELOG.md](CHANGELOG.md) en el mismo trabajo (refactors triviales y typos no necesitan entrada).
 
+### Trabajo multi-agente (misma PC, misma rama)
+
+Varios agentes de IA y el usuario editan y debuggean a la vez, en la misma PC y sobre la misma rama; el árbol de trabajo es el estado compartido y cambia sin aviso. Antes de editar, compilar o tocar el índice, contemplar que otra tarea puede estar trabajando o haber committeado en el medio:
+
+- Releer los archivos justo antes de editarlos y aplicar los cambios sobre la versión vigente; no pisar ediciones, formato ni archivos de otras tareas.
+- Verificar siempre `git status` y `git diff` antes de operar sobre el índice (staging, stash, checkout): otro agente puede estar commiteando en paralelo.
+- **Cada tarea commitea solo sus cambios relacionados**: preparar explícitamente los archivos propios (`git add <archivos>`), nunca `git add -A`/`git add .`; revisar `git status` + `git diff --cached` antes del commit y dejar fuera (sin preparar) todo lo que no es de la tarea.
+- No deshacer ni revertir cambios ajenos (checkout, stash, clean, reset, amend) sin pedido expreso del usuario; el árbol puede contener WIP de otra tarea.
+
 ### Formato obligatorio de commits
 
 Asunto con Conventional Commits `tipo(scope): descripción`, tipos permitidos `feat`, `fix`, `docs`, `refactor`, `test`, `chore`; asunto claro y breve en imperativo. Línea en blanco y cuerpo detallado donde cada implementación va en una línea que empieza con un guion `- ...`. Nunca afirmar en el cuerpo una prueba que no se haya ejecutado.

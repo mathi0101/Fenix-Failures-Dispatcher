@@ -4,6 +4,21 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Política de trabajo multi-agente (misma PC, misma rama)
+
+**Qué y por qué**
+
+- El proyecto se desarrolla con varios agentes de IA y el usuario editando y debuggeando en simultáneo, en la misma PC y sobre la misma rama. Se documentó la política operativa en `AGENTS.md` (nueva sección *Trabajo multi-agente*) y en `docs/desarrollo.md` (*Ramas y commits*): el árbol de trabajo es estado compartido — releer los archivos antes de editarlos, no pisar trabajo ajeno, verificar `git status`/`git diff` antes de operar sobre el índice porque otra tarea puede estar commiteando en paralelo — y **commits selectivos obligatorios**: cada tarea prepara y commitea solamente sus cambios relacionados (`git add <archivos>` explícito, nunca `git add -A`/`git add .`, con revisión de `git status` + `git diff --cached` previa al commit).
+
+**Áreas**
+
+- docs (`AGENTS.md`, `docs/desarrollo.md`, este archivo).
+
+**Pruebas**
+
+- No verificado: cambio exclusivamente documental; no corre build/test.
+- Comprobación documental: `git diff --check` sobre los tres archivos tocados, sin errores (verificado en esta entrada).
+
 ### 2026-10-19 — Tareas 1 y 2 del modo Realistic: perfiles con topes/cadencias y arranque sin Fenix con cola
 
 **Qué y por qué**
