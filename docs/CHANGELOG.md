@@ -4,6 +4,25 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Fallas de tierra: sin whitelist; el universo sale de las definiciones persistidas con severidad 1/2
+
+**Qué y por qué**
+
+- Se elimina `GroundFailureIds` de `RealisticModeSettings` (`FailureEngineSettings.cs`) y del bloque `FailureEngine:RealisticMode` de `appsettings.json`: era una whitelist de 9 fallas duplicada a mano, desactualizable respecto del catálogo curado (`failures.json` → `FenixFailureDefinition` con `Severity`).
+- `RealisticSessionEngine.BuildGroundCandidatesAsync` reescrito sin whitelist ni iteración de presets: las candidatas de tierra son **todas las `FenixFailureDefinition` persistidas con severidad `Minor`/`Major` (1/2)** (excluidas `F_OH_NAV_IR_ALIGNMENT_*`, ajenas al engine), con `Group`/`System` cargados por `GetAllWithSystemsAsync`. Por cada una construye un `PresetFailureDefinition` sintético (`FenixFailureId` + `FenixFailure` = entidad persistida trackeada, `Probability = 1.0`, sin condiciones de armado); el seed escoge desde esa lista por rango de riesgo y sistema distinto (sin cambios en `SeedGroundFailuresAsync`).
+- Al no mutar navegaciones (ya no se copia `Group`/`Severity` sobre definiciones de preset), el seed deja de depender de la reconciliación contra presets y el tracking compartido de `GetAllWithSystemsAsync` sigue evitando conflictos de identity en `SaveChanges`. `SnapshotSettings` no copia más la lista.
+- El `PresetName` del item de tierra en cola/historial pasa a ser el nombre del **sistema** (`Group.System.Name`, p. ej. `ELEC`) en lugar del nombre del preset OnGate.
+
+**Áreas**
+
+- `RealFenixFailures.Domain/Services/FailureEngineSettings.cs`, `RealFenixFailures.Application/Session/RealisticSessionEngine.cs`, `RealFenixFailures.UI/appsettings.json`, `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- Build Debug de la solución: 0 errores/0 advertencias.
+- Suite completa en este entorno: **141/147**. 4 fallos preexistentes en `SerilogDiagnosticsTests` (ajenos) y 2 en `MockSimConnectClientTests` por WIP sin commitear de `MockSimConnectClient.cs` (dominio ajeno).
+- Focus del cambio (árbol con la tarea de tracking base): 36/36 en `RealisticSessionEngineTests` + `RealisticSessionEnginePersistenceTests` — el test de integración de tierra (`GroundSeed_OnGate_TriggeredFailurePersistsWithoutTrackingConflict`) arma el candidato desde la definición persistida en BD (severity Major) **sin** `GroundFailureIds` y persiste 1 `TriggeredFailure` (State `Sent`) + evento `FAILURE_TRIGGERED`.
+
 ### 2026-10-19 — Datos del usuario centralizados en %AppData% y appsettings limpio
 
 **Qué y por qué**

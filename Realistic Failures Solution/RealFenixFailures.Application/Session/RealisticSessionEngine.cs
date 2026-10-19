@@ -252,7 +252,6 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             ThinkingLinesCap = source.ThinkingLinesCap,
             EvaluationDeltaCapSeconds = source.EvaluationDeltaCapSeconds,
             RespiteClampSeconds = source.RespiteClampSeconds,
-            GroundFailureIds = [.. source.GroundFailureIds],
             GroundFailureRanges = source.GroundFailureRanges
                 .Select(r => new GroundFailureRangeSettings { RiskLevel = r.RiskLevel, Min = r.Min, Max = r.Max }).ToList(),
             Profiles = source.Profiles
@@ -607,32 +606,24 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     private async Task<List<(PresetFailureDefinition Def, string PresetName)>> BuildGroundCandidatesAsync(CancellationToken ct) {
-        var whitelist = new HashSet<string>(_settings.GroundFailureIds ?? []);
+        // Las fallas de tierra son TODAS las definiciones persistidas con severidad 1/2 (Minor/Major):
+        // no hay whitelist configurable; el catálogo curado (failures.json, persistido en FenixFailureDefinition)
+        // es la fuente única del universo de fallas y la sesión escoge desde esa lista.
+        if (_fenixFailureDefinitions is null) return [];
+
         var result = new List<(PresetFailureDefinition Def, string PresetName)>();
-        if (whitelist.Count == 0) return result;
-
-        Dictionary<string, FenixFailureDefinition>? definitions = null;
-        if (_fenixFailureDefinitions is not null) {
-            definitions = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct))
-                .ToDictionary(d => d.FenixFailureId);
-        }
-
-        var seen = new HashSet<string>();
-        foreach (var preset in Session!.AvailablePresets) {
-            if (preset.FlightPhase != ComplexFlightPhaseEnum.OnGate) continue;
-            foreach (var def in preset.PresetFailureDefinitions) {
-                if (!whitelist.Contains(def.FenixFailureId) || seen.Contains(def.FenixFailureId)) continue;
-                if (def.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
-                if (def.FenixFailure is null) continue;
-                if (definitions is not null && definitions.TryGetValue(def.FenixFailureId, out var entity) && entity.Group is not null) {
-                    def.FenixFailure.Severity = entity.Severity;
-                    def.FenixFailure.Group = entity.Group;
-                }
-                var severity = def.FenixFailure.Severity;
-                if (severity is not (FailureSeverity.Minor or FailureSeverity.Major)) continue;
-                seen.Add(def.FenixFailureId);
-                result.Add((def, preset.Name));
-            }
+        foreach (var entity in await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)) {
+            if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
+            if (entity.Severity is not (FailureSeverity.Minor or FailureSeverity.Major)) continue;
+            // Candidato sintético que referencia la entidad persistida (trackeada por GetAllWithSystemsAsync,
+            // misma identidad que el contexto de sesión): no se mutan navegaciones ajenas, así que el
+            // SaveChanges posterior al seed no dispara conflictos de identity de EF.
+            var def = new PresetFailureDefinition {
+                FenixFailureId = entity.FenixFailureId,
+                FenixFailure = entity,
+                Probability = 1.0
+            };
+            result.Add((def, entity.Group?.System?.Name ?? string.Empty));
         }
         return result;
     }
