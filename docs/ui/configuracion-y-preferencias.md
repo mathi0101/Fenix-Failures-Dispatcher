@@ -15,7 +15,7 @@ El contenido de configuración es un **UserControl** (`RealFenixFailures.UI/View
   1. **General** — campo **ID de SimBrief** (alias de simbrief.com) persistido en las preferencias de usuario, con feedback "✓ Guardado" (debounce de 400 ms al escribir) y nota de privacidad.
   2. **Ayuda** — guía rápida de uso (cabina lista → elegir modo → activar y volar → cierre/bandeja).
   3. **Documentación** — enlaces a GitHub (repo), docs del proyecto y documentación pública de la API de SimBrief (`https://www.simbrief.com/api/`).
-  4. **Actualizaciones** — versión instalada (del ensamblado) y botón "Buscar actualizaciones" que abre GitHub Releases.
+  4. **Actualizaciones** — versión instalada (InformationalVersion, conserva el sufijo `-dev`) y **buscar actualizaciones**: el botón consulta GitHub Releases de verdad (`IUpdateChecker` → `GithubUpdateChecker`, API pública `GET /repos/mathi0101/Fenix-Failures-Dispatcher/releases?per_page=5`), muestra pre-releases, indica "al día / hay versión nueva / sin releases / error" por colores, y ofrece descargar a GitHub Releases cuando hay versión más nueva. No descarga ni instala sola.
   5. **Reportar un fallo** — botón que abre GitHub Issues del repo.
 - Los enlaces se abren con `Process.Start` + `UseShellExecute` (mismo patrón que la donación en `MainWindow`). URLs centralizadas como constantes en `SettingsWindowViewModel` (`DefaultRepositoryUrl` apunta a `https://github.com/mathi0101/Fenix-Failures-Dispatcher`).
 

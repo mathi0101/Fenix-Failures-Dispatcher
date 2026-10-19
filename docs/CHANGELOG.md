@@ -4,74 +4,28 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
-### 2026-10-19 — Política de trabajo multi-agente (misma PC, misma rama)
+### 2026-10-19 — Versionado central + chequeo de actualizaciones en Ajustes
 
 **Qué y por qué**
 
-- El proyecto se desarrolla con varios agentes de IA y el usuario editando y debuggeando en simultáneo, en la misma PC y sobre la misma rama. Se documentó la política operativa en `AGENTS.md` (nueva sección *Trabajo multi-agente*) y en `docs/desarrollo.md` (*Ramas y commits*): el árbol de trabajo es estado compartido — releer los archivos antes de editarlos, no pisar trabajo ajeno, verificar `git status`/`git diff` antes de operar sobre el índice porque otra tarea puede estar commiteando en paralelo — y **commits selectivos obligatorios**: cada tarea prepara y commitea solamente sus cambios relacionados (`git add <archivos>` explícito, nunca `git add -A`/`git add .`, con revisión de `git status` + `git diff --cached` previa al commit).
-
-**Áreas**
-
-- docs (`AGENTS.md`, `docs/desarrollo.md`, este archivo).
-
-**Pruebas**
-
-- No verificado: cambio exclusivamente documental; no corre build/test.
-- Comprobación documental: `git diff --check` sobre los tres archivos tocados, sin errores (verificado en esta entrada).
-
-### 2026-10-19 — Splash 0→full con frame vacío y fix del cierre definitivo
-
-**Qué y por qué**
-
-- El splash pasó a 6 frames con **barra vacía al inicio**: se generó `Assets/Branding/splash-frame-0.png` (misma pieza gráfica, sin relleno) y ahora la secuencia es vacía → 36 % (PNG original) → 52/68/84/100 % (`splash-screen.png` + `splash-frame-1..4.png`), con intervalo de 350 ms (`FrameIntervalMs`). Como pidió el usuario, la barra va **de 0 a full y se detiene en el último frame** (se sacó el ping-pong): no retrocede ni reinicia, y **no está conectada al progreso real del arranque** — si la app termina antes, se corta donde iba; si tarda más, queda llena.
-- **Fix cierre definitivo**: con `ShutdownMode="OnExplicitShutdown"` (necesario para la bandeja), el "Cerrar la app por completo" del modal de cierre hacía solo `Close()` (cierra la ventana pero no la app → quedaba corriendo en bandeja, bug preexistente desde que se agregó el modal). Ahora hace `System.Windows.Application.Current.Shutdown()` (MainWindow.xaml.cs), el cierre explícito que además corre `OnExit` (dispose del tray, stop del host).
-
-**Áreas**
-
-- UI (`Assets/Branding/splash-frame-0.png` nuevo, `Views/SplashWindow.xaml.cs` — secuencia 0→full con detención, `RealFenixFailures.UI.csproj` — copy del frame 0, `Views/MainWindow.xaml.cs` — fix del cierre), docs (`docs/ui/manejo-de-errores-y-arranque.md`, este archivo).
+- **Versionado único de la solución**: nuevo `Realistic Failures Solution/Directory.Build.props` con `<Version>0.1.0-dev.0</Version>`. El SDK lo propaga a los 8 proyectos: `AssemblyVersion` deriva a 0.1.0.0 y `InformationalVersion` conserva el sufijo `0.1.0-dev.0` (lo que muestra la UI). Antes no había versión gestionada: el SDK ponía `1.0.0` por defecto, que es lo que mostraban Ajustes (`SettingsWindowViewModel.AppVersion`) y los crash logs (`CrashLogWriter`). Al publicar un release, el tag `vX.Y.Z` de GitHub debe coincidir con este archivo.
+- **Chequeo real de actualizaciones**: la pestaña "Actualizaciones" de Ajustes dejó de ser solo un botón que abre GitHub Releases. Ahora `IUpdateChecker` (contrato en Application) → `GithubUpdateChecker` (UI/Services) consulta la API pública `GET https://api.github.com/repos/mathi0101/Fenix-Failures-Dispatcher/releases?per_page=5` (sin token, con User-Agent propio, timeout 15 s). Incluye pre-releases: mientras la app se comparte como builds de prueba, la publicación más reciente suele ser pre-release y se ofrece igual.
+- `SettingsWindowViewModel`: compara versión instalada (InformationalVersion, conserva el sufijo `-dev`) vs. el tag más reciente con parseo SemVer (tolera `vX.Y.Z-prefijo`); una versión `-dev` queda obsoleta cuando se publica cualquier release (incluso pre-release). `AppVersion` usa `AssemblyInformationalVersionAttribute` (antes `AssemblyVersion`, que pierde el sufijo).
+- `UpdateCheckState` (enum): Idle / Checking / UpToDate / NewVersionAvailable / NoReleases / Error. El XAML colorea con DataTriggers (verde=al día, ámbar=hay nueva, rojo=error) y `BooleanToVisibilityConverter` (nuevo recurso local) muestra la barra de progreso y el botón "Descargar e ir a GitHub Releases" cuando hay versión nueva.
+- DI: `services.AddSingleton<IUpdateChecker, GithubUpdateChecker>()` en `HostBuilderExtensions`.
 
 **Pruebas**
 
-- Build Debug de la solución: **0 errores / 0 advertencias** (verificado en esta entrada).
-- Verificado con capturas `PrintWindow` del arranque real (DEBUG): la secuencia es 0 px (vacío) → 109 → 156 → 204 → 251 px (36 → 52 → 68 → 84 %), creciente y cortada por el cierre de la main (~1,8 s de arranque); en aislamiento (harness) la secuencia llega a full y se queda en `splash-frame-4.png`.
-- Verificado el cierre con UI Automation (botón ✕ → modal → "Cerrar la app por completo"): el proceso **termina** (exit code 0). También se verificó el otro camino ("Seguir en segundo plano"): la app sigue viva en bandeja (regresión ok).
-- No verificado: nada pendiente de este cambio (el cursor normal sobre el splash ya va incluido en la entrada anterior, sin `SplashScreen` y `Cursor="Arrow"`).
-
-### 2026-10-19 — Splash animado: frames de la imagen original, hilo propio y cursor normal
-
-**Qué y por qué**
-
-- El splash era la `SplashScreen` clásica de WPF con un PNG (560×340) cuya barra de progreso venía **dibujada en la imagen**: por eso no se movía. Para conservar la estética original (el usuario la prefería al intento XAML con `ProgressBar`), la barra se anima con la técnica de frames: `Views/SplashWindow.xaml` muestra la imagen de siempre y cada 220 ms intercambia en vivo 5 frames idénticos con la barra más avanzada (`splash-frame-1..4.png` con relleno 52/68/84/100 % + el PNG original como frame 0), en secuencia ping-pong para que el reinicio no se note. Los frames se generaron con la misma paleta medida del PNG (pista `#1E2433`, relleno `#3B82F6`) y se versionan como archivos (`None` + `CopyToOutputDirectory` en el `.csproj`; se cargan por ruta porque la ventana se muestra antes de crear la `Application`).
-- **Hilo STA dedicado**: la animación corre en su propio hilo (`Program.StartSplash`, con dispatcher propio). Durante el arranque el hilo principal está ocupado construyendo el host y los servicios, y un `DispatcherTimer` de ese hilo no llega a dispararse (la barra quedaba congelada en el frame 0); con el pump del hilo del splash la animación va siempre fluida. `Program.CloseSplash()` encola el cierre en el dispatcher del splash y termina su pump (cubre el arranque normal, las ramas fallidas y la instancia única).
-- El cursor de "aplicación iniciando" (`IDC_APPSTARTING`) que el `SplashScreen` clásico mostraba sobre el splash daba sensación de app trancada; la ventana custom lleva `Cursor="Arrow"` y no se usa más `SplashScreen`, así que el cursor es normal durante todo el arranque.
+- `<Version>` propagado verificado con `dotnet msbuild RealFenixFailures.UI -getProperty:Version` → `0.1.0-dev.0`.
+- **Build NO verificado**: el `dotnet restore`/`build` de la solución no pudo completarse dentro de este entorno de trabajo por restore de NuGet incompleto desde la red (`NETSDK1064: Package Microsoft.CodeAnalysis.Analyzers ... was not found`; el caché local del sandbox estaba vacío). El código quedó listo y sin errores aparentes, pero **compilar debe hacerse en la máquina del desarrollador** antes de declararlo funcionando.
 
 **Áreas**
 
-- UI (`Views/SplashWindow.xaml(.cs)`, `Program.cs`, `App.xaml.cs`, `RealFenixFailures.UI.csproj` + 4 PNG nuevos en `Assets/Branding/`), docs (`docs/ui/manejo-de-errores-y-arranque.md`, este archivo).
-
-**Pruebas**
-
-- Build Debug de la solución: **0 errores / 0 advertencias** (verificado en esta entrada).
-- Verificado con capturas de pantalla del arranque real (DEBUG): el splash muestra la pieza gráfica original y la barra **se anima** durante el arranque (secuencia observada 156→204→251→251→204→156 px = frames 1→2→3→3→2→1 del ping-pong, con cierre del splash al aparecer la ventana principal). También se probó la animación en aislamiento (harness WPF) verificando el ping-pong completo 0→1→2→3→2→1→0.
-- No verificado: el cursor normal sobre el splash en una sesión real con el mouse encima (la propiedad `Cursor="Arrow"` está en el XAML y no hay `SplashScreen`, pero no hubo mouse sobre la ventana durante las capturas).
-
-### 2026-10-19 — Tareas 1 y 2 del modo Realistic: perfiles con topes/cadencias y arranque sin Fenix con cola
-
-**Qué y por qué**
-
-- Catálogo de perfiles con topes por severidad, tasas por hora (Poisson) y rangos de fallas de tierra: `RealisticProfileCatalog`, `RealisticProfileSettings` y `RealisticFailurePolicy` (nuevos en Domain/Application); `FailureRuleEvaluator` permite a Low Minor+Major y a 7700 todas; `RiskLevel.Squawk7700` (valor 4) seleccionable en la UI.
-- Arranque sin gate de Fenix: `RealisticSessionEngine.TryStartSession` exige solo SimConnect + datos; siembra de fallas de tierra en OnGate con motores apagados (whitelist conservadora, sin IR_ALIGNMENT, sistemas distintos) y descarte al salir de OnGate; cola de preparadas acotada (`PreparedFailureQueue`, tierra primero) cuando Fenix no responde, con flush revalidado al restablecerse; espera sin resolver si Fenix estuvo disponible y cae.
-- Orquestador y ViewModel dejan de exigir Fenix/IsOnGround para activar; en la UI se expone `PreparedCount`/`DiscardPreparedCommand` (sesión activa sin Fenix, sin revelar fallas), textos de topes reales en el modal de perfiles y «7700» en la selección de riesgo.
-- Configuración por claves (`RealisticMode:Profiles`, `GroundFailureIds`, `GroundFailureRanges`, `EvaluationDeltaCapSeconds`, `RespiteClampSeconds`) con snapshot por sesión (`SnapshotSettings`); `RealisticSessionManager` expone la cola al UI y mantiene la evaluación con Fenix caído.
-
-**Áreas**
-
-- Application (engine, cola, política, manager, orquestador), Domain (catálogo, settings, evaluador, `RiskLevel`), Infrastructure (repo con `GetAllWithSystemsAsync`), UI (ViewModel, panel Paso 3, modal de perfiles, appsettings), TestUnits (engine reescrito + catálogo + manager).
-
-**Pruebas**
-
-- Build Release de `Application`, `UI` y `TestUnits`: 0 errores / 0 advertencias; `dotnet test …TestUnits.csproj -c Release`: **145/145** (engine 35 casos con reloj/random deterministas; catálogo y manager nuevos).
-- No verificado: build de la solución completa en una sola ejecución; integración MSFS/Fenix real (los mocks de DEBUG no reemplazan la prueba manual).
+- NUEVO `Realistic Failures Solution/Directory.Build.props`.
+- NUEVO `Application/DTOs/ReleaseInfoDto.cs`, `Application/DTOs/UpdateCheckResultDto.cs`, `Application/Interfaces/IUpdateChecker.cs`.
+- NUEVO `UI/Services/GithubUpdateChecker.cs`, `UI/ViewModels/UpdateCheckState.cs`.
+- `UI/DependencyInjection/HostBuilderExtensions.cs`, `UI/ViewModels/SettingsWindowViewModel.cs`, `UI/Views/Panels/SettingsPanel.xaml`.
+- `docs/ui/configuracion-y-preferencias.md`, este CHANGELOG.
 
 ### 2026-10-19 — Política EOL: normalización LF de textos con .gitattributes/.editorconfig
 

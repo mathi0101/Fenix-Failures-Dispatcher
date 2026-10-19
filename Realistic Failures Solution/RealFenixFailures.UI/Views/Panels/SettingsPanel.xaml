@@ -12,6 +12,9 @@
 
     <UserControl.Resources>
 
+        <!-- Converter nativo bool → Visible/Collapsed (para el botón de descarga y la barra de progreso) -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
         <!-- TabItem: header limpio estilo píldora -->
         <Style x:Key="SettingsTabItemStyle" TargetType="TabItem">
             <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/>
@@ -339,15 +342,61 @@
                             </StackPanel>
                         </Border>
 
-                        <Button Content="Buscar actualizaciones"
-                                Style="{StaticResource PrimaryButtonStyle}"
-                                Command="{Binding OpenReleasesCommand}"
-                                HorizontalAlignment="Left"/>
-                        <TextBlock Text="Las nuevas versiones se publican en GitHub Releases. La app no se actualiza sola; descargá el instalador más reciente."
-                                   FontSize="11"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"
-                                   TextWrapping="Wrap" Width="520"
-                                   HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="El chequeo consulta las releases públicas del repositorio en GitHub. También muestra pre-releases: así podés enterarte de los builds de prueba apenas se publican."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                                <Button Content="Buscar actualizaciones"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Command="{Binding CheckForUpdatesCommand}"
+                                        HorizontalAlignment="Left"/>
+
+                                <!-- Indicador de búsqueda en curso -->
+                                <ProgressBar Height="4" IsIndeterminate="True" Margin="0,10,0,0"
+                                             Visibility="{Binding IsCheckingForUpdates, Converter={StaticResource BoolToVisConverter}}"/>
+
+                                <!-- Resultado del chequeo -->
+                                <TextBlock Text="{Binding UpdateStatusText}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,10,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding UpdateState}" Value="{x:Static vm:UpdateCheckState.UpToDate}">
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Green.Primary}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding UpdateState}" Value="{x:Static vm:UpdateCheckState.NewVersionAvailable}">
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding UpdateState}" Value="{x:Static vm:UpdateCheckState.NoReleases}">
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding UpdateState}" Value="{x:Static vm:UpdateCheckState.Error}">
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Red.Primary}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- Acción cuando existe una versión más nueva -->
+                                <Button Content="Descargar e ir a GitHub Releases"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Command="{Binding OpenReleasesCommand}"
+                                        HorizontalAlignment="Left" Margin="0,12,0,0"
+                                        Visibility="{Binding HasNewUpdate, Converter={StaticResource BoolToVisConverter}}"/>
+
+                                <TextBlock Text="La app no se actualiza sola: descargá el instalador desde GitHub Releases y reemplazá la versión actual."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,14,0,0"/>
+                            </StackPanel>
+                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>

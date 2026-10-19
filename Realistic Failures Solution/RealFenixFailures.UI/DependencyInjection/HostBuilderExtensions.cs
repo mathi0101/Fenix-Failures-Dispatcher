@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application;
+using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain;
 using RealFenixFailures.Infrastructure;
 using RealFenixFailures.Infrastructure.Logging;
@@ -31,6 +32,7 @@ public static class HostBuilderExtensions {
                 services.AddFenixIntegration(context.Configuration);
                 services.AddSimbriefIntegration(context.Configuration);
                 services.AddSingleton<UserPreferencesService>();
+                services.AddSingleton<IUpdateChecker, GithubUpdateChecker>();
                 services.AddTransient<SettingsWindowViewModel>();
                 services.AddTransient<MainWindow>();
                 services.AddTransient<MainWindowViewModel>();
