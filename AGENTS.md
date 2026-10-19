@@ -65,7 +65,7 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - Arquitectura objetivo **x64**: `PlatformTarget=x64` fijado en UI, TestUnits e Integrations.SimConnect; resuelve **MSB3270**. Al tocar esos csproj, no volver a MSIL ni desalinear la arquitectura.
 - Fenix corre en la máquina local; la API es configurable por claves y el puerto predeterminado es **8083**.
 - `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos) y están **versionados**: durante la edición de severidad/repairable `failures.json` estuvo desversionado temporalmente (commit `867998d`, dev), y desde **2026-10-17** vuelve a versionarse como catálogo curado (severity + repairable). No borrarlos ni renombrarlos.
-- Preservar el EOL y la codificación de los archivos que se editen.
+- Aplicar la política EOL de `.gitattributes`/`.editorconfig` (LF en textos, CRLF solo en `.bat`/`.cmd`; ver [docs/desarrollo.md](docs/desarrollo.md#fines-de-línea-eol-política-y-autoridad)) y preservar el encoding/formato de lo que se edite. Los avisos de EOL no son tarea independiente salvo incumplimiento real de esa política.
 - El WIP del modo **Realistic** ya está committeado como base en `031a9e7` (branch `dev`); la **estabilización** (validación previa, null safety, scope por sesión, compensación, x64, paquetes actualizados) está aplicada en el árbol de trabajo pero **pendiente de commit**: lo commiteará el agente principal, no lo adelantes.
 
 ## Afirmaciones sobre modos

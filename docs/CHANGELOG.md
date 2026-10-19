@@ -4,6 +4,22 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Política EOL: normalización LF de textos con .gitattributes/.editorconfig
+
+**Qué y por qué**
+
+- Raíz del repo: `.gitattributes` (`* text=auto eol=lf`; `*.bat`/`*.cmd` `text eol=crlf`; binarios `-text`: `dll`, `exe`, `png`, `jpg`, `jpeg`, `gif`, `ico`, `pdf`, `zip`) y `.editorconfig` (`root=true`, `[*] end_of_line=lf`, `[*.bat]`/`[*.cmd]` `end_of_line=crlf`). No imponen indentación, trim de espacios, BOM, encoding ni nueva línea final.
+- Config local: `core.autocrlf=false` y `core.eol=lf`; no se tocó la configuración global ni `core.safecrlf`.
+- Conversión mecánica CRLF→LF (por bytes, exclusivamente saltos de línea) de **298** textos del árbol de trabajo (tracked + untracked no ignorados; incluye WIP Realistic y skills `.abacusai`); **59** ya estaban en LF; **7** binarios omitidos (declarados `-text`); 0 excluidos por NUL/UTF-16 en textos (los 7 archivos con NUL son binarios de extensión declarada). No hay `.bat`/`.cmd` en el árbol. Se preservan BOM, encoding, bytes no salto y línea final. Manifiesto previo a la mutación con sha256 original y normalizado (CRLF→LF) de los 364 archivos baseline.
+- Docs: sección de política EOL en `docs/desarrollo.md` y actualización puntual de `AGENTS.md` (enlace a la política); esta entrada. No se tocó el índice real de git ni se ejecutó `git add --renormalize`.
+
+**Verificación (cambio exclusivamente de bytes de salto de línea; sin build ni tests declarados)**
+
+- Post-conversión: 364/364 hashes coinciden con el manifiesto (normalizados para textos, originales para binarios); 0 violaciones CRLF fuera de las excepciones; binarios (7/7) con sha256 idéntico al baseline.
+- Prueba de índice temporal (`GIT_INDEX_FILE` y `GIT_OBJECT_DIRECTORY` temporales con alternates a los objetos originales): `git read-tree HEAD`, `git add -A -- .` y `git diff --cached --check` con 0 bytes de stderr, sin warnings de conversión; el mismo procedimiento sin la nueva política emitía ~10 KB de warnings. Índice real sin cambios: sha256 del archivo de índice idéntico antes y después.
+- Los 3 docs editados después de la normalización (`AGENTS.md`, `docs/desarrollo.md`, este CHANGELOG) y los 2 configs nuevos quedan fuera de la comparación de hashes por cambio de contenido/ser nuevos; verificada su ausencia de CRLF.
+- Tras la conversión, `git status` conserva marcas de modificación para archivos sin diferencias de contenido en `git diff`. La comparación con un índice temporal limpio apunta a metadatos del índice anterior; no se confirmó una causa específica de OneDrive. El índice real se preservó para no mezclar ni stagear el trabajo Realistic en curso. La integración de la normalización al próximo commit debe revisarse junto con ese trabajo.
+
 ### 2026-10-18 — SimBrief: timestamps Unix del bloque times y OFP de referencia
 
 **Qué y por qué**

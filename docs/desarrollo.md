@@ -86,3 +86,10 @@ feat(campaigns): exponer reglas y sincronizar sus parámetros
 - SNBD-268: valida la creación y persistencia de RuleParameters para valores manuales y vigencia de campaña.
 - Agrega pruebas de integración para creación, consulta y actualización de reglas.
 ```
+
+## Fines de línea (EOL): política y autoridad
+
+- **Autoridad**: `.gitattributes` (Git) y `.editorconfig` (editores) en la raíz del repositorio. Objetivo: **LF** para los textos en el árbol de trabajo y en el índice; excepción: **CRLF** solo en `.bat`/`.cmd`. Binarios declarados `-text` en `.gitattributes`: `dll`, `exe`, `png`, `jpg`, `jpeg`, `gif`, `ico`, `pdf`, `zip`.
+- **Configuración local requerida**: `git config --local core.autocrlf false` y `git config --local core.eol lf`. Con `.gitattributes` no usar `core.autocrlf=true` (conversiones dobles y warnings). No se toca la configuración global ni `core.safecrlf`.
+- **Archivos nuevos**: respetan la política (LF salvo `.bat`/`.cmd` CRLF). La política no impone indentación, trim de espacios, BOM, encoding ni nueva línea final: conservar el formato existente de los archivos que se editen.
+- **Mantenimiento**: respetar esta política al editar; los avisos informativos de conversión no generan tareas ni reportes separados. Una renormalización masiva es excepcional. `git add --renormalize .` prepara también cambios funcionales existentes: usarlo solo cuando corresponda incluirlos en el commit, nunca como corrección automática de rutina.
