@@ -13,7 +13,7 @@ public static class DependencyInjection {
         services.Configure<FenixApiOptions>(configuration.GetSection(FenixApiOptions.SectionName));
         services.AddSingleton<IFenixStreamFailuresReaderService, FenixStreamFailuresReaderService>();
 
-#if DEBUG
+#if DEBUG && false
         services.AddSingleton<IFenixApiClient, MockFenixApiClient>();
 #else
         services.AddHttpClient<IFenixApiClient, FenixApiClient>();

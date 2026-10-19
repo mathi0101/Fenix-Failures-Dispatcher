@@ -1,0 +1,140 @@
+// RealFenixFailures.TestUnits/Session/RealisticSessionEnginePersistenceTests.cs
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using RealFenixFailures.Application.DTOs;
+using RealFenixFailures.Application.Interfaces;
+using RealFenixFailures.Application.Session;
+using RealFenixFailures.Application.Services;
+using RealFenixFailures.Domain.DTOs;
+using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Services;
+using RealFenixFailures.Infrastructure.Persistence;
+using RealFenixFailures.Infrastructure.Repositories;
+using RealFenixFailures.TestUnits.Mocks;
+
+namespace RealFenixFailures.TestUnits.Session;
+
+/// <summary>
+/// Integración del engine con repositorios REALES sobre un DbContext SQLite en memoria.
+/// Cubre la persistencia de fallas de tierra sembradas en OnGate sin conflicto de tracking de EF
+/// (regresión: BuildGroundCandidatesAsync reconciliaba navegaciones desde una instancia AsNoTracking,
+/// envenenando el contexto de la sesión y rompiendo todo SaveChanges posterior).
+/// </summary>
+public class RealisticSessionEnginePersistenceTests {
+    private readonly Mock<ISimulatorConnectionService> _simulator = new();
+    private readonly Mock<IFlightEventDetector> _flightEventDetector = new();
+    private readonly MockRandom _random = new();
+    private readonly DateTime _now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
+    private const string GroundFailureId = "F_ELEC_APU_GEN";
+
+    private static RealFenixDbContext CreateContext() {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<RealFenixDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        var context = new RealFenixDbContext(options);
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    private static (FenixFailureSystem System, FenixFailureGroup Group, FenixFailureDefinition Definition, FailurePreset Preset, UserAircraft Aircraft) Seed(RealFenixDbContext db) {
+        var system = new FenixFailureSystem { Name = "ELEC", ShortName = "ELEC", AtaId = 24 };
+        var group = new FenixFailureGroup { Name = "APU", System = system };
+        var definition = new FenixFailureDefinition {
+            FenixFailureId = GroundFailureId, Name = "APU Generator",
+            Group = group, Severity = FailureSeverity.Major
+        };
+        var preset = new FailurePreset {
+            Name = "P-GATE", Description = "d", TriggerDescription = "t",
+            PresetTypeId = (int)PresetTypeEnum.RealisticMode, FlightPhase = ComplexFlightPhaseEnum.OnGate
+        };
+        var pfd = new PresetFailureDefinition {
+            Preset = preset, FenixFailureId = definition.FenixFailureId,
+            Probability = 1.0, FenixFailure = definition
+        };
+        preset.PresetFailureDefinitions.Add(pfd);
+        var aircraft = new UserAircraft { Registration = "TEST-GATE-01", IcaoTypeCode = "A320", CreatedAt = DateTime.UtcNow };
+        db.AddRange(system, group, definition, preset, aircraft);
+        db.SaveChanges();
+        return (system, group, definition, preset, aircraft);
+    }
+
+    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db) {
+        var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
+        var defRepo = new FenixFailureDefinitionRepository(db);
+        var flightSessionRepo = new FlightSessionRepository(db);
+        var triggeredRepo = new TriggeredFailureRepository(db);
+        var presetService = new PresetService(presetRepo, new Mock<IPresetsLoader>().Object);
+        var sessionService = new FlightSessionService(flightSessionRepo, triggeredRepo);
+
+        var settings = new RealisticModeSettings {
+            GroundFailureEnabled = true,
+            EvaluationIntervalSeconds = 30
+        };
+        var engine = new RealisticSessionEngine(
+            _simulator.Object,
+            NullLogger<RealisticSessionEngine>.Instance,
+            sessionService,
+            presetService,
+            _flightEventDetector.Object,
+            triggeredRepo,
+            settings,
+            new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
+            defRepo);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        return (engine, db);
+    }
+
+    private void SetupSimulatorConnected() {
+        _simulator
+            .Setup(s => s.GetConnectionStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConnectionStatusDto(true, true, SimpleFlightPhaseEnum.OnGround));
+        _simulator
+            .Setup(s => s.GetSimulatorData(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<SimulatorAircraftStateSnapshot>.Ok(new SimulatorAircraftStateSnapshot {
+                IsOnGround = true, AltitudeMSL = 100, AltitudeAGL = 0, HasSimulatorData = true
+            }));
+        _simulator
+            .Setup(s => s.GetCurrentFenixFailures(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ServiceResult<AllFenixFailuresResponseDto?>.Ok(new AllFenixFailuresResponseDto()));
+        _simulator
+            .Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _simulator
+            .Setup(s => s.DisarmFailureAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
+
+    [Fact]
+    public async Task GroundSeed_OnGate_TriggeredFailurePersistsWithoutTrackingConflict() {
+        var db = CreateContext();
+        var seeded = Seed(db);
+        SetupSimulatorConnected();
+        var (engine, _) = CreateEngineWithRealRepos(db);
+        _random.SetupNextInt(1); // desired = 1 falla de tierra
+
+        var start = await engine.TryStartSession(new RealisticModeContext(
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }),
+            CancellationToken.None);
+
+        Assert.True(start.Started, "no arrancó la sesión");
+        Assert.Equal(1, engine.PreparedCount);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.False(result.ShouldPauseSession);
+        Assert.Single(result.TriggeredFailures);
+        var persisted = await db.TriggeredFailures.ToListAsync();
+        Assert.Single(persisted);
+        Assert.Equal(GroundFailureId, persisted[0].FenixFailureId);
+        Assert.Equal(FailureLifecycleState.Sent, persisted[0].State);
+        Assert.NotNull(await db.SessionEventLogs.FirstOrDefaultAsync(e => e.EventCode == "FAILURE_TRIGGERED"));
+    }
+}

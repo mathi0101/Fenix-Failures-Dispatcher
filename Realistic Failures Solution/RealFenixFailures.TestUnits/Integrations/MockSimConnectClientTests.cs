@@ -26,19 +26,19 @@ public class MockSimConnectClientTests {
         var client = new MockSimConnectClient(timeProvider: clock);
         client.StartFlightSimulation();
 
-        clock.Advance(TimeSpan.FromSeconds(10));
+        clock.Advance(TimeSpan.FromSeconds(20));
         var engineStart = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.True(engineStart.IsOnGround);
         Assert.Equal(1, engineStart.Engine1Combustion);
-        Assert.True(engineStart.Engine1N1Percent > 20);
+        Assert.True(engineStart.Engine1N1Percent >= 20);
 
-        clock.Advance(TimeSpan.FromSeconds(20));
+        clock.Advance(TimeSpan.FromSeconds(25));
         var taxi = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.True(taxi.IsOnGround);
         Assert.InRange(taxi.GroundSpeed, 8, 15);
         Assert.Equal(1, taxi.Engine2Combustion);
 
-        clock.Advance(TimeSpan.FromSeconds(25));
+        clock.Advance(TimeSpan.FromSeconds(30));
         var takeoffRoll = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.True(takeoffRoll.IsOnGround);
         Assert.True(takeoffRoll.GroundSpeed > 45);

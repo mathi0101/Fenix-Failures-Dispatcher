@@ -21,6 +21,7 @@
     <Color x:Key="Color.Accent.Green.Primary">#22C55E</Color>
     <Color x:Key="Color.Accent.Green.Dark">#14532D</Color>
     <Color x:Key="Color.Accent.Amber.Primary">#F59E0B</Color>
+    <Color x:Key="Color.Accent.Orange.Primary">#F97316</Color>
     <Color x:Key="Color.Accent.Red.Primary">#EF4444</Color>
     <Color x:Key="Color.Accent.Red.Dark">#7F1D1D</Color>
 

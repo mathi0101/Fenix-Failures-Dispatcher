@@ -1045,6 +1045,13 @@ public class RealisticSessionEngineTests {
         _sessionService.Verify(
             s => s.UpdateTriggeredFailureStateAsync(42, "F_ENGINE_1", FailureLifecycleState.Active, It.IsAny<ComplexFlightPhaseEnum>(), null, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
+        var change = Assert.Single(result.StateChanges);
+        Assert.Equal("F_ENGINE_1", change.FenixFailureId);
+        Assert.Equal(FailureLifecycleState.Active, change.NewState);
+        Assert.Equal(FailureSeverity.Major, change.Severity);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.FailureStateChanged, "FAILURE_CONFIRMED_ACTIVE", It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1072,10 +1079,16 @@ public class RealisticSessionEngineTests {
         // El piloto despejó la falla en Fenix: ya no failed, ya no armada.
         SetupFenixFailures(new FenixFailureDto("F_HYD_1", "Hydraul", Failed: false, FailureCondition: null));
 
-        await engine.EvaluateAsync(CancellationToken.None);
+        var result = await engine.EvaluateAsync(CancellationToken.None);
 
         _sessionService.Verify(
             s => s.UpdateTriggeredFailureStateAsync(42, "F_HYD_1", FailureLifecycleState.ResolvedByPilot, It.IsAny<ComplexFlightPhaseEnum>(), ResolutionSource.Pilot, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        var change = Assert.Single(result.StateChanges);
+        Assert.Equal("F_HYD_1", change.FenixFailureId);
+        Assert.Equal(FailureLifecycleState.ResolvedByPilot, change.NewState);
+        _sessionService.Verify(
+            s => s.AddEventLogAsync(42, SessionEventCategory.FailureStateChanged, "FAILURE_RESOLVED_BY_PILOT", It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 }

@@ -53,6 +53,15 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - **En desarrollo no se mantienen migraciones**: `App.xaml.cs` arranca con `EnsureCreatedAsync()`, que crea el esquema completo desde el modelo (con seeds) en una base nueva; al cambiar el esquema hay que **borrar `realfenixfailures.db` (en `%AppData%\RealFenixFailures\`)** para regenerarla. No generar migraciones nuevas en esta etapa (ver `docs/desarrollo.md`).
 - Cuando el esquema esté cerca de producción: generar **una única migración inicial** y volver al flujo clásico (no editar migraciones aplicadas en entornos compartidos; revisar `Up`/`Down` antes de aplicar).
 
+## Datos y logs de la PC de testing (`\\PC-MATHIAS\RealFenixFailures`)
+
+- La PC de testing (la que corre la app en sesión real con MSFS/Fenix) comparte su carpeta de datos en la red: **`\\PC-MATHIAS\RealFenixFailures`**. Accesible desde esta máquina; es el **estado real en vivo**, no el entorno de desarrollo local.
+- Contenido:
+  - `realfenixfailures.db` — base SQLite de la sesión real (mismo esquema que la local de `%AppData%\RealFenixFailures\`).
+  - `logs/` — logs diarios con fecha: `realfenix-<AAAAMMDD>.log` (app) y `simconnect-diagnostic-<AAAAMMDD>.log` (diagnóstico SimConnect).
+  - `userprefs.json` — preferencias del usuario en esa PC.
+- Para **validar errores reales** o ver **logs en tiempo real**: leer y hacer `tail` de los archivos de `logs/` directamente desde el share y consultar la `.db` con un cliente SQLite. No escribir ni reemplazar esos archivos (ni los de la carpeta) salvo pedido expreso del usuario: son el entorno de testing vivo.
+
 ## Trabajo multi-agente (misma PC, misma rama)
 
 Este proyecto se desarrolla con **varios agentes de IA y el usuario editando y debuggeando al mismo tiempo, en la misma PC y sobre la misma rama**. El árbol de trabajo es el estado compartido y cambia sin aviso; siempre esperar y contemplar desarrollos o ediciones de otra tarea (o del usuario):

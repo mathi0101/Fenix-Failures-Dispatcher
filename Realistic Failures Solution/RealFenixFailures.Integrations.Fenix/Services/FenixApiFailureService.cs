@@ -37,7 +37,7 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
         FenixSaveManualRequest rq = def.ToFenixSaveManualRequest();
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
         using var stream = await _apiClient.SendFailureAsync(rq, cts.Token);
-        _logger.LogDebug("ArmFailure Response: {@stream}", stream);
+        _logger.LogDebug("ArmFailure Response: {Content}", ReadResponseContent(stream));
         bool httpOk = stream is not null;
         UpdateHealthState(httpOk);
         return httpOk;
@@ -49,10 +49,21 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
         FenixSaveManualRequest rq = def.ToFenixSaveManualRequest();
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
         using var stream = await _apiClient.SendFailureAsync(rq, cts.Token);
-        _logger.LogDebug("DisarmFailure Response: {@stream}", stream);
+        _logger.LogDebug("DisarmFailure Response: {Content}", ReadResponseContent(stream));
         bool httpOk = stream is not null;
         UpdateHealthState(httpOk);
         return httpOk;
+    }
+
+    private static string ReadResponseContent(Stream? stream) {
+        if (stream is null) return "<null>";
+        try {
+            stream.Position = 0;
+            using var reader = new StreamReader(stream, leaveOpen: true);
+            return reader.ReadToEnd();
+        } catch (Exception ex) {
+            return $"<unreadable: {ex.Message}>";
+        }
     }
 
     #endregion

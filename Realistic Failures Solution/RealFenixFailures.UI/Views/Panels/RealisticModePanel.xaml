@@ -753,13 +753,13 @@
                                     Command="{Binding DiscardPreparedCommand}"
                                     Visibility="{Binding IsDiscardPreparedVisible, Converter={StaticResource BoolToVis}}"
                                     ToolTip="Descarta las fallas preparadas en cola (Fenix no disponible) sin enviarlas ni armar nada."/>
-                            <TextBlock Text="Estado: Enviada (sin confirmación) — ninguna falla se muestra como activa confirmada."
+                            <TextBlock Text="Estado: cada falla se confirma contra el estado real de Fenix en cada ciclo de evaluación: enviada → activa confirmada → resuelta."
                                        FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10" TextWrapping="Wrap"/>
                             <ItemsControl ItemsSource="{Binding LiveTriggeredFailures}" MaxHeight="140">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontSize="11"
-                                                   Foreground="{StaticResource Brush.Accent.Amber.Primary}"
+                                        <TextBlock Text="{Binding DisplayText}" FontSize="11"
+                                                   Foreground="{Binding StateBrush}"
                                                    Margin="0,0,0,4"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

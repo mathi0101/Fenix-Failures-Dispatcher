@@ -7,6 +7,7 @@ using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
 
@@ -83,7 +84,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
         Sessions = new ObservableCollection<FlightSessionItemViewModel>();
-        LiveTriggeredFailures = new ObservableCollection<string>();
+        LiveTriggeredFailures = new ObservableCollection<LiveFailureEntryViewModel>();
 
         SelectAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await SelectAircraftAsync(a), _ => !IsEngineActive && !IsOperationPending);
         DeleteAircraftCommand = new RelayCommand<UserAircraftItemViewModel>(async a => await DeleteAircraftAsync(a));
@@ -109,6 +110,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
+        _realisticSessionManager.FailureStateChanged += RealisticSessionManager_FailureStateChanged;
         IsSessionPaused = _realisticSessionManager.IsPaused;
         IsEngineActive = _orchestrator.IsEngineActive;
         SyncConnectionFromOrchestrator();
@@ -142,7 +144,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public ObservableCollection<UserAircraftItemViewModel> Aircraft { get; }
     public ObservableCollection<WearSystemViewModel> WearSystems { get; }
     public ObservableCollection<FlightSessionItemViewModel> Sessions { get; }
-    public ObservableCollection<string> LiveTriggeredFailures { get; }
+    public ObservableCollection<LiveFailureEntryViewModel> LiveTriggeredFailures { get; }
 
     #endregion
 
@@ -688,12 +690,41 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     }
 
     private void RealisticSessionManager_FailureTriggered(object? sender, FailureTriggeredEventArgs e) {
-        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-            LiveTriggeredFailures.Insert(0, $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}  Enviada (sin confirmación)  ·  {e.Description}");
-            while (LiveTriggeredFailures.Count > MaxLiveTriggeredFailures) {
-                LiveTriggeredFailures.RemoveAt(LiveTriggeredFailures.Count - 1);
+        System.Windows.Application.Current?.Dispatcher!.InvokeAsync(() => {
+            LiveTriggeredFailures.Insert(0, new LiveFailureEntryViewModel {
+                FenixFailureId = e.FenixFailureId,
+                TimestampText = $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}",
+                Description = e.Description
+            });
+            TrimLiveFailures();
+        });
+    }
+
+    /// <summary>
+    /// Una falla del feed cambió de estado confirmado por Fenix (enviada → activa, activa → resuelta).
+    /// Actualiza la entrada existente; si la falla no está en el feed (por ejemplo, llegó una transición
+    /// de una falla de cuya entrada ya se purgó), la inserta con su estado actual.
+    /// </summary>
+    private void RealisticSessionManager_FailureStateChanged(object? sender, FailureStateChangedEventArgs e) {
+        System.Windows.Application.Current?.Dispatcher!.InvokeAsync(() => {
+            var entry = LiveTriggeredFailures.FirstOrDefault(f => f.FenixFailureId == e.FenixFailureId);
+            if (entry is not null) {
+                entry.ApplyState(e.NewState, e.Severity);
+            } else {
+                LiveTriggeredFailures.Insert(0, new LiveFailureEntryViewModel {
+                    FenixFailureId = e.FenixFailureId,
+                    TimestampText = $"{e.OccurredAtUtc.ToLocalTime():HH:mm:ss}",
+                    Description = e.Description
+                });
+                TrimLiveFailures();
             }
         });
+    }
+
+    private void TrimLiveFailures() {
+        while (LiveTriggeredFailures.Count > MaxLiveTriggeredFailures) {
+            LiveTriggeredFailures.RemoveAt(LiveTriggeredFailures.Count - 1);
+        }
     }
 
     private void RealisticSessionManager_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -790,5 +821,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _orchestrator.PropertyChanged -= Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged -= RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered -= RealisticSessionManager_FailureTriggered;
+        _realisticSessionManager.FailureStateChanged -= RealisticSessionManager_FailureStateChanged;
     }
 }

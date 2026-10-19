@@ -15,7 +15,7 @@ public static class DependencyInjection {
         // IOfpFetcher: contrato de la capa de aplicación, implementado con el cliente HTTP de SimBrief.
         services.AddScoped<IOfpFetcher, SimBriefOfpFetcher>();
 
-#if DEBUG && false
+#if DEBUG && false // Incluso en debug podemos usar la api real sin problemas
         services.AddSingleton<ISimBriefApiClient, MockSimBriefApiClient>();
 #else
         services.AddHttpClient<ISimBriefApiClient, SimBriefApiClient>();

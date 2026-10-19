@@ -222,13 +222,14 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 return await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct);
             }
 
-            await ReconcileFailureLifecycleAsync(currentPhase, ct);
+            var stateChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
 
             var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
             var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
-            if (flush.Attempted) return EvaluationResult.Completed(flush.Sent);
+            if (flush.Attempted) return EvaluationResult.Completed(flush.Sent).WithStateChanges(stateChanges);
 
-            return await TryChooseAsync(currentPhase, activeAfterReconcile, fenixAvailable: true, ct);
+            var chosen = await TryChooseAsync(currentPhase, activeAfterReconcile, fenixAvailable: true, ct);
+            return chosen.WithStateChanges(stateChanges);
         } catch (OperationCanceledException) {
             // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
             throw;
@@ -325,15 +326,16 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     ///   • Sent → Active cuando <c>failed=true</c> (confirmada por Fenix).
     ///   • Active → ResolvedByPilot cuando <c>failed=false</c> y ya no está armada (el piloto la despejó).
     /// </summary>
-    private async Task ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
+    private async Task<IReadOnlyList<FailureStateChangeInfo>> ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
         var session = Session;
-        if (session is null) return;
+        if (session is null) return [];
 
         var active = await _triggeredFailureRepository.GetActiveForSessionAsync(session.Session.Id, ct);
-        if (active.Count == 0) return;
+        if (active.Count == 0) return [];
 
         var liveById = session.AllFenixFailures.ToDictionary(f => f.FenixId);
         var utcNow = _policy.UtcNow;
+        var changes = new List<FailureStateChangeInfo>();
 
         foreach (var failure in active) {
             if (!liveById.TryGetValue(failure.FenixFailureId, out var live)) {
@@ -346,6 +348,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                         session.Session.Id, failure.FenixFailureId, FailureLifecycleState.Active,
                         phase, null, utcNow, ct);
                     _logger.LogInformation("Failure confirmed active by Fenix: {Id}", failure.FenixFailureId);
+                    await LogStateChangeAsync(session.Session.Id, failure, FailureLifecycleState.Active, "FAILURE_CONFIRMED_ACTIVE", phase, utcNow, ct);
+                    changes.Add(new FailureStateChangeInfo(failure.FenixFailureId, failure.FailureName ?? failure.FenixFailureId, FailureLifecycleState.Active, failure.Severity, utcNow));
                     break;
 
                 case FailureLifecycleState.Active when !live.Failed && !live.IsArmed:
@@ -353,8 +357,30 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                         session.Session.Id, failure.FenixFailureId, FailureLifecycleState.ResolvedByPilot,
                         phase, ResolutionSource.Pilot, utcNow, ct);
                     _logger.LogInformation("Failure resolved by pilot (Fenix cleared it): {Id}", failure.FenixFailureId);
+                    await LogStateChangeAsync(session.Session.Id, failure, FailureLifecycleState.ResolvedByPilot, "FAILURE_RESOLVED_BY_PILOT", phase, utcNow, ct);
+                    changes.Add(new FailureStateChangeInfo(failure.FenixFailureId, failure.FailureName ?? failure.FenixFailureId, FailureLifecycleState.ResolvedByPilot, failure.Severity, utcNow));
                     break;
             }
+        }
+
+        return changes;
+    }
+
+    /// <summary>
+    /// Registra en el log de eventos de la sesión la transición de ciclo de vida confirmada por Fenix
+    /// (el evento <c>FailureStateChanged</c> quedaba sin uso). Un fallo al registrar no aborta la
+    /// reconciliación: la transición ya se persiste en <c>UpdateTriggeredFailureStateAsync</c>.
+    /// </summary>
+    private async Task LogStateChangeAsync(int sessionId, TriggeredFailure failure, FailureLifecycleState newState, string eventCode, ComplexFlightPhaseEnum phase, DateTime utcNow, CancellationToken ct) {
+        try {
+            var description = newState switch {
+                FailureLifecycleState.Active => $"Falla confirmada activa por Fenix: {failure.FailureName} ({failure.FenixFailureId})",
+                FailureLifecycleState.ResolvedByPilot => $"Falla resuelta por el piloto: {failure.FailureName} ({failure.FenixFailureId})",
+                _ => $"Falla en estado {newState}: {failure.FailureName} ({failure.FenixFailureId})"
+            };
+            await _sessionService.AddEventLogAsync(sessionId, SessionEventCategory.FailureStateChanged, eventCode, description, phase, utcNow, ct);
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "No se pudo registrar el evento de cambio de estado {State} para {Id}; la transición ya se persistió", newState, failure.FenixFailureId);
         }
     }
 

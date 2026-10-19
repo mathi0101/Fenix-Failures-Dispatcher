@@ -40,6 +40,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     #region Events
     public event EventHandler<FailureTriggeredEventArgs>? FailureTriggered;
+    public event EventHandler<FailureStateChangedEventArgs>? FailureStateChanged;
     public event EventHandler<SessionErrorEventArgs>? SessionError;
     #region INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -368,6 +369,16 @@ public class RealisticSessionManager : IRealisticSessionManager {
                     FenixFailureId = triggered.FenixFailureId,
                     Description = triggered.Description,
                     TriggeredAtUtc = triggered.TriggeredAtUtc
+                });
+            }
+
+            foreach (var change in result.StateChanges) {
+                FailureStateChanged?.Invoke(this, new FailureStateChangedEventArgs {
+                    FenixFailureId = change.FenixFailureId,
+                    Description = change.Description,
+                    NewState = change.NewState,
+                    Severity = change.Severity,
+                    OccurredAtUtc = change.OccurredAtUtc
                 });
             }
 

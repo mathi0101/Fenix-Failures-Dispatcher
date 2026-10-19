@@ -4,6 +4,26 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Realistic: el engine reacciona a la confirmación de Fenix (evento + feed de estados)
+
+**Qué y por qué**
+
+- La reconciliación del ciclo de vida (`RealisticSessionEngine.ReconcileFailureLifecycleAsync`, backend ya existente del 2026-10-17) solo persistía las transiciones `Sent→Active` y `Active→ResolvedByPilot`; nada más se enteraba del cambio: `SessionEventCategory.FailureStateChanged` (enum 11) quedaba sin uso y el feed de la UI decía «Enviada (sin confirmación)» para siempre.
+- **Engine**: por cada transición observada ahora también se registra un evento de sesión `FailureStateChanged` (códigos `FAILURE_CONFIRMED_ACTIVE` / `FAILURE_RESOLVED_BY_PILOT`); un fallo al registrar no aborta la reconciliación (la transición ya se persistió). Las transiciones se devuelven en `EvaluationResult.StateChanges` (`FailureStateChangeInfo`: FenixFailureId, descripción, estado nuevo, severidad, timestamp), en todos los resultados del tick (`WithStateChanges`).
+- **Manager**: `IRealisticSessionManager` gana el evento `FailureStateChanged` (`FailureStateChangedEventArgs`) y lo despacha por cada `StateChanges` del resultado de evaluación.
+- **UI**: `LiveTriggeredFailures` pasa de `ObservableCollection<string>` a `ObservableCollection<LiveFailureEntryViewModel>` (nuevo VM con estado + color); el feed muestra el estado confirmado y se actualiza en vivo (enviada amarillo, activa Minor/Major naranja, activa Critical rojo, resuelta verde; `Color/Brush Accent.Orange.Primary` nuevos). La entrada existente se actualiza por `FenixFailureId`; si no está en el feed, se inserta.
+
+**Áreas tocadas**: `RealFenixFailures.Application` (EvaluationResult, RealisticSessionEngine, IRealisticSessionManager, RealisticSessionManager), `RealFenixFailures.UI` (RealisticModeViewModel, LiveFailureEntryViewModel, RealisticModePanel.xaml, DesignTokens/Brushes), `TestUnits` (RealisticSessionEngineTests) y `docs/realistic-mode/estado-y-diseno.md`.
+
+**Verificación**
+
+- `dotnet build RealFenixFailures.slnx -c Debug`: 0 errores, 0 advertencias.
+- `dotnet test`: **141/147** — 35/35 de `RealisticSessionEngineTests`, incluyendo asserts nuevos de `StateChanges` y del evento `FailureStateChanged` en las transiciones Sent→Active y Active→ResolvedByPilot.
+- **6 fallos preexistentes, ajenos a este trabajo**:
+  - `SerilogDiagnosticsTests` (4): leen los logs de diagnóstico de `Directory.GetCurrentDirectory()/logs` pero el sink escribe en `%AppData%\RealFenixFailures\logs` desde el refactor `d50119a` (2026-10-19, "centraliza datos del usuario"); los tokens nuevos nunca aparecen en los archivos que el test inspecciona. Pendiente de la tarea de infraestructura.
+  - `MockSimConnectClientTests` (2): el WIP de estabilización del mock en el árbol (keyframes del timeline reescritos, sin commitear) dejó descalibrados estos tests; los commiteará el agente principal.
+- **No verificado**: integración real MSFS/Fenix (la confirmación por lectura solo puede validarse en sesión real).
+
 ### 2026-10-19 — Fallas de tierra: sin whitelist; el universo sale de las definiciones persistidas con severidad 1/2
 
 **Qué y por qué**
@@ -15,13 +35,34 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 **Áreas**
 
-- `RealFenixFailures.Domain/Services/FailureEngineSettings.cs`, `RealFenixFailures.Application/Session/RealisticSessionEngine.cs`, `RealFenixFailures.UI/appsettings.json`, `docs/realistic-mode/estado-y-diseno.md`.
+- `RealFenixFailures.Domain/Services/FailureEngineSettings.cs`, `RealFenixFailures.Application/Session/RealisticSessionEngine.cs`, `RealFenixFailures.UI/appsettings.json`, `docs/realistic-mode/estado-y-diseno.md`. El test `RealisticSessionEnginePersistenceTests` fue adaptado a la nueva fuente (sin `GroundFailureIds`) pero sigue siendo parte de la tarea del fix de tracking (archivo sin commitear); no entra en este commit.
 
 **Pruebas**
 
 - Build Debug de la solución: 0 errores/0 advertencias.
-- Suite completa en este entorno: **141/147**. 4 fallos preexistentes en `SerilogDiagnosticsTests` (ajenos) y 2 en `MockSimConnectClientTests` por WIP sin commitear de `MockSimConnectClient.cs` (dominio ajeno).
-- Focus del cambio (árbol con la tarea de tracking base): 36/36 en `RealisticSessionEngineTests` + `RealisticSessionEnginePersistenceTests` — el test de integración de tierra (`GroundSeed_OnGate_TriggeredFailurePersistsWithoutTrackingConflict`) arma el candidato desde la definición persistida en BD (severity Major) **sin** `GroundFailureIds` y persiste 1 `TriggeredFailure` (State `Sent`) + evento `FAILURE_TRIGGERED`.
+- Suite completa en este entorno: **141/147**. 4 fallos preexistentes en `SerilogDiagnosticsTests` (ajenos, documentados en «Datos del usuario centralizados…») y 2 en `MockSimConnectClientTests` por WIP sin commitear de `MockSimConnectClient.cs` (dominio ajeno, los commiteará el agente principal).
+- Focus del cambio: 36/36 en `RealisticSessionEngineTests` + `RealisticSessionEnginePersistenceTests` — el test de integración de tierra (`GroundSeed_OnGate_TriggeredFailurePersistsWithoutTrackingConflict`) arma el candidato desde la definición persistida en BD (severity Major) **sin** `GroundFailureIds` y persiste 1 `TriggeredFailure` (State `Sent`) + evento `FAILURE_TRIGGERED`.
+
+### 2026-10-19 — Fix: seed de fallas de tierra no envenena el tracking de EF (fallas no persistían)
+
+**Qué y por qué**
+
+- `RealisticSessionEngine.BuildGroundCandidatesAsync` asignaba `def.FenixFailure.Group = entity.Group` tomando la navegación de una instancia **AsNoTracking** (del repo `FenixFailureDefinitionRepository.GetAllWithSystemsAsync`) sobre definiciones ya trackeadas por el contexto de la sesión (cargadas con tracking por `PresetRepository.GetAllAsync`). En el siguiente `SaveChanges`, `DetectChanges` → `NavigationFixer` intentaba adjuntar ese grafo desanclado y chocaba con las mismas claves ya trackeadas: `InvalidOperationException` ("cannot be tracked because another instance with the same key value").
+- Efecto en producción (log `realfenix-20261019.log`, avion en gate con todo apagado): las fallas de tierra sembradas se disparaban a Fenix y el disarm funcionaba, pero **ninguna se persistía**; al detener la sesión, el evento SESSION_STOPPED y el `StopAsync` fallaban igual, dejando la sesión sin `FinishedAt` (queda como "sin terminar" en el próximo arranque).
+- Fix (raíz): `GetAllWithSystemsAsync` deja de usar `AsNoTracking()` — la consulta comparte identidad con el contexto de la sesión y la asignación `def.FenixFailure.Group = entity.Group` se vuelve segura (misma instancia trackeada, sin AttachGraph de un grafo desanclado). Alternativa previa descartada (solo `GroupId` + `Severity`, sin navegación): dejaba `Group` null y rompía el seed de tierra (el bucket por sistema `Group.SystemId` caía a 0 → "Menos candidatos de tierra que el rango deseado: 1 de 5", observado en corrida real 03:50).
+- Logging Fenix (mismo trabajo): `ArmFailureAsync`/`DisarmFailureAsync` logueaban el objeto `Stream` (`{@stream}`) y Serilog serializaba las properties del `MemoryStream` (`CanRead/Length/ReadTimeout` con accesors que tiran excepción) en vez del contenido; ahora se loguea el contenido real de la respuesta (`ReadResponseContent`). Además `FenixApiClient` logueaba errores sin la excepción (solo mensaje genérico, retornando `null`): ahora los six catch de `HttpRequestException`/`TaskCanceledException` pasan la excepción y su mensaje al log (el contrato de retorno `null` se mantiene).
+
+**Áreas**
+
+- `RealFenixFailures.Application/Session/RealisticSessionEngine.cs`, `RealFenixFailures.Infrastructure/Repositories/FenixFailureDefinitionRepository.cs`, `RealFenixFailures.Integrations.Fenix/Services/FenixApiFailureService.cs`, `RealFenixFailures.Integrations.Fenix/Services/FenixApiClient.cs`, TestUnits (nuevo `Session/RealisticSessionEnginePersistenceTests.cs`), `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- Test de regresión de integración (engine + repositorios reales sobre SQLite en memoria): seed de tierra en OnGate → flush → `AddTriggeredFailureAsync` persiste 1 `TriggeredFailure` (State `Sent`) y el evento `FAILURE_TRIGGERED`. **Red**: sin el fix, la falla no se persiste (la excepción de tracking se traga en el flujo de compensación); **verde**: con el fix, 1/1 pasa.
+- Suite: **143/147** en este entorno. 4 fallos restantes en `SerilogDiagnosticsTests` **preexistentes y ajenos a este cambio** (los tests buscan `simconnect-diagnostic-*.log` en `<CWD>/logs`, pero el sink escribe en `AppPaths.LogsDirectory` = `%AppData%\RealFenixFailures\logs` desde el refactor `d50119a`; requieren arreglo aparte).
+- Build Debug de la solución: 0 errores/0 advertencias.
+- Corrida real del usuario (03:50, Release con el fix `GroupId`): el conflicto de tracking desapareció (`Failure triggered: F_DOOR_FWD_ENTRY_LEFT` sin excepción), pero el seed quedó en "1 de 5" por el efecto del `Group` null → de ahí el cambio al fix de raíz (tracking). **Pendiente**: nueva corrida real con el fix de raíz para confirmar seed 3-5 + persistencia + logs de respuesta Fenix legibles.
+
 
 ### 2026-10-19 — Datos del usuario centralizados en %AppData% y appsettings limpio
 

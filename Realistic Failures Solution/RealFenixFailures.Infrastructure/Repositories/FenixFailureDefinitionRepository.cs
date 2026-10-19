@@ -17,10 +17,12 @@ public class FenixFailureDefinitionRepository : IFenixFailureDefinitionRepositor
     }
 
     public async Task<IReadOnlyList<FenixFailureDefinition>> GetAllWithSystemsAsync(CancellationToken ct) {
+        // Tracking (no AsNoTracking): esta consulta se usa para reconciliar navegaciones sobre entidades
+        // ya trackeadas por la carga de presets de la sesión; con AsNoTracking se materializarían instancias
+        // desancladas y su asignación a navegaciones del contexto produce conflictos de identity en SaveChanges.
         return await _dbContext.FenixFailureDefinitions
             .Include(x => x.Group)
             .ThenInclude(x => x.System)
-            .AsNoTracking()
             .ToListAsync(ct);
     }
     public async Task LoadNewFailuresAsync(IReadOnlyCollection<FenixFailureSystem> systems, CancellationToken ct) {
