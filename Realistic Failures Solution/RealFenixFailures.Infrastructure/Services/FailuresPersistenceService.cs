@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
 using RealFenixFailures.Domain.Entities;
-using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
 using RealFenixFailures.Domain.Services;
@@ -43,7 +42,8 @@ public class FailuresPersistenceService : IFailuresPersistenceService {
                             failure => new FenixFailureDefinition {
                                 FenixFailureId = failure.FenixId,
                                 Name = failure.Description,
-                                Severity = FailureSeverity.Minor,
+                                Severity = failure.Severity,
+                                CanBeRepaired = failure.Repairable,
                                 Group = failureGroup
                             }).ToList();
                         return failureGroup;

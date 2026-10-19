@@ -83,6 +83,7 @@ public class RealFenixDbContext : DbContext {
             entity.Property(x => x.FenixFailureId).HasMaxLength(180).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.CanBeTemporary).HasDefaultValue(false);
+            entity.Property(x => x.CanBeRepaired).HasDefaultValue(false);
             entity.HasOne(x => x.Group)
                   .WithMany(g => g.FailureDefinitions)
                   .HasForeignKey(x => x.GroupId)

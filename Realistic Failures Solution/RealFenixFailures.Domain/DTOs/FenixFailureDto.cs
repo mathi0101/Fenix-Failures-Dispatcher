@@ -1,3 +1,5 @@
+using RealFenixFailures.Domain.Enums;
+
 namespace RealFenixFailures.Domain.DTOs;
 
 public sealed record FenixFailureDto(
@@ -7,4 +9,6 @@ public sealed record FenixFailureDto(
     FenixFailureConditionDto? FailureCondition
 ) {
     public bool IsArmed => FailureCondition != null;
+    public FailureSeverity Severity { get; init; } = FailureSeverity.Minor;
+    public bool Repairable { get; init; }
 };

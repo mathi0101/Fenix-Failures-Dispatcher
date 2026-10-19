@@ -4,6 +4,27 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Persistencia de severity y repairable en el cargado inicial
+
+**Qué**
+
+- `FailuresPersistenceService.LoadInitialFailuresAsync` ya **no fuerza `FailureSeverity.Minor`**: lee `severity`/`repairable` del catálogo curado `failures.json` y persiste `Severity` + `CanBeRepaired` (columna nueva) en cada `FenixFailureDefinition` al hacer seed inicial.
+- Cadena completa: `FenixManualFailure` (+`Severity` int default 1, `Repairable` default false) → `FenixFailureDto` (+`Severity` enum default `Minor`, `Repairable`) → `FenixMappers` (cast del int al enum) → `FailuresPersistenceService` → repo.
+- Esquema: `CanBeRepaired` con `HasDefaultValue(false)` en `RealFenixDbContext`; con la política dev (EnsureCreated), se borró la DB local para que regenere con la columna y el seed curado.
+- Test nuevo de integración `FailuresPersistenceServiceTests` (Sqlite en memoria + JSON embebido real): seed de 384 definiciones con distribución 173/179/32 y 20 reparables, más casos puntuales (`F_ENGINE_1` Major+reparable, `F_OH_NAV_IR_ALIGNMENT_1` Minor+reparable, `F_ELEC_BUS_DC_ESSENTIAL` Critical+no reparable).
+
+**Por qué**
+
+- Cerrar la tarea del catálogo curado: la base debe reflejar severidad y reparabilidad para que el motor (y los topes por severidad de los perfiles) decidan sobre datos reales, no sobre todo-Minor.
+
+**Áreas**
+
+- Domain (`FenixFailureDto`, `FenixFailureDefinition`), Integrations.Fenix (`FenixManualFailure`, `FenixMappers`), Infrastructure (`FailuresPersistenceService`, `RealFenixDbContext`), TestUnits (`FailuresPersistenceServiceTests`), `docs/realistic-mode/estado-y-diseno.md`.
+
+**Pruebas**
+
+- **146/146 tests** (145 previos + el nuevo de integración end-to-end del seed); build Debug y Release con 0 errores/advertencias. **No verificado**: corrida manual de la app real (el gate aisló el exe; el seed se ejercitó vía test de integración sobre el mismo JSON embebido, reader y repo de producción).
+
 ### 2026-10-19 — Versionado central + chequeo de actualizaciones en Ajustes
 
 **Qué y por qué**

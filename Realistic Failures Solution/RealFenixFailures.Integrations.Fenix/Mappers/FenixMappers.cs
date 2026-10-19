@@ -1,5 +1,6 @@
 ﻿using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.DTOs;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Integrations.Fenix.Models;
 
 namespace RealFenixFailures.Integrations.Fenix.Mappers;
@@ -13,7 +14,10 @@ internal static class FenixMappers {
                     group => new FenixSystemGroupDto(group.GroupName, group.Failures.Select(
                         failure => new FenixFailureDto(failure.Id, failure.Title, failure.Failed,
                             failure.FailureCondition is FenixFailureCondition fc ?
-                            new FenixFailureConditionDto(fc.Id, fc.Ias, fc.Alt, fc.Altb, fc.Time, fc.AfterEvent, fc.AfterEventSeconds) : null )
+                            new FenixFailureConditionDto(fc.Id, fc.Ias, fc.Alt, fc.Altb, fc.Time, fc.AfterEvent, fc.AfterEventSeconds) : null ) {
+                            Severity = (FailureSeverity)failure.Severity,
+                            Repairable = failure.Repairable
+                        }
                         ).ToList())
                     ).ToList())
                 )]
