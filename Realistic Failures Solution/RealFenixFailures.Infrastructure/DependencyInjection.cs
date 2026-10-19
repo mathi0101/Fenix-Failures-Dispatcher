@@ -15,7 +15,11 @@ namespace RealFenixFailures.Infrastructure;
 
 public static class DependencyInjection {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration) {
-        var connectionString = configuration.GetConnectionString("Sqlite") ?? "Data Source=realfenixfailures.db";
+        // La BD vive en %AppData%\RealFenixFailures (datos del usuario), no en la
+        // carpeta del ejecutable: sobrevive reinstalaciones y escribe en carpetas
+        // protegidas/sincronizadas. No es configurable por appsettings.
+        AppPaths.EnsureCreated();
+        var connectionString = AppPaths.DatabaseConnectionString;
 
         services.AddDbContext<RealFenixDbContext>((sp, options) => {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();

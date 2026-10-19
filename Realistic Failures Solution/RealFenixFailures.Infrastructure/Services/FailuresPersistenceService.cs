@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using RealFenixFailures.Domain.Entities;
+﻿using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Interfaces.Repositories;
 using RealFenixFailures.Domain.Services;
@@ -7,12 +6,10 @@ using RealFenixFailures.Domain.Services;
 namespace RealFenixFailures.Infrastructure.Services;
 
 public class FailuresPersistenceService : IFailuresPersistenceService {
-    private readonly FailureEngineSettings _settings;
     private readonly IFenixFailureDefinitionRepository _fenixFailuresRepository;
     private readonly IFenixStreamFailuresReaderService _fenixFailuresReader;
 
-    public FailuresPersistenceService(IOptions<FailureEngineSettings> settings, IFenixFailureDefinitionRepository fenixFailureDefinitionRepository, IFenixStreamFailuresReaderService fenixJsonReaderService) {
-        _settings = settings.Value;
+    public FailuresPersistenceService(IFenixFailureDefinitionRepository fenixFailureDefinitionRepository, IFenixStreamFailuresReaderService fenixJsonReaderService) {
         _fenixFailuresRepository = fenixFailureDefinitionRepository;
         _fenixFailuresReader = fenixJsonReaderService;
     }
@@ -20,7 +17,7 @@ public class FailuresPersistenceService : IFailuresPersistenceService {
     public async Task LoadInitialFailuresAsync(CancellationToken ct) {
         var hasData = await _fenixFailuresRepository.HasAnyData(ct);
         if (hasData) return;
-        using Stream stream = EmbeddedJsonLoader.LoadFromEmbeddedJson(_settings.FailuresJson) ?? throw new ArgumentException("Error al cargar fallas iniciales");
+        using Stream stream = EmbeddedJsonLoader.LoadFromEmbeddedJson(EmbeddedResourceNames.FailuresCatalog) ?? throw new ArgumentException("Error al cargar fallas iniciales");
         var failures = await _fenixFailuresReader.ReadAsync(stream, ct);
 
         if (failures.MajorGroups.Count == 0)

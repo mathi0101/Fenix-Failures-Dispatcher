@@ -6,10 +6,6 @@ public class FailureEngineSettings {
     public int CheckConnectionIntervalSeconds { get; set; }
     public int CheckIntervalSeconds { get; set; }
 
-    public string FailuresJson { get; set; } = string.Empty;
-    public string TrainingPresetsJson { get; set; } = string.Empty;
-    public string RealisticPresetsJson { get; set; } = string.Empty;
-
     public RealisticModeSettings RealisticMode { get; set; } = new();
 }
 

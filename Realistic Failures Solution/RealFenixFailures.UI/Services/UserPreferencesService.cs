@@ -4,9 +4,12 @@ using System.Text.Json;
 
 namespace RealFenixFailures.UI.Services;
 
+using RealFenixFailures.Infrastructure;
+
 /// <summary>
 /// Preferencias de usuario de la app, persistidas en
-/// %AppData%\RealFenixFailures\userprefs.json.
+/// %AppData%\RealFenixFailures\userprefs.json (misma carpeta base que la BD y
+/// los logs; ver <see cref="AppPaths"/>).
 /// </summary>
 public class UserPreferencesService {
 
@@ -17,8 +20,7 @@ public class UserPreferencesService {
 
     public UserPreferencesService(ILogger<UserPreferencesService> logger) {
         _logger = logger;
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _filePath = Path.Combine(appData, "RealFenixFailures", "userprefs.json");
+        _filePath = Path.Combine(AppPaths.AppDataDirectory, "userprefs.json");
         _preferences = Load();
     }
 

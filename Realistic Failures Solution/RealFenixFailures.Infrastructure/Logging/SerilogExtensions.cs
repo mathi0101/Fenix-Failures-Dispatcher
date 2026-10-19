@@ -16,6 +16,11 @@ public static class SerilogExtensions {
     public static LoggerConfiguration ApplyDefaultConfiguration(this LoggerConfiguration loggerConfiguration, IConfiguration configuration) {
         var serilogSection = configuration.GetSection("Serilog");
 
+        // Los logs viven junto al resto de los datos del usuario (%AppData%\RealFenixFailures\logs),
+        // no al lado del ejecutable: la carpeta del exe puede ser de solo lectura (Program Files)
+        // o estar sincronizada (OneDrive) y no debe ensuciarse con archivos rodantes.
+        AppPaths.EnsureCreated();
+
         ApplyMinimumLevel(loggerConfiguration, serilogSection.GetSection("MinimumLevel"));
 
         loggerConfiguration
@@ -23,8 +28,8 @@ public static class SerilogExtensions {
             .WriteTo.Logger(mainLogger => mainLogger
                 .Filter.ByExcluding(Matching.FromSource(SimConnectDiagnosticsSourceContext))
                 .WriteTo.File(
-                    serilogSection["WriteTo:0:Args:path"] ?? "logs/realfenix-.log",
-                    rollingInterval: Enum.TryParse<RollingInterval>(serilogSection["WriteTo:0:Args:rollingInterval"], ignoreCase: true, out var rollingInterval) ? rollingInterval : RollingInterval.Infinite,
+                    Path.Combine(AppPaths.LogsDirectory, "realfenix-.log"),
+                    rollingInterval: Enum.TryParse<RollingInterval>(serilogSection["WriteTo:0:Args:rollingInterval"], ignoreCase: true, out var rollingInterval) ? rollingInterval : RollingInterval.Day,
                     outputTemplate: serilogSection["WriteTo:0:Args:outputTemplate"] ?? "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] <s:{SourceContext}> {Message:lj} {NewLine}{Exception}"));
 
         if (configuration.GetValue<bool>("SimConnectDiagnostics:Enabled")) {
@@ -33,7 +38,7 @@ public static class SerilogExtensions {
                 .Filter.ByIncludingOnly(Matching.FromSource(SimConnectDiagnosticsSourceContext))
                 .MinimumLevel.Debug()
                 .WriteTo.File(
-                    "logs/simconnect-diagnostic-.log",
+                    Path.Combine(AppPaths.LogsDirectory, "simconnect-diagnostic-.log"),
                     rollingInterval: RollingInterval.Day,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         }

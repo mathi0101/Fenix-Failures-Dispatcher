@@ -24,19 +24,29 @@ dotnet run --project RealFenixFailures.UI/RealFenixFailures.UI.csproj
 
 La configuración vive en `RealFenixFailures.UI/appsettings.json`. Acá se listan las claves; los valores son locales de cada máquina y no se copian a la documentación:
 
-- `ConnectionStrings:Sqlite` — cadena de conexión SQLite.
-- `FailureEngine` — `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds`, `FailuresJson`, `TrainingPresetsJson` (los dos últimos nombran los EmbeddedResource del Domain).
+- `FailureEngine` — `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds` y la sección `RealisticMode` (parámetros del motor Realistic). Los nombres de los catálogos embebidos (`failures.json`, `training_presets.json`, `realistic_presets.json`) **no son configurables**: son constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs` (quedaron fuera de appsettings).
 - `FenixApi` — `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
-- `Serilog` — nivel mínimo y `WriteTo:File` (`logs/realfenix-.log`, rolling diario).
+- `SimBriefApi` — `BaseUrl`, `DownloadTimeoutSeconds`.
+- `SimConnectDiagnostics` — `Enabled` (flag del log de diagnóstico).
+- `Serilog` — nivel mínimo y overrides. El sink de archivo **no** se configura acá: las rutas viven en el código (ver `AppPaths`).
+
+## Datos del usuario (BD, preferencias, logs)
+
+Todo lo persistente del usuario vive en una sola carpeta base (**%AppData%\RealFenixFailures**), centralizada en `RealFenixFailures.Infrastructure/AppPaths.cs`:
+
+- BD SQLite: `%AppData%\RealFenixFailures\realfenixfailures.db` (connection string calculado en código; **no** es configurable por appsettings).
+- Preferencias: `%AppData%\RealFenixFailures\userprefs.json` (panel de Ajustes).
+- Logs Serilog (rolling diario): `%AppData%\RealFenixFailures\logs\realfenix-.log` y `logs\realfenix-*.log` / `simconnect-diagnostic-.log` (flag de diagnóstico).
+
+La carpeta del ejecutable es solo "programa": así los datos sobreviven a reinstalaciones y funcionan aun si la app vive en una carpeta protegida (Program Files) o sincronizada (OneDrive).
 
 ## Migraciones EF (modo desarrollo)
 
 **En desarrollo no se mantienen migraciones.** `App.xaml.cs` usa `Database.EnsureCreatedAsync()`: el esquema se crea **completo desde el modelo actual** en cada arranque si la base no existe (incluye los seeds `HasData`). No hay historial de migraciones ni `__EFMigrationsHistory`.
 
-- Al cambiar entidades: entidad en Domain → ajuste en `RealFenixDbContext` → seed si corresponde → **borrar la base local** (`realfenixfailures.db`; la app la recrea sola en el próximo arranque). No hace falta generar, revisar ni aplicar migraciones.
-- Las bases de la app son artefactos regenerables: `Realistic Failures Solution/realfenixfailures.db` (CWD de la solución), `RealFenixFailures.UI/realfenixfailures.db` (CWD del proyecto) y las de `bin/`.
+- Al cambiar entidades: entidad en Domain → ajuste en `RealFenixDbContext` → seed si corresponde → **borrar la base local** (`%AppData%\RealFenixFailures\realfenixfailures.db`; la app la recrea sola en el próximo arranque). No hace falta generar, revisar ni aplicar migraciones.
 - Los tests corren con `EnsureCreated()` sobre SQLite en memoria: no dependen de migraciones.
-- **Cuando el esquema esté cercano a la v1**: generar una única migración inicial (`dotnet ef migrations add InitialRelease --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release`) y volver a `MigrateAsync()` para entornos compartidos.
+- **Cuando el esquema esté cercano a la v1**: generar una única migración inicial (`dotnet ef migrations add InitialRelease --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release`) y volver a `MigrateAsync()` para que las BD de producción nazcan con historial de migraciones (ver checklist de publicación abajo).
 
 Comandos de EF (para cuando se retome el flujo clásico, desde `Realistic Failures Solution`; `--project` Infrastructure, `--startup-project` UI):
 
@@ -48,6 +58,18 @@ dotnet ef migrations remove --project RealFenixFailures.Infrastructure/RealFenix
 ```
 
 Reglas del flujo clásico (v1/compartido): no editar migraciones ya aplicadas en entornos compartidos — siempre crear migración nueva (en `RealFenixFailures.Infrastructure/Migrations`); revisar el código generado antes de aplicarlo (validar `Up` y `Down`, que no haya drop/create involuntario y que los `UpdateData` del seed sean correctos).
+
+## Checklist: publicar una versión (v1 en adelante)
+
+**Antes de publicar v1.0.0 (releases de GitHub):**
+
+1. **Migración inicial**: cuando el esquema esté congelado, generar `InitialRelease` (comando de la sección anterior), revisar `Up`/`Down` y commitearla. Cambiar el arranque en `App.xaml.cs` de `EnsureCreatedAsync()` a `MigrateAsync()` para que las BD de producción nazcan con `__EFMigrationsHistory`.
+2. **Versión**: actualizar `<Version>` en `Realistic Failures Solution/Directory.Build.props` (p. ej. `1.0.0`) y crear el tag `v1.0.0` en GitHub coincidiendo con ese valor.
+3. **Datos del usuario**: verificar que `%AppData%\RealFenixFailures\` contenga BD, preferencias y logs (ya centralizado en `AppPaths`; la carpeta del exe no debe quedar con `realfenixfailures.db` ni `logs/`).
+4. **Distribución**: compilar `dotnet publish` y publicar ZIP portable en GitHub Releases (pre-releases para testers: marca "Set as a pre-release"). La pestaña Actualizaciones de Ajustes las detecta.
+5. **AppSettings limpio**: confirmar que `appsettings.json` no tenga claves muertas ni nombres de recursos embebidos (ver lista de config arriba).
+
+**De v1.1 en adelante:** cada cambio de esquema → migración nueva incremental (nunca editar las aplicadas), versión `X.Y.0` + tag en el mismo commit del release.
 
 ## Validación
 

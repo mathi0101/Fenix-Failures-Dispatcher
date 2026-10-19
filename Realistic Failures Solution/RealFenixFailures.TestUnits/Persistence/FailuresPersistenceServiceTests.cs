@@ -1,10 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Enums;
-using RealFenixFailures.Domain.Services;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.Infrastructure.Repositories;
 using RealFenixFailures.Infrastructure.Services;
@@ -29,8 +27,7 @@ public class FailuresPersistenceServiceTests {
         using var context = CreateContext();
         var repository = new FenixFailureDefinitionRepository(context);
         var reader = new FenixStreamFailuresReaderService(NullLogger<FenixStreamFailuresReaderService>.Instance);
-        var settings = Options.Create(new FailureEngineSettings { FailuresJson = "failures.json" });
-        var service = new FailuresPersistenceService(settings, repository, reader);
+        var service = new FailuresPersistenceService(repository, reader);
 
         await service.LoadInitialFailuresAsync(CancellationToken.None);
 

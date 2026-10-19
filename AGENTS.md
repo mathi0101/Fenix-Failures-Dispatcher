@@ -50,7 +50,7 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 
 ## Migraciones EF (modo desarrollo)
 
-- **En desarrollo no se mantienen migraciones**: `App.xaml.cs` arranca con `EnsureCreatedAsync()`, que crea el esquema completo desde el modelo (con seeds) en una base nueva; al cambiar el esquema hay que **borrar `realfenixfailures.db`** para regenerarla. No generar migraciones nuevas en esta etapa (ver `docs/desarrollo.md`).
+- **En desarrollo no se mantienen migraciones**: `App.xaml.cs` arranca con `EnsureCreatedAsync()`, que crea el esquema completo desde el modelo (con seeds) en una base nueva; al cambiar el esquema hay que **borrar `realfenixfailures.db` (en `%AppData%\RealFenixFailures\`)** para regenerarla. No generar migraciones nuevas en esta etapa (ver `docs/desarrollo.md`).
 - Cuando el esquema esté cerca de producción: generar **una única migración inicial** y volver al flujo clásico (no editar migraciones aplicadas en entornos compartidos; revisar `Up`/`Down` antes de aplicar).
 
 ## Trabajo multi-agente (misma PC, misma rama)

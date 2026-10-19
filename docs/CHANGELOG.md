@@ -4,6 +4,20 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-19 — Datos del usuario centralizados en %AppData% y appsettings limpio
+
+**Qué y por qué**
+
+- Nueva ubicación única de datos del usuario: **%AppData%\RealFenixFailures** (BD SQLite `realfenixfailures.db`, preferencias `userprefs.json`, logs `logs\realfenix-.log` y `simconnect-diagnostic-.log`), centralizada en `RealFenixFailures.Infrastructure/AppPaths.cs`. Antes la BD y los logs quedaban relativos a la carpeta del ejecutable/CWD (frágil ante reinstalaciones, OneDrive y carpetas protegidas como Program Files). La carpeta base ya la usaba el panel de Ajustes (`UserPreferencesService`); ahora se reutiliza para todo.
+- `appsettings.json` limpio: se quitan `ConnectionStrings:Sqlite` (la ruta se calcula en código), los nombres de catálogos embebidos `FailureEngine:FailuresJson/TrainingPresetsJson/RealisticPresetsJson` (pasan a constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs`; no son configurables), `FailureEngine:GlobalProbabilityMultiplier` (no lo lee ningún código) y el bloque `Serilog:WriteTo` (el sink de archivo se configura en `SerilogExtensions` con la ruta de `AppPaths`).
+- Ajustes de capas: `FailuresPersistenceService` y `PresetsLoader` dejan de recibir `IOptions<FailureEngineSettings>` (nombres de recursos ahora constantes); `UserPreferencesService` usa `AppPaths`. `RealFenixDbContextFactory` (design-time) usa la misma ruta.
+- Docs: `docs/desarrollo.md` (nueva sección "Datos del usuario" + checklist "Publicar una versión (v1 en adelante)": migración inicial → `MigrateAsync()`, versión + tag, verificación de %AppData%, ZIP portable, appsettings limpio), `AGENTS.md`, `arquitectura.md`, `simconnect.md`.
+
+**Pruebas**
+
+- `appsettings.json` validado como JSON sintácticamente correcto (parseo con Python).
+- Build **no verificado** en este entorno (restore NuGet incompleto por red; mismo bloqueo del cambio anterior). Compilar en la máquina del desarrollador antes de declararlo funcionando. Cambio de comportamiento de datos (migración de BD/logs a %AppData%) requiere verificación manual en sesión real.
+
 ### 2026-10-19 — Persistencia de severity y repairable en el cargado inicial
 
 **Qué**

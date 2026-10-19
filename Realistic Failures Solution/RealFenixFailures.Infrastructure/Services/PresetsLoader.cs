@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using RealFenixFailures.Domain.DTOs;
+﻿using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Helpers;
@@ -9,21 +8,15 @@ using RealFenixFailures.Domain.Services;
 namespace RealFenixFailures.Infrastructure.Services;
 
 public class PresetsLoader : IPresetsLoader {
-    private readonly FailureEngineSettings _settings;
-
-    public PresetsLoader(IOptions<FailureEngineSettings> options) {
-        _settings = options.Value;
-    }
-
     public async Task<IReadOnlyList<FailurePreset>> GetTrainingPresetsAsync(CancellationToken ct) {
-        var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(_settings.TrainingPresetsJson, ct);
+        var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(EmbeddedResourceNames.TrainingPresets, ct);
         List<FailurePreset> trainingPresets = [.. jsonDtos!.Select(dto => MapToFailurePreset(dto, PresetTypeEnum.TrainingMode))];
 
         return trainingPresets;
     }
 
     public async Task<IReadOnlyList<FailurePreset>> GetRealisticPresetsAsync(CancellationToken ct) {
-        var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(_settings.RealisticPresetsJson, ct);
+        var jsonDtos = await EmbeddedJsonLoader.LoadFromEmbeddedJson<List<JsonPreloadedPresetDto>>(EmbeddedResourceNames.RealisticPresets, ct);
         List<FailurePreset> realisticPresets = [.. jsonDtos!.Select(dto => MapToFailurePreset(dto, PresetTypeEnum.RealisticMode))];
 
         return realisticPresets;
