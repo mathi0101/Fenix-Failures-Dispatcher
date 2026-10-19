@@ -54,8 +54,12 @@ public partial class MainWindow : Window {
 
             switch (dialog.Choice) {
                 case CloseChoiceWindow.CloseChoice.Shutdown:
+                    // Cierre definitivo: con ShutdownMode=OnExplicitShutdown,
+                    // cerrar la ventana no apaga la app (quedaría corriendo en
+                    // la bandeja); hace falta el shutdown explícito, que además
+                    // cierra la ventana al salir.
                     IsExitAllowed = true;
-                    Dispatcher.BeginInvoke(new Action(Close));
+                    Dispatcher.BeginInvoke(() => System.Windows.Application.Current.Shutdown());
                     break;
 
                 case CloseChoiceWindow.CloseChoice.Background:

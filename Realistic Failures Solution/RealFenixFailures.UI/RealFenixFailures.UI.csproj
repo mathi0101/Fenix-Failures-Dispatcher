@@ -25,10 +25,6 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Controls\" />
-  </ItemGroup>
-
   <!-- UseWindowsForms agrega por defecto "global using System.Drawing;" y
        "global using System.Windows.Forms;", lo que choca con los tipos
        homónimos de WPF (UserControl, Color, Brush). Se quitan esos usings
@@ -42,7 +38,14 @@
   <ItemGroup>
     <Resource Include="Assets\Branding\app-icon.ico" />
     <Resource Include="Assets\Branding\background.png" />
-    <Resource Include="Assets\Branding\splash-screen.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Frames del splash: se copian al output porque SplashWindow (mostrada
+         antes de crear la Application) los carga por ruta de archivo. -->
+    <None Include="Assets\Branding\splash-frame-*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

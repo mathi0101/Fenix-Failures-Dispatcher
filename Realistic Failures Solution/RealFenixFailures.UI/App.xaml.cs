@@ -63,6 +63,7 @@ public partial class App : System.Windows.Application {
             newWindow.TrayIcon = _trayIconService;
             _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
             newWindow.Show();
+            Program.CloseSplash();
         }
         catch (Exception startupException) {
             Program.CloseSplash();

@@ -1,5 +1,8 @@
+using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
 using RealFenixFailures.UI.Diagnostics;
+using RealFenixFailures.UI.Views;
 
 namespace RealFenixFailures.UI;
 
@@ -10,7 +13,8 @@ namespace RealFenixFailures.UI;
 /// proceso en silencio sin dejar rastro.
 /// </summary>
 public static class Program {
-    private static SplashScreen? _splash;
+    private static SplashWindow? _splash;
+    private static Dispatcher? _splashDispatcher;
 
     /// <summary>
     /// Se pone en true cuando el arranque ya fracasó (fallo en el constructor
@@ -22,8 +26,13 @@ public static class Program {
 
     [STAThread]
     public static void Main() {
-        _splash = new SplashScreen("Assets/Branding/splash-screen.png");
-        _splash.Show(true);
+        // El splash corre en un hilo STA dedicado con su propio Dispatcher:
+        // mientras el hilo principal construye el host y arranca los servicios,
+        // el pump del hilo del splash sigue libre y la animación de frames no se
+        // congela (un DispatcherTimer del propio hilo principal no llega a
+        // dispararse durante el arranque). La ventana lleva Cursor="Arrow", así
+        // que el cursor se ve normal sobre el splash (sin IDC_APPSTARTING).
+        StartSplash();
 
         try {
             var app = new App();
@@ -42,17 +51,43 @@ public static class Program {
     }
 
     /// <summary>
-    /// Cierra el splash si sigue visible. En el arranque normal se cierra solo
-    /// al mostrarse la primera ventana (Show(autoClose: true)); este cierre
-    /// explícito cubre arranques fallidos y la rama de instancia única.
+    /// Lanza el hilo STA del splash y su pump de mensajes.
+    /// </summary>
+    private static void StartSplash() {
+        var splashThread = new Thread(() => {
+            _splash = new SplashWindow();
+            _splashDispatcher = Dispatcher.CurrentDispatcher;
+            _splash.Show();
+            Dispatcher.Run();
+        }) {
+            Name = "SplashThread",
+            IsBackground = true,
+        };
+        splashThread.SetApartmentState(ApartmentState.STA);
+        splashThread.Start();
+    }
+
+    /// <summary>
+    /// Cierra el splash si sigue visible, en el hilo que le corresponde. En el
+    /// arranque normal lo hace App.OnStartup al mostrar la ventana principal;
+    /// este cierre explícito cubre arranques fallidos y la rama de instancia
+    /// única.
     /// </summary>
     public static void CloseSplash() {
         try {
-            _splash?.Close(TimeSpan.Zero);
+            var dispatcher = _splashDispatcher;
+            if (dispatcher == null)
+                return;
+
+            dispatcher.BeginInvoke(() => {
+                _splash?.Close();
+                _splash = null;
+                _splashDispatcher = null;
+                dispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
+            });
         }
         catch {
             // Un fallo del splash no debe enmascarar el motivo del cierre.
         }
-        _splash = null;
     }
 }
