@@ -1,4 +1,6 @@
 using RealFenixFailures.Domain.Enums;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 
@@ -10,7 +12,9 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 /// Colores por estado (diseño objetivo §14): enviada amarillo, activa Minor/Major naranja,
 /// activa Critical rojo, resuelta verde.
 /// </summary>
-public sealed class LiveFailureEntryViewModel {
+public sealed class LiveFailureEntryViewModel : INotifyPropertyChanged {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public required string FenixFailureId { get; init; }
     public required string TimestampText { get; init; }
     public required string Description { get; init; }
@@ -18,22 +22,19 @@ public sealed class LiveFailureEntryViewModel {
     private string _stateLabel = "Enviada — esperando confirmación";
     public string StateLabel {
         get => _stateLabel;
-        private set {
-            _stateLabel = value;
-            DisplayText = $"{TimestampText}  {value}  ·  {Description}";
-        }
+        private set => SetProperty(ref _stateLabel, value);
     }
 
     private string _displayText;
     public string DisplayText {
         get => _displayText;
-        private set => _displayText = value;
+        private set => SetProperty(ref _displayText, value);
     }
 
     private Brush _stateBrush = ResolveBrush("Brush.Accent.Amber.Primary");
     public Brush StateBrush {
         get => _stateBrush;
-        private set => _stateBrush = value;
+        private set => SetProperty(ref _stateBrush, value);
     }
 
     public LiveFailureEntryViewModel() {
@@ -53,12 +54,20 @@ public sealed class LiveFailureEntryViewModel {
             FailureLifecycleState.AutoResolved => "Auto-resuelta por el engine",
             _ => StateLabel
         };
+        DisplayText = $"{TimestampText}  {StateLabel}  ·  {Description}";
         StateBrush = newState switch {
             FailureLifecycleState.Active when severity == FailureSeverity.Critical => ResolveBrush("Brush.Accent.Red.Primary"),
             FailureLifecycleState.Active => ResolveBrush("Brush.Accent.Orange.Primary"),
             FailureLifecycleState.ResolvedByPilot or FailureLifecycleState.AutoResolved => ResolveBrush("Brush.Accent.Green.Primary"),
             _ => ResolveBrush("Brush.Accent.Amber.Primary")
         };
+    }
+
+    private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null) {
+        if (Equals(field, value)) return false;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 
     private static Brush ResolveBrush(string resourceKey) =>

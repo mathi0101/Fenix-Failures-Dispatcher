@@ -7,7 +7,6 @@ using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
 
@@ -103,6 +102,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
         ActivateCommand = new RelayCommand(async () => await ActivateOrStopAsync(), () => (CanActivate || IsEngineActive) && !IsOperationPending);
         ResumeSessionCommand = new RelayCommand(async () => await ResumeSessionAsync(), () => IsSessionPaused && !IsOperationPending);
+        PauseSessionCommand = new RelayCommand(async () => await PauseSessionAsync(), () => IsEngineActive && !IsSessionPaused && !IsOperationPending);
         CancelStopCommand = new RelayCommand(() => StopConfirmationVisible = false, () => !IsOperationPending);
         DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
         DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
@@ -131,6 +131,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand<FlightSessionItemViewModel> ToggleSessionCommand { get; }
     public RelayCommand ActivateCommand { get; }
     public RelayCommand ResumeSessionCommand { get; }
+    public RelayCommand PauseSessionCommand { get; }
     public RelayCommand CancelStopCommand { get; }
     public RelayCommand DownloadOfpCommand { get; }
     public RelayCommand DiscardPreparedCommand { get; }
@@ -442,6 +443,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         private set {
             if (SetProperty(ref _isSessionPaused, value)) {
                 ResumeSessionCommand.RaiseCanExecuteChanged();
+                RaiseActivationState();
                 OnPropertyChanged(nameof(SessionStatusDisplay));
             }
         }
@@ -462,6 +464,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     /// </summary>
     public bool CanActivate =>
         !IsEngineActive &&
+        !IsSessionPaused &&
         SelectedAircraft is not null &&
         SelectedRiskLevel.HasValue &&
         OfpValidated &&
@@ -472,6 +475,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public string ActivationBlockReason {
         get {
             if (IsEngineActive) return string.Empty;
+            if (IsSessionPaused) return "La evaluación está pausada. Reanudá la sesión para seguir generando fallas.";
             if (SelectedAircraft is null) return "Seleccioná una aeronave para continuar.";
             if (!SelectedRiskLevel.HasValue) return "Seleccioná un perfil de riesgo.";
             if (!OfpValidated) return "OFP pendiente: el plan de vuelo operacional es obligatorio. Descargalo y validalo antes de activar.";
@@ -487,7 +491,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IsOperationPending ? "PROCESANDO..." :
         IsEngineActive ? "DETENER MODO REALISTA" : "ACTIVAR MODO REALISTA";
 
-    public string ActionToolTip => IsEngineActive
+    public string ActionToolTip => IsSessionPaused
+        ? ActivationBlockReason
+        : IsEngineActive
         ? "Termina la sesión e intenta desactivar las fallas en Fenix; confirma en vuelo. Comprobá las fallas manualmente si la API no responde."
         : ActivationBlockReason;
 
@@ -667,7 +673,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
             LiveTriggeredFailures.Clear();
             var risk = (RiskLevel)SelectedRiskLevel.Value;
-            await _orchestrator.StartRealisticModeAsync(SelectedAircraft.Id, risk, CancellationToken.None);
+            await _orchestrator.StartRealisticModeAsync(SelectedAircraft.Id, risk, _ofpPlanForUi!.Id, CancellationToken.None);
             _logger.LogInformation(
                 "Modo Realista activado. Aeronave={Registration} Riesgo={Risk}",
                 SelectedAircraft.Registration, risk);
@@ -766,6 +772,16 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
+    private async Task PauseSessionAsync() {
+        if (!IsEngineActive || IsSessionPaused) return;
+        try {
+            await _realisticSessionManager.PauseAsync(CancellationToken.None);
+            _logger.LogInformation("Sesión Realista pausada manualmente: loop detenido y fallas activas desarmadas.");
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error al pausar la sesión Realista.");
+        }
+    }
+
     private void Orchestrator_PropertyChanged(object? sender, PropertyChangedEventArgs e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
             if (e.PropertyName == nameof(IEngineOrchestrator.ConnectionStatus)) {
@@ -813,6 +829,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ResumeSessionCommand.RaiseCanExecuteChanged();
         CancelStopCommand.RaiseCanExecuteChanged();
         DiscardPreparedCommand.RaiseCanExecuteChanged();
+        PauseSessionCommand.RaiseCanExecuteChanged();
     }
 
     #endregion

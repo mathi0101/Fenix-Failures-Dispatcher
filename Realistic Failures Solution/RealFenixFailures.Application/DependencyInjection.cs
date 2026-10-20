@@ -7,7 +7,7 @@ namespace RealFenixFailures.Application;
 public static class DependencyInjection {
     public static IServiceCollection AddApplication(this IServiceCollection services) {
         services.AddScoped<IPresetService, PresetService>();
-        services.AddScoped<IInitializerService, InitializerService>();
+        services.AddScoped<IInitializerService, DatabaseSeeder>();
         services.AddScoped<IFlightSessionService, FlightSessionService>();
         services.AddScoped<ISimbriefOfpService, SimbriefOfpService>();
         services.AddScoped<IEngineOrchestrator, EngineOrchestrator>();

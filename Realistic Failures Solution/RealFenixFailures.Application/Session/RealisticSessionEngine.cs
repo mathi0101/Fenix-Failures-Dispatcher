@@ -28,6 +28,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private readonly IPresetService _presetService;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
+    private readonly IFlightPlanRepository _flightPlanRepository;
     private readonly IFenixFailureDefinitionRepository? _fenixFailureDefinitions;
     private readonly RealisticModeSettings _settings;
     private readonly RealisticFailurePolicy _policy;
@@ -70,6 +71,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         IFlightSessionService sessionService,
         IPresetService presetService,
         IFlightEventDetector flightEventDetector,
+        IFlightPlanRepository flightPlanRepository,
         ITriggeredFailureRepository triggeredFailureRepository,
         RealisticModeSettings? settings = null,
         RealisticFailurePolicy? policy = null,
@@ -79,6 +81,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         _sessionService = sessionService;
         _presetService = presetService;
         _flightEventDetector = flightEventDetector ?? throw new ArgumentNullException(nameof(flightEventDetector));
+        _flightPlanRepository= flightPlanRepository ?? throw new ArgumentNullException(nameof(flightPlanRepository));
         _triggeredFailureRepository = triggeredFailureRepository ?? throw new ArgumentNullException(nameof(triggeredFailureRepository));
         _settings = SnapshotSettings(settings);
         _policy = policy ?? new RealisticFailurePolicy(new FailureRuleEvaluator());
@@ -112,6 +115,11 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         // Cargar presets ANTES de persistir la sesión: si la carga falla, no queda sesión persistida huérfana.
         var presets = (await _presetService.GetRealisticPresetsAsync(ct)).ToList();
         var newSession = await _sessionService.StartNewAsync(context, ct);
+
+        newSession.FlightPlan = await _flightPlanRepository.GetByIdAsync(newSession.FlightPlanId, ct);
+        if (newSession.FlightPlan == null)
+            return new StartSessionResult(false, "Flight Plan data not loaded");
+
         Session = new RealisticSession(newSession, context.Aircraft, RealisticProfileCatalog.Resolve(_settings, newSession.RiskLevel)) {
             AvailablePresets = presets
         };

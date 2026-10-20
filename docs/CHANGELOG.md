@@ -4,6 +4,21 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-20 — Seed unificado: DatabaseSeeder orquesta catálogo y presets; SeedData vuelve al seed estático
+
+**Qué y por qué**
+
+- Se retira el WIP aditivo de la aeronave de ejemplo `LV-SEED` (sesiones, fallas y desgaste): `SeedData` vuelve a su alcance original y solo conserva el seed estático de esquema (`PresetType` + 19 `AircraftWearableSystem`, vía `OnModelCreating`). `FailuresPersistenceService` recupera su constructor de 2 parámetros: ya no recibe `RealFenixDbContext` ni invoca el sembrado runtime de `TriggeredFailure` que dependía de la aeronave semilla.
+- Nuevo **`DatabaseSeeder`** (`Application/Services`) como **punto único de orquestación** de los datos semilla del arranque: primero carga el catálogo de fallas (`IFailuresPersistenceService.LoadInitialFailuresAsync`) y luego los presets (`IPresetService.InitializeAsync`), reutilizando los servicios existentes. Implementa `IInitializerService`, de modo que `App.xaml.cs` no cambia: el arranque sigue resolviendo `IInitializerService` desde DI, ahora materializado por `DatabaseSeeder` (`AddScoped<IInitializerService, DatabaseSeeder>()`). Se elimina `InitializerService` (Application/Services), cuya responsabilidad (fallas + presets) queda absorbida por el seeder: un único lugar para orquestar todo dato semilla futuro.
+- Pruebas ajustadas: `FailuresPersistenceServiceTests` vuelve a construir el servicio con 2 parámetros; `UserAircraftServiceTests` revierte los filtros por matrícula `LV-XYZ`/`LV-WEAR` (compensaban la presencia de `LV-SEED`) a `Assert.Single` sin filtro.
+
+**Áreas tocadas**: NUEVO `Application/Services/DatabaseSeeder.cs`, ELIMINADO `Application/Services/InitializerService.cs`, `Application/DependencyInjection.cs`, `Infrastructure/Persistence/Seed/SeedData.cs`, `Infrastructure/Services/FailuresPersistenceService.cs`, `TestUnits` (`FailuresPersistenceServiceTests`, `UserAircraftServiceTests`), `docs/realistic-mode/estado-y-diseno.md`, `docs/arquitectura.md`, este CHANGELOG.
+
+**Verificación**
+
+- Build focalizado Debug: `RealFenixFailures.Application` **0 errores / 0 advertencias**; `RealFenixFailures.Infrastructure` **0 errores / 0 advertencias**.
+- `RealFenixFailures.TestUnits` **no compila** por WIP ajeno ya documentado (22 errores: `RealisticProfileCatalog.GroundRange`, firmas `StartNewAsync`/`RealisticModeContext` con `FlightPlanId`; en `RealisticProfileCatalogTests`, `RealisticSessionEngineTests`, `RealisticSessionManagerTests`, `RealisticSessionEnginePersistenceTests`); ninguno en los archivos tocados por este cambio. Revalidar la suite completa cuando ese WIP se consolide.
+
 ### 2026-10-19 — Realistic: el engine reacciona a la confirmación de Fenix (evento + feed de estados)
 
 **Qué y por qué**

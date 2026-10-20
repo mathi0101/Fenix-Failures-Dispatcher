@@ -858,9 +858,11 @@
                         </Grid.ColumnDefinitions>
 
                         <Button Grid.Column="0" Height="48" Margin="0,0,10,0" Padding="18,0"
-                                IsEnabled="False" Opacity="0.55" Style="{StaticResource GhostButtonStyle}"
+                                Command="{Binding PauseSessionCommand}"
+                                Style="{StaticResource GhostButtonStyle}"
                                 ToolTipService.ShowOnDisabled="True"
-                                ToolTip="La pausa que desarma fallas aún no está implementada. El comando Pausar existente solo detiene el loop de evaluación, por eso está deshabilitado.">
+                                Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Pausa el motor de fallas: desarma las fallas Fenix activas y bloquea nuevas fallas hasta reanudar la sesión.">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="❚❚" VerticalAlignment="Center" FontSize="12" Margin="0,0,10,0"/>
                                 <TextBlock Text="PAUSAR FALLAS" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>

@@ -73,6 +73,10 @@ Fix de raíz aplicado: `GetAllWithSystemsAsync` ya **no usa AsNoTracking** — l
 
 Evolución del mismo día: el universo de candidatas de tierra **ya no sale de una whitelist configurable** — se elimina `GroundFailureIds` de `RealisticModeSettings`/`appsettings.json` (era una lista duplicada y desactualizable) —. `BuildGroundCandidatesAsync` ahora toma **todas las `FenixFailureDefinition` persistidas con severidad 1/2** (`Minor`/`Major`) de `GetAllWithSystemsAsync` y construye un `PresetFailureDefinition` sintético por cada una (`FenixFailure` = entidad persistida trackeada, `Probability = 1.0`, sin condiciones de armado); la sesión escoge desde esa lista por rango de riesgo y sistema distinto como antes. Al no mutar navegaciones ajenas, el seed deja de depender de la reconciliación `Group`/`Severity` y el tracking de `GetAllWithSystemsAsync` (misma identidad) basta para que `SaveChanges` no truene. El nombre del preset en la cola/historial pasa a ser el del **sistema** (`Group.System.Name`, p. ej. `ELEC`).
 
+#### Seed unificado: DatabaseSeeder (2026-10-20)
+
+El arranque siembra la base desde un **punto único de orquestación**, `DatabaseSeeder` (`Application/Services`): primero carga el catálogo de fallas (`IFailuresPersistenceService.LoadInitialFailuresAsync`, desde `failures.json` embebido) y después los presets (`IPresetService.InitializeAsync`, Training y Realistic desde sus JSON embebidos), reutilizando los servicios existentes. Implementa `IInitializerService` —el contrato que `App.OnStartup` resuelve desde DI—, así que el arranque no cambia. Los seeds estáticos del esquema (`PresetType` y los 19 `AircraftWearableSystem`) siguen en `SeedData.Apply` (`OnModelCreating`), fuera del seeder runtime. El WIP de aeronave de ejemplo `LV-SEED` con sesiones/fallas/desgaste se retiró: `SeedData` volvió a su alcance original y `FailuresPersistenceService` a su constructor de 2 parámetros. Todo dato semilla futuro se orquesta desde `DatabaseSeeder`, con la restricción de que las fallas Fenix (FK `TriggeredFailure.FenixFailureId`) solo existen después del paso del catálogo.
+
 ### Constantes verificadas
 
 | Constante | Valor | Lugar |

@@ -104,6 +104,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 scope.ServiceProvider.GetRequiredService<IFlightSessionService>(),
                 scope.ServiceProvider.GetRequiredService<IPresetService>(),
                 _flightEventDetector,
+                scope.ServiceProvider.GetRequiredService<IFlightPlanRepository>(),
                 scope.ServiceProvider.GetRequiredService<ITriggeredFailureRepository>(),
                 settings: _realisticModeSettings,
                 policy: policy,
@@ -163,9 +164,11 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     public async Task PauseAsync(CancellationToken ct) {
         if (_engine == null || IsPaused) return;
+        // Marcar pausado ANTES de detener el loop: bloquea cualquier tick en curso/encolado
+        // de elegir fallas nuevas y deja IsPaused=true aunque el desarme tarde.
+        IsPaused = true;
         await StopLoopAsync();
         await DisarmActiveFailuresForPauseAsync(ct);
-        IsPaused = true;
         _logger.LogInformation("Realistic session paused");
     }
 
@@ -353,7 +356,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     #region Main Timer Tick Session Evaluator
     private async Task<EvaluationLoopSignal> EvaluateAndExecuteAsync(CancellationToken ct) {
-        if (SessionState == null || _engine == null) return EvaluationLoopSignal.Stop();
+        if (IsPaused || SessionState == null || _engine == null) return EvaluationLoopSignal.Stop();
         try {
             var result = await _engine.EvaluateAsync(ct);
 

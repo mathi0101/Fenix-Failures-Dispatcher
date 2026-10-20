@@ -4,11 +4,11 @@ namespace RealFenixFailures.Domain.Entities;
 
 public class FlightSession {
     public int Id { get; set; }
+    public int FlightPlanId { get; set; }
     public DateTime StartedAt { get; set; }
     public RiskLevel RiskLevel { get; set; } // 1- Low | 2- Moderate | 3-Hard
     public int UserAircraftId { get; set; }
     public DateTime? FinishedAt { get; set; }
-    public int? FlightPlanId { get; set; }
 
     public UserAircraft? UserAircraft { get; set; }
     public FlightPlan? FlightPlan { get; set; }
