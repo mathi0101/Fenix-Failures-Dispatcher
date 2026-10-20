@@ -13,6 +13,7 @@ public class FlightPlan {
     public DateTime EstimatedArrivalUtc { get; set; }
     public int EstimatedDurationMinutes { get; set; }
     public string? RouteText { get; set; }
+    public int RouteDistanceNM { get; set; }
     public string? RawData { get; set; }
     public required string Source { get; set; }
     public DateTime DownloadedAtUtc { get; set; }

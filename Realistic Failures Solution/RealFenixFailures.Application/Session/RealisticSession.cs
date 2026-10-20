@@ -2,6 +2,7 @@ using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.DTOs;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.Domain.Services;
 using System.ComponentModel;
 
 namespace RealFenixFailures.Application.Session;
@@ -11,7 +12,8 @@ public class RealisticSession : INotifyPropertyChanged {
 
     private readonly FlightSession _session;
     private readonly UserAircraftDto _aircraft;
-    private readonly RiskLevel riskLevel;
+    private readonly RiskLevel _riskLevel;
+    private readonly RealisticProfileSettings _riskProfile;
 
     private SimulatorAircraftStateSnapshot lastSimData = new();
     private List<FenixFailureDto> allFenixFailures = [];
@@ -30,17 +32,20 @@ public class RealisticSession : INotifyPropertyChanged {
     #endregion
 
     #region Constructor
-    public RealisticSession(FlightSession session, UserAircraftDto aircraft) {
+    public RealisticSession(FlightSession session, UserAircraftDto aircraft, RealisticProfileSettings riskProfile) {
         _session = session;
         _aircraft = aircraft;
-        riskLevel = session.RiskLevel;
+        _riskLevel = session.RiskLevel;
+        _riskProfile= riskProfile;
     }
     #endregion
 
     #region Properties
     public FlightSession Session => _session;
     public UserAircraftDto Aircraft => _aircraft;
-    public RiskLevel RiskLevel => riskLevel;
+    public RiskLevel RiskLevel => _riskLevel;
+    public RealisticProfileSettings RiskProfile => _riskProfile;
+
 
     /// <summary>UTC timestamp of the last failure triggered in this session, used to enforce cooldown.</summary>
     public DateTime? LastTriggeredAtUtc { get; private set; }

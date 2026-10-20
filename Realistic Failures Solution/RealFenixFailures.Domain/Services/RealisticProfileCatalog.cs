@@ -27,19 +27,4 @@ public static class RealisticProfileCatalog {
         var configured = settings?.Profiles?.FirstOrDefault(p => p.RiskLevel == (int)risk);
         return configured ?? DefaultsFor(risk);
     }
-
-    public static (int Min, int Max) GroundRange(RealisticModeSettings? settings, RiskLevel risk) {
-        var configured = settings?.GroundFailureRanges?.FirstOrDefault(r => r.RiskLevel == (int)risk);
-        (int Min, int Max) defaults = risk switch {
-            RiskLevel.Low => (1, 2),
-            RiskLevel.Moderate => (1, 3),
-            RiskLevel.High => (2, 4),
-            RiskLevel.Squawk7700 => (3, 5),
-            _ => (1, 2)
-        };
-        if (configured is null) return defaults;
-        var min = configured.Min > 0 ? configured.Min : defaults.Min;
-        var max = configured.Max >= min ? configured.Max : Math.Max(min, defaults.Max);
-        return (min, max);
-    }
 }

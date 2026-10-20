@@ -189,7 +189,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
     #region Realistic Mode
 
-    public async Task StartRealisticModeAsync(int aircraftId, RiskLevel risk, CancellationToken ct) {
+    public async Task StartRealisticModeAsync(int aircraftId, RiskLevel risk, int flightPlanId, CancellationToken ct) {
         await _operationLock.WaitAsync(ct);
         try {
             if (!ConnectionStatus.IsSimConnectConnected) {
@@ -208,10 +208,10 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             }
 
             //var systemWears = await _userAircraftService.GetSystemWearsAsync(aircraft.Id, ct);
-
             var context = new RealisticModeContext(
                 risk,
-                aircraft
+                aircraft,
+                flightPlanId
             );
 
 

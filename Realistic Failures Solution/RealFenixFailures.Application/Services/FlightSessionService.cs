@@ -15,14 +15,15 @@ public class FlightSessionService : IFlightSessionService {
         _triggeredFailureRepository = triggeredFailureRepository;
     }
 
-    public async Task<FlightSession> StartNewAsync(RiskLevel risk, UserAircraftDto aircraft, CancellationToken cancellationToken) {
+    public async Task<FlightSession> StartNewAsync(RealisticModeContext context, CancellationToken cancellationToken) {
         var session = new FlightSession {
             StartedAt = DateTime.UtcNow,
-            RiskLevel = risk,
-            UserAircraftId = aircraft.Id,
+            RiskLevel = context.RiskLevel,
+            UserAircraftId = context.Aircraft.Id,
+            FlightPlanId=context.FlightPlanId
         };
 
-        await _sessionRepository.AddAsync(session, cancellationToken);
+        var ses= await _sessionRepository.AddAsync(session, cancellationToken);
         await _sessionRepository.SaveChangesAsync(cancellationToken);
 
         return session;
@@ -136,8 +137,8 @@ public class FlightSessionService : IFlightSessionService {
             StartedAt = session.StartedAt,
             FinishedAt = session.FinishedAt,
             RiskLevel = session.RiskLevel,
-            OriginIcao = session.OriginIcao,
-            DestinationIcao = session.DestinationIcao,
+            OriginIcao = session.FlightPlan?.OriginIcao,
+            DestinationIcao = session.FlightPlan?.OriginIcao,
             Summary = summary,
             Failures = failures.Select(f => new FailureResultDto {
                 Id = f.Id,
@@ -158,8 +159,8 @@ public class FlightSessionService : IFlightSessionService {
         StartedAt = f.StartedAt,
         RiskLevel = f.RiskLevel,
         FinishedAt = f.FinishedAt,
-        OriginIcao = f.OriginIcao,
-        DestinationIcao = f.DestinationIcao,
+        OriginIcao = f.FlightPlan?.OriginIcao,
+        DestinationIcao = f.FlightPlan?.DestinationIcao,
         OffBlockUtc = f.FlightPlan?.OffBlockUtc,
         TriggeredFailures = (f.TriggeredFailures ?? []).Select(tf => new TriggeredFailureDto {
             Id = tf.Id,

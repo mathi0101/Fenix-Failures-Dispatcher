@@ -2,10 +2,9 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.DTOs;
-using RealFenixFailures.Domain.Enums;
-using RealFenixFailures.Domain.Interfaces;
-using RealFenixFailures.Domain.Interfaces.Repositories;
 using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.Domain.Interfaces.Repositories;
 using RealFenixFailures.Domain.Services;
 using System.ComponentModel;
 
@@ -112,8 +111,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         // Cargar presets ANTES de persistir la sesión: si la carga falla, no queda sesión persistida huérfana.
         var presets = (await _presetService.GetRealisticPresetsAsync(ct)).ToList();
-        var newSession = await _sessionService.StartNewAsync(context.RiskLevel, context.Aircraft, ct);
-        Session = new RealisticSession(newSession, context.Aircraft) {
+        var newSession = await _sessionService.StartNewAsync(context, ct);
+        Session = new RealisticSession(newSession, context.Aircraft, RealisticProfileCatalog.Resolve(_settings, newSession.RiskLevel)) {
             AvailablePresets = presets
         };
         foreach (var preset in Session.AvailablePresets)
@@ -253,8 +252,6 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             ThinkingLinesCap = source.ThinkingLinesCap,
             EvaluationDeltaCapSeconds = source.EvaluationDeltaCapSeconds,
             RespiteClampSeconds = source.RespiteClampSeconds,
-            GroundFailureRanges = source.GroundFailureRanges
-                .Select(r => new GroundFailureRangeSettings { RiskLevel = r.RiskLevel, Min = r.Min, Max = r.Max }).ToList(),
             Profiles = source.Profiles
                 .Select(p => new RealisticProfileSettings {
                     RiskLevel = p.RiskLevel, MinorCap = p.MinorCap, MajorCap = p.MajorCap, CriticalCap = p.CriticalCap,
@@ -607,8 +604,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             _logger.LogWarning("No hay candidatos de fallas de tierra elegibles; no se siembran fallas de tierra.");
             return;
         }
-        var (min, max) = RealisticProfileCatalog.GroundRange(_settings, session.RiskLevel);
-        var desired = _policy.Next(min, max + 1);
+        var desired = _policy.Next(0,session.RiskProfile.GroundFailuresCap);
         var usedSystems = new HashSet<int>();
         var selected = new List<(PresetFailureDefinition Def, string PresetName)>();
         foreach (var candidate in candidates.OrderBy(_ => _policy.Next(0, int.MaxValue))) {
@@ -638,9 +634,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         if (_fenixFailureDefinitions is null) return [];
 
         var result = new List<(PresetFailureDefinition Def, string PresetName)>();
-        foreach (var entity in await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)) {
+        foreach (var entity in (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x=> x.Severity is FailureSeverity.Minor)) {
             if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
-            if (entity.Severity is not (FailureSeverity.Minor or FailureSeverity.Major)) continue;
             // Candidato sintético que referencia la entidad persistida (trackeada por GetAllWithSystemsAsync,
             // misma identidad que el contexto de sesión): no se mutan navegaciones ajenas, así que el
             // SaveChanges posterior al seed no dispara conflictos de identity de EF.

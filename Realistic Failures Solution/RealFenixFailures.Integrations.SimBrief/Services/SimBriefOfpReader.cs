@@ -29,6 +29,7 @@ public sealed class SimBriefOfpReader : ISimBriefOfpReader {
         var airline = general?.Element("icao_airline")?.Value?.Trim() ?? string.Empty;
         var flightNumber = general?.Element("flight_number")?.Value?.Trim() ?? string.Empty;
         var etmin = int.TryParse(times?.Element("est_time_enroute")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) ? seconds / 60 : 0;
+        var routeDistanceNM = int.TryParse(general?.Element("route_distance")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var routeDistance) ? routeDistance : 0;
 
         // out = off-block; off = despegue; on = aterrizaje; in = llegada al gate.
         // orig/dest se conservan para los OFP sintéticos anteriores.
@@ -49,7 +50,8 @@ public sealed class SimBriefOfpReader : ISimBriefOfpReader {
             OffBlockUtc = offBlock == default ? DateTime.UtcNow : offBlock,
             EstimatedArrivalUtc = eta == default ? DateTime.UtcNow.AddMinutes(Math.Max(etmin, 30)) : eta,
             EstimatedDurationMinutes = etmin,
-            RouteText = route?.Element("text")?.Value?.Trim(),
+            RouteText = general?.Element("route")?.Value?.Trim(),
+            RouteDistanceNM= routeDistanceNM,
             RawData = content,
             Source = "SimBrief",
             DownloadedAtUtc = DateTime.UtcNow,

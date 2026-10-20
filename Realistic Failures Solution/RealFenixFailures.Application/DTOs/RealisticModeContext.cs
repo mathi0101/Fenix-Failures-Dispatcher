@@ -4,5 +4,6 @@ namespace RealFenixFailures.Application.DTOs;
 
 public record RealisticModeContext(
     RiskLevel RiskLevel,
-    UserAircraftDto Aircraft
+    UserAircraftDto Aircraft,
+    int FlightPlanId
 );

@@ -9,9 +9,6 @@ public class FlightSession {
     public int UserAircraftId { get; set; }
     public DateTime? FinishedAt { get; set; }
     public int? FlightPlanId { get; set; }
-    public string? OriginIcao { get; set; }
-    public string? DestinationIcao { get; set; }
-    public string? ResultSnapshotJson { get; set; }
 
     public UserAircraft? UserAircraft { get; set; }
     public FlightPlan? FlightPlan { get; set; }

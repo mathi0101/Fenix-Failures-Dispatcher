@@ -166,8 +166,8 @@ public class UserAircraftService : IUserAircraftService {
         StartedAt = f.StartedAt,
         RiskLevel = f.RiskLevel,
         FinishedAt = f.FinishedAt,
-        OriginIcao = f.OriginIcao,
-        DestinationIcao = f.DestinationIcao,
+        OriginIcao = f.FlightPlan?.OriginIcao,
+        DestinationIcao = f.FlightPlan?.DestinationIcao,
         OffBlockUtc = f.FlightPlan?.OffBlockUtc,
         TriggeredFailures = f.TriggeredFailures.Select(f => new TriggeredFailureDto {
             Id = f.Id,

@@ -2,6 +2,7 @@ namespace RealFenixFailures.Domain.Services;
 
 public class RealisticProfileSettings {
     public int RiskLevel { get; set; }
+    public int GroundFailuresCap { get; set; }
     public int? MinorCap { get; set; }
     public int? MajorCap { get; set; }
     public int? CriticalCap { get; set; }
@@ -11,8 +12,3 @@ public class RealisticProfileSettings {
     public int CriticalRespiteSeconds { get; set; }
 }
 
-public class GroundFailureRangeSettings {
-    public int RiskLevel { get; set; }
-    public int Min { get; set; }
-    public int Max { get; set; }
-}

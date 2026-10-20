@@ -26,6 +26,7 @@ public class FlightPlanRepository : IFlightPlanRepository {
 
     public async Task<FlightPlan> AddAsync(FlightPlan plan, CancellationToken ct) {
         var result = await _dbContext.FlightPlans.AddAsync(plan, ct);
+        await _dbContext.SaveChangesAsync(ct);
         return result.Entity;
     }
 }

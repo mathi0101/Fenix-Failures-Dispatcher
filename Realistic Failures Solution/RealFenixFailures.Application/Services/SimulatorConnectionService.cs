@@ -98,7 +98,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
             return false;
         }
 
-        var def = new FenixArmFailureRequest(fd.FenixFailureId, false, GetFailureConditionRequest(fd));
+        var def = new FenixArmFailureRequest(fd.FenixFailureId, true, GetFailureConditionRequest(fd));
 
 
 
