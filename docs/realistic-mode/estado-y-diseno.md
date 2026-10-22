@@ -497,6 +497,17 @@ Implementadas las tareas 1 y 2 del diseño objetivo (perfiles de riesgo y arranq
 
 **Verificación**: build Release de `Application`, `UI` y `TestUnits` con 0 errores/advertencias; **145/145 tests** (engine reescrito: 35 casos con reloj/random deterministas; catálogo y manager nuevos). **No verificado**: build de la solución completa en una sola ejecución, ni integración MSFS/Fenix real (mocks de DEBUG no reemplazan la prueba manual).
 
+## Seed de fallas de tierra probabilístico individual (2026-10-22)
+
+Reemplaza el modelo de seed descrito en «Tareas 1 y 2» (sorteo uniforme `Next(0, GroundFailuresCap)` + relleno con máx. 1 falla por sistema) y el historial de «Seed de fallas de tierra sin contaminar el tracking de EF»: la cantidad de fallas de tierra **deja de elegirse primero** y emerge de sorteos individuales por falla. `GroundFailuresCap` pasa a ser un **tope**, no un objetivo.
+
+- **Modelo**: cada candidata Minor del catálogo (persistidas en `FenixFailureDefinition`, excluidas `F_OH_NAV_IR_ALIGNMENT*`) hace un sorteo Bernoulli independiente con `p_efectiva = clamp(p_base × (1 + k × wear_sistema_padre / 100), 0, 1)`. Sin registro de desgaste para el sistema → wear 0 → probabilidad base sin amplificar.
+- **Parámetros por perfil** (`RealisticProfileSettings`, defaults en `RealisticProfileCatalog`, configurables vía `RealisticModeSettings.Profiles` —expuestos en `FailureEngine:RealisticMode:Profiles` de `appsettings.json`, fuente principal de calibración— y copiados ahora también por `SnapshotSettings`): `GroundFailureBaseProbability` (p_base) y `GroundWearProbabilityGain` (k). Defaults — Low: 0.004 / 1.5, Moderate: 0.01 / 2, High: 0.015 / 2.5, Squawk7700: 0.025 / 3. Con ~170 Minor elegibles, la esperanza queda debajo del cap de cada perfil; con desgaste alto el cap trunca.
+- **Truncado por cap** (`RealisticFailurePolicy.SelectGroundFailures`): si los elegidos superan `GroundFailuresCap`, se prioriza **mayor desgaste → mayor p_base → azar**. Se elimina la regla "1 falla por sistema": puede haber 2+ fallas del mismo sistema (tope = cap). Con cap ≤ 0 no se siembra nada (antes `Next(0, 0)` lanzaba excepción).
+- **Desgaste del sistema padre**: mapeo `FenixFailureSystem.AtaId ↔ AircraftWearableSystem.AtaId` con el desgaste de la aeronave de la sesión; para resolverlo desde memoria, `SystemWearDto` expone ahora `AtaId` (mapeado en `UserAircraftService`). `Probability` del `PresetFailureDefinition` sintético lleva la p_efectiva (antes un random placeholder), visible en logs.
+
+**Verificación**: build Debug de la solución 0 errores/0 advertencias; `RealFenixFailures.TestUnits` **164/164 pasan** (nuevos: `RealisticFailurePolicyGroundSeedTests` para probabilidad y selección con cap; `RealisticProfileCatalogTests` valida defaults por perfil; el test de persistencia del seed usa p_base=1.0 determinista). **No verificado**: integración real MSFS/Fenix (requiere sesión real); la distribución resultante en vivo queda pendiente de observación en la PC de testing.
+
 ## Limitaciones restantes (no resueltas)
 
 1. **Fallas de Training/Custom fuera del feed de eventos** — el log en pantalla (`MainWindowViewModel.LogEntries`) solo recibe eventos del detector; las fallas disparadas por los modos Training/Custom no llegan a ese feed. Referencia: `MainWindowViewModel.FlightEventDetector_FlightEventDetected`.

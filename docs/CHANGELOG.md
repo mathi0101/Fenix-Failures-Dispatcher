@@ -4,6 +4,24 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-22 — Seed de fallas de tierra: modelo probabilístico individual con desgaste del sistema padre (reemplaza el rango uniforme)
+
+**Qué y por qué**
+
+- El seed de tierra elegía primero una cantidad uniforme `Next(0, GroundFailuresCap)` y rellenaba al azar con máx. 1 falla por sistema. Ahora **cada falla Minor del catálogo hace su propio sorteo Bernoulli** y la cantidad emerge de los sorteos; `GroundFailuresCap` pasa a ser tope, no objetivo.
+- **Probabilidad efectiva** (`RealisticFailurePolicy.GroundFailureProbability`): `p = clamp(p_base × (1 + k × wear_sistema_padre/100), 0, 1)`. La probabilidad **nunca se define por falla**: sale del perfil de riesgo, con desgaste del sistema padre amplificando.
+- **Perfil** (`RealisticProfileSettings`): nuevos `GroundFailureBaseProbability` (p_base, igual para todas las Minor) y `GroundWearProbabilityGain` (k). Defaults en `RealisticProfileCatalog` — Low: 0.004/1.5, Moderate: 0.01/2, High: 0.015/2.5, Squawk7700: 0.025/3 (~170 Minor elegibles; esperanza bajo el cap por perfil). `SnapshotSettings` del engine ahora copia ambos campos (sin esto, el perfil clonado quedaba con p_base=0 y no se sembraba nada).
+- **Truncado por cap** (`RealisticFailurePolicy.SelectGroundFailures`): si los elegidos superan el cap, prioriza **mayor desgaste → mayor p_base → azar** (en ese orden). Se elimina la regla "1 falla por sistema" (`usedSystems`): pueden salir 2+ del mismo sistema. Con cap ≤ 0 no se siembra (antes `Next(0, 0)` lanzaba `ArgumentException`).
+- **Desgaste**: mapeo `FenixFailureSystem.AtaId ↔ AircraftWearableSystem.AtaId` con el wear de la aeronave de la sesión; `SystemWearDto` expone `AtaId` (mapeado en `UserAircraftService`) para resolverlo desde memoria. El `Probability` del candidato sintético pasa a llevar la p_efectiva (antes un `Next()` placeholder sin uso real).
+- **Logs**: el seed reporta sembradas/candidatos, perfil, p_base y tope.
+
+**Áreas tocadas**: `Domain/Services/RealisticProfileSettings.cs`, `Domain/Services/RealisticProfileCatalog.cs`, `Application/Session/RealisticFailurePolicy.cs` (nuevo `GroundFailureCandidate<T>`, `GroundFailureProbability`, `SelectGroundFailures`), `Application/Session/RealisticSessionEngine.cs` (`SeedGroundFailuresAsync`, `BuildGroundCandidatesAsync`, `SnapshotSettings`), `Application/DTOs/UserAircraftDto.cs`, `Infrastructure/Services/UserAircraftService.cs`, `UI/appsettings.json` (nuevas claves `GroundFailureBaseProbability`/`GroundWearProbabilityGain` en los 4 perfiles), `TestUnits` (`RealisticFailurePolicyGroundSeedTests` nuevo, `RealisticProfileCatalogTests`, `RealisticSessionEnginePersistenceTests`), `docs/realistic-mode/estado-y-diseno.md` (sección nueva), este CHANGELOG.
+
+**Verificación**
+
+- Build Debug de la solución: 0 errores, 0 advertencias. `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: **164/164 pasan** (10 nuevos: 4 de probabilidad, 7 de selección/truncado + defaults de catálogo).
+- **No verificado**: integración real MSFS/Fenix (requiere sesión real); distribución del nuevo modelo en vivo pendiente de observación en la PC de testing (`\\PC-MATHIAS\RealFenixFailures`).
+
 ### 2026-10-20 — Suite de TestUnits compila y pasa 148/148: tests ajustados a la API vigente + 2 bugs de producción corregidos
 
 **Qué y por qué**

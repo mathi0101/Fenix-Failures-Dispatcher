@@ -157,7 +157,8 @@ public class UserAircraftService : IUserAircraftService {
             Id = w.WearableSystemId,
             Name = w.WearableSystem!.Name,
             ShortName = w.WearableSystem!.ShortName,
-            DisplayOrder = w.WearableSystem!.DisplayOrder
+            DisplayOrder = w.WearableSystem!.DisplayOrder,
+            AtaId = w.WearableSystem!.AtaId
         },
     };
 

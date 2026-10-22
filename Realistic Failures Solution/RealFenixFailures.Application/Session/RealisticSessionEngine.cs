@@ -264,7 +264,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 .Select(p => new RealisticProfileSettings {
                     RiskLevel = p.RiskLevel, MinorCap = p.MinorCap, MajorCap = p.MajorCap, CriticalCap = p.CriticalCap,
                     MinorPerHour = p.MinorPerHour, MajorPerHour = p.MajorPerHour, CriticalPerHour = p.CriticalPerHour,
-                    CriticalRespiteSeconds = p.CriticalRespiteSeconds
+                    CriticalRespiteSeconds = p.CriticalRespiteSeconds, GroundFailuresCap= p.GroundFailuresCap,
+                    GroundFailureBaseProbability = p.GroundFailureBaseProbability, GroundWearProbabilityGain = p.GroundWearProbabilityGain,
                 }).ToList(),
             Ofp = new OfpWindowSettings {
                 PreStartWindowHours = source.Ofp?.PreStartWindowHours ?? 0,
@@ -612,47 +613,52 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             _logger.LogWarning("No hay candidatos de fallas de tierra elegibles; no se siembran fallas de tierra.");
             return;
         }
-        var desired = _policy.Next(0,session.RiskProfile.GroundFailuresCap);
-        var usedSystems = new HashSet<int>();
-        var selected = new List<(PresetFailureDefinition Def, string PresetName)>();
-        foreach (var candidate in candidates.OrderBy(_ => _policy.Next(0, int.MaxValue))) {
-            if (selected.Count >= desired) break;
-            var bucket = candidate.Def.FenixFailure?.Group?.SystemId ?? 0;
-            if (usedSystems.Contains(bucket)) continue;
-            usedSystems.Add(bucket);
-            selected.Add(candidate);
-        }
-        if (selected.Count < desired) {
-            _logger.LogWarning("Menos candidatos de tierra que el rango deseado: {Actual} de {Desired} (perfil {Risk})", selected.Count, desired, session.RiskLevel);
-        }
+        // Sorteo Bernoulli individual por falla (p_base del perfil amplificada por el desgaste del sistema padre);
+        // GroundFailuresCap actúa como tope, no como objetivo: la cantidad sembrada emerge de los sorteos.
+        var selected = _policy.SelectGroundFailures(candidates, session.RiskProfile.GroundFailuresCap);
         var now = _policy.UtcNow;
-        foreach (var (def, presetName) in selected) {
+        foreach (var candidate in selected) {
+            var (def, presetName) = candidate.Item;
             var item = new PreparedFailureItem(
                 def, def.FenixFailureId, def.FenixFailure?.Name ?? def.FenixFailureId, presetName,
                 def.FenixFailure?.Severity ?? FailureSeverity.Minor, true, ComplexFlightPhaseEnum.OnGate, now);
             Queue.TryEnqueue(item);
         }
-        _logger.LogInformation("Fallas de tierra sembradas: {Count}", selected.Count);
+        _logger.LogInformation(
+            "Fallas de tierra sembradas: {Count} de {Candidates} candidatos (perfil {Risk}, p_base {Base}, tope {Cap})",
+            selected.Count, candidates.Count, session.RiskLevel, session.RiskProfile.GroundFailureBaseProbability, session.RiskProfile.GroundFailuresCap);
     }
 
-    private async Task<List<(PresetFailureDefinition Def, string PresetName)>> BuildGroundCandidatesAsync(CancellationToken ct) {
-        // Las fallas de tierra son TODAS las definiciones persistidas con severidad 1/2 (Minor/Major):
+    private async Task<List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>> BuildGroundCandidatesAsync(CancellationToken ct) {
+        // Las fallas de tierra son TODAS las definiciones persistidas con severidad 1 (Minor):
         // no hay whitelist configurable; el catálogo curado (failures.json, persistido en FenixFailureDefinition)
         // es la fuente única del universo de fallas y la sesión escoge desde esa lista.
         if (_fenixFailureDefinitions is null) return [];
 
-        var result = new List<(PresetFailureDefinition Def, string PresetName)>();
-        foreach (var entity in (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x=> x.Severity is FailureSeverity.Minor)) {
+        // Desgaste por ATA de la aeronave de la sesión: FenixFailureSystem.AtaId ↔ AircraftWearableSystem.AtaId.
+        // Sin registro de desgaste para un sistema → wear 0 → probabilidad base sin amplificar.
+        var profile = Session!.RiskProfile;
+        var wearByAta = Session.Aircraft.SystemsWear
+            .GroupBy(x => x.SystemWear.AtaId)
+            .ToDictionary(g => g.Key, g => g.Max(x => x.WearPercentage));
+
+        var result = new List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>();
+        var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        foreach (var entity in availableFailures.Where(x=> x.Severity is FailureSeverity.Minor)) {
             if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
+            var ataId = entity.Group?.System?.AtaId ?? 0;
+            var wear = wearByAta.GetValueOrDefault(ataId);
+            var probability = _policy.GroundFailureProbability(profile, wear);
             // Candidato sintético que referencia la entidad persistida (trackeada por GetAllWithSystemsAsync,
             // misma identidad que el contexto de sesión): no se mutan navegaciones ajenas, así que el
             // SaveChanges posterior al seed no dispara conflictos de identity de EF.
             var def = new PresetFailureDefinition {
                 FenixFailureId = entity.FenixFailureId,
                 FenixFailure = entity,
-                Probability = 1.0
+                Probability = probability
             };
-            result.Add((def, entity.Group?.System?.Name ?? string.Empty));
+            result.Add(new GroundFailureCandidate<(PresetFailureDefinition, string)>(
+                (def, entity.Group?.System?.Name ?? string.Empty), probability, wear));
         }
         return result;
     }

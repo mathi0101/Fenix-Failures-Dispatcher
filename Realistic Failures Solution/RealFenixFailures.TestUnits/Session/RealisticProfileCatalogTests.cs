@@ -78,4 +78,16 @@ public class RealisticProfileCatalogTests {
 
         Assert.Equal(0, profile.GroundFailuresCap);
     }
+
+    [Theory]
+    [InlineData(RiskLevel.Low, 0.004, 1.5)]
+    [InlineData(RiskLevel.Moderate, 0.01, 2)]
+    [InlineData(RiskLevel.High, 0.015, 2.5)]
+    [InlineData(RiskLevel.Squawk7700, 0.025, 3)]
+    public void DefaultsFor_ConfiguredGroundProbabilityPerRisk(RiskLevel risk, double baseProbability, double wearGain) {
+        var profile = RealisticProfileCatalog.DefaultsFor(risk);
+
+        Assert.Equal(baseProbability, profile.GroundFailureBaseProbability, precision: 5);
+        Assert.Equal(wearGain, profile.GroundWearProbabilityGain, precision: 5);
+    }
 }

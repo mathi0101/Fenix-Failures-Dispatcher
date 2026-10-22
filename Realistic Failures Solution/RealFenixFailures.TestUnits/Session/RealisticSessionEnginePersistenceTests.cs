@@ -82,7 +82,7 @@ public class RealisticSessionEnginePersistenceTests {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
             Profiles = {
-                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, GroundFailuresCap = 1 }
+                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, GroundFailuresCap = 1, GroundFailureBaseProbability = 1.0 }
             }
         };
         var engine = new RealisticSessionEngine(
@@ -128,7 +128,7 @@ public class RealisticSessionEnginePersistenceTests {
         var seeded = Seed(db);
         SetupSimulatorConnected();
         var (engine, _) = CreateEngineWithRealRepos(db);
-        _random.SetupNextInt(1); // desired = 1 falla de tierra
+        _random.SetupNextDouble(0.0); // Bernoulli del único candidato: 0.0 < p=1.0 → entra
 
         var start = await engine.TryStartSession(new RealisticModeContext(
             RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),

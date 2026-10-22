@@ -37,6 +37,8 @@ public sealed record SystemWearDto {
     public required string Name { get; set; }
     public required string ShortName { get; set; }
     public int DisplayOrder { get; set; }
+    /// <summary>ATA que vincula el sistema wearable con los sistemas del catálogo Fenix (FenixFailureSystem.AtaId).</summary>
+    public int AtaId { get; set; }
 }
 
 /// <summary>Falla disparada dentro de una sesión (resumen expandido del Paso 2).</summary>
