@@ -4,6 +4,40 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-22 — Splash frames embebidos en el ensamblado: la raíz de la app publicada queda sin la carpeta Assets
+
+**Qué y por qué**
+
+- Los 6 frames del splash (`Assets/Branding/splash-frame-*.png`) viajaban sueltos a salida y publish (copiados por un `None` con `CopyToOutputDirectory`) porque `SplashWindow` se muestra antes de crear la `Application` y los cargaba por ruta de archivo (`AppContext.BaseDirectory\Assets\Branding`). Ahora van **embebidos en el ensamblado** (`EmbeddedResource`, recurso `RealFenixFailures.UI.Assets.Branding.splash-frame-N.png`) y `SplashWindow` los carga por `Assembly.GetManifestResourceStream` + `BitmapImage.StreamSource` (con `FileNotFoundException` descriptiva si faltara uno): no necesita `Application` ni pack URIs, funciona igual en el hilo STA del splash y dentro del exe único.
+- Resultado: el publish single-file ya no crea la carpeta `Assets\` en la raíz de la app (el icono y el fondo ya eran `<Resource>` embebidos).
+
+**Áreas tocadas**: `RealFenixFailures.UI.csproj` (`None`+copiar → `EmbeddedResource`), `Views/SplashWindow.xaml.cs` (carga por stream de recurso), `docs/ui/manejo-de-errores-y-arranque.md` (sección splash), este CHANGELOG.
+
+**Verificación**
+
+- Build Debug y Release: 0 errores, 0 advertencias. `dotnet test`: **164/164 pasan**.
+- Harness mínimo (`Assembly.GetManifestResourceStream` sobre los DLL Debug y Release de la UI): los 6 recursos existen con los nombres esperados y cada stream tiene firma PNG válida.
+- Smoke test del exe Debug (arranque real, 12 s): proceso vivo sin crash y detenido limpio (la carga de frames no lanzó excepciones; **no verificado visualmente** que la animación se vea igual — requiere mirada del usuario en pantalla).
+- `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` a carpeta fresca: raíz sin `Assets\`, solo exe único + `appsettings.json` + DLLs sueltas (SimConnect managed/nativa + nativas de WPF) + pdbs.
+
+### 2026-10-22 — Empaquetado: SimConnect (wrapper managed + nativa) viaja suelto a la carpeta de publish incluso con PublishSingleFile
+
+**Qué y por qué**
+
+- Objetivo: que `Microsoft.FlightSimulator.SimConnect.dll` quede copiado en la carpeta de publicación como archivo suelto, incluso cuando el publish es en un solo archivo (`PublishSingleFile=true`); antes no viajaba (referencia con `Private=False` y un `None Update` que no alcanzaba el archivo porque vive fuera del proyecto).
+- **Wrapper versionado en `libs\`**: se agrega `RealFenixFailures.Integrations.SimConnect\libs\Microsoft.FlightSimulator.SimConnect.dll` (172 KB, copia del SDK) para no depender de dónde (ni si) está instalado el SDK al compilar: tener el simulador no garantiza el SDK y su carpeta la elige quien lo instala. El csproj define `SimConnectManagedDll` (libs\ si existe, si no la ruta del SDK) y una única `Reference` con `HintPath` a esa fuente (`Private=False`, `EmbedInteropTypes=False`).
+- **Copia suelta a salida y publish**: `None Include` con `Link`, `CopyToOutputDirectory`/`CopyToPublishDirectory=PreserveNewest` y `ExcludeFromSingleFile=true` (el pipeline de publish respeta esa metadata y el bundler excluye esos archivos del exe único; ver `Microsoft.NET.Publish.targets`). El item transita del proyecto de integración a la UI por el canal estándar `GetCopyToOutputDirectoryItems`.
+- **Deduplicación en la UI**: RAR también resuelve el wrapper como dependencia del ensamblado de `Integrations.SimConnect` y lo metía en `ReferenceCopyLocalPaths`; esa segunda vía duplicaba el archivo en el publish (NETSDK1152) y con single-file lo habría empaquetado dentro del exe. `RealFenixFailures.UI.csproj` agrega el target `QuitarSimConnectWrapperDeCopyLocal` (`AfterTargets=ResolveAssemblyReferences`) que lo quita de esa lista, dejando solo la copia suelta.
+- Reemplaza el `None Update="Microsoft.FlightSimulator.SimConnect.dll"` agregado a mano en el csproj de la integración (era un no-op: el glob de `None` solo incluye archivos dentro de la carpeta del proyecto).
+
+**Áreas tocadas**: `RealFenixFailures.Integrations.SimConnect.csproj`, `RealFenixFailures.UI.csproj`, nuevo `RealFenixFailures.Integrations.SimConnect/libs/Microsoft.FlightSimulator.SimConnect.dll` (versionado), `docs/integraciones/simconnect.md` (sección "Obtención de la DLL del SDK"), este CHANGELOG.
+
+**Verificación**
+
+- `dotnet publish RealFenixFailures.UI -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`: carpeta de publish con el exe único (~173 MB) y **`Microsoft.FlightSimulator.SimConnect.dll` (172.032 B) y `SimConnect.dll` (85.504 B) sueltos** junto a `appsettings.json` y `Assets\`.
+- Build Debug y Release de la solución: 0 errores, 0 advertencias (una MSB3026 transitoria por lock de otro proceso MSBuild en `Domain.dll`, desapareció al reintentar). `dotnet test`: **164/164 pasan**.
+- **Verificado en producción por el usuario (2026-10-22)**: publish con SimConnect suelto funcionando en sesión real con MSFS/Fenix.
+
 ### 2026-10-22 — Seed de fallas de tierra: modelo probabilístico individual con desgaste del sistema padre (reemplaza el rango uniforme)
 
 **Qué y por qué**

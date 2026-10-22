@@ -12,11 +12,14 @@ namespace RealFenixFailures.UI.Views;
 /// generados con la misma estética). La barra va de 0 a
 /// full y se detiene en el último frame; NO está conectada al progreso real del
 /// arranque (si la app termina antes, se corta donde iba; si tarda más, queda
-/// llena). Los PNG se cargan desde el directorio junto al ejecutable (ver
-/// CopyToOutputDirectory en el .csproj) porque la ventana se muestra antes de
-/// crear la Application y no aplican los pack URIs.
+/// llena). Los PNG están embebidos como recursos del ensamblado
+/// (EmbeddedResource en el .csproj) y se cargan por
+/// Assembly.GetManifestResourceStream porque la ventana se muestra antes de
+/// crear la Application y no aplican los pack URIs de Application.
 /// </summary>
 public partial class SplashWindow : Window {
+    private const string ResourcePrefix = "RealFenixFailures.UI.Assets.Branding.";
+
     private static readonly string[] FrameFiles = {
         "splash-frame-0.png",
         "splash-frame-1.png",
@@ -35,12 +38,14 @@ public partial class SplashWindow : Window {
     public SplashWindow() {
         InitializeComponent();
 
-        var brandingDir = Path.Combine(AppContext.BaseDirectory, "Assets", "Branding");
+        var assembly = typeof(SplashWindow).Assembly;
         foreach (var file in FrameFiles) {
+            using var stream = assembly.GetManifestResourceStream(ResourcePrefix + file)
+                ?? throw new FileNotFoundException("No se encontró el frame embebido del splash: " + ResourcePrefix + file);
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.UriSource = new Uri(Path.Combine(brandingDir, file), UriKind.Absolute);
+            bitmap.StreamSource = stream;
             bitmap.EndInit();
             bitmap.Freeze();
             _frames.Add(bitmap);

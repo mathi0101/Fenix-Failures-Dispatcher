@@ -59,7 +59,9 @@ Desde 2026-10-15 el estado de conexión se informa una sola vez por transición,
 
 ## Obtención de la DLL del SDK
 
-La referencia se resuelve contra `MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll` (ruta relativa desde el csproj) o `libs\Microsoft.FlightSimulator.SimConnect.dll` local si existe. Instalación del SDK: MSFS → Developer Mode → Tools → SDK Installer. La DLL `SimConnect.dll` (nativa, sin manager) se copia a salida con `CopyToOutputDirectory=PreserveNewest`; no moverla ni eliminarla.
+El wrapper managed `Microsoft.FlightSimulator.SimConnect.dll` está **versionado en `libs\`** del proyecto de integración (fuente determinista) y la referencia lo resuelve con fallback a la instalación local del SDK (`MSFS 2024 SDK\SimConnect SDK\lib\managed\...`; la propiedad `SimConnectManagedDll` del csproj elige libs\ si existe, si no el SDK). Instalación del SDK: MSFS → Developer Mode → Tools → SDK Installer; su carpeta la elige quien lo instala, por eso no se depende de ella en runtime ni para distribuir.
+
+Ambas DLLs viajan como **archivos sueltos** a la salida y a la carpeta de publish (un `None Include` con `Link`, `CopyToOutputDirectory`/`CopyToPublishDirectory=PreserveNewest` y `ExcludeFromSingleFile=true` para el wrapper managed): con `PublishSingleFile=true` quedan al lado del exe único en vez de empaquetarse dentro de él. La nativa `SimConnect.dll` (nativa, sin manager, versionada en la raíz del proyecto) ya se copiaba con `CopyToOutputDirectory=PreserveNewest`; no moverlas ni eliminarlas. En `RealFenixFailures.UI.csproj`, el target `QuitarSimConnectWrapperDeCopyLocal` quita el wrapper de `ReferenceCopyLocalPaths` (RAR lo detecta además como dependencia del ensamblado de la integración): esa segunda vía duplicaría el archivo en el publish (NETSDK1152) y con single-file lo empaquetaría dentro del exe.
 
 ## Advertencias verificadas
 

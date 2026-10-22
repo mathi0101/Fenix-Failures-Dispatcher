@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\RealFenixFailures.Application\RealFenixFailures.Application.csproj" />
@@ -9,17 +9,36 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
+  <!-- Fuente única del wrapper managed: libs\ si existe, si no la del SDK.
+       Usada por la referencia (HintPath) y por el None que la copia a la
+       salida y a la carpeta de publish. -->
+  <PropertyGroup>
+    <SimConnectManagedDll>libs\Microsoft.FlightSimulator.SimConnect.dll</SimConnectManagedDll>
+    <SimConnectManagedDll Condition="!Exists('libs\Microsoft.FlightSimulator.SimConnect.dll')">..\..\..\..\..\..\..\..\..\..\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</SimConnectManagedDll>
+  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="Microsoft.FlightSimulator.SimConnect" Condition="Exists('libs\Microsoft.FlightSimulator.SimConnect.dll')">
-      <HintPath>libs\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Microsoft.FlightSimulator.SimConnect">
-      <HintPath>..\..\..\..\..\..\..\..\..\..\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
+    <!-- Una sola referencia activa: usa $(SimConnectManagedDll) (libs\ si
+         existe, si no el SDK). Private=False evita que RAR la copie por su
+         cuenta; la copia la hace el None de abajo. -->
+    <Reference Include="Microsoft.FlightSimulator.SimConnect" Condition="Exists('$(SimConnectManagedDll)')">
+      <HintPath>$(SimConnectManagedDll)</HintPath>
+      <Private>False</Private>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
     </Reference>
   </ItemGroup>
 
   <ItemGroup>
+    <!-- El wrapper managed vive fuera del proyecto: un None Update no lo
+         alcanza, hace falta Include con Link. Los items None viajan como
+         archivos sueltos a la salida y a la carpeta de publish; con
+         ExcludeFromSingleFile no se empaquetan dentro del exe único. -->
+    <None Include="$(SimConnectManagedDll)"
+          Link="Microsoft.FlightSimulator.SimConnect.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true"
+          Condition="Exists('$(SimConnectManagedDll)')" />
     <None Update="SimConnect.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
