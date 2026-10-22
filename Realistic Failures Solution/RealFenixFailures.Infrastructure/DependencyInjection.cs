@@ -43,6 +43,15 @@ public static class DependencyInjection {
         services.AddScoped<IPresetsLoader, PresetsLoader>();
         services.AddScoped<IUserAircraftService, UserAircraftService>();
 
+#if DEBUG
+        // Seed temporal SOLO de DEBUG: aeronave de ejemplo (LV-DBG) con sesiones,
+        // fallas y desgaste acumulado. Se registra también como IInitializerService
+        // para que corra tras DatabaseSeeder (catálogo + presets) en el pipeline
+        // del arranque; en Release no existe ni se resuelve.
+        services.AddScoped<IDebugSampleDataSeeder, DebugSampleDataSeeder>();
+        services.AddScoped<IInitializerService, DebugSampleDataSeeder>();
+#endif
+
         return services;
     }
 }

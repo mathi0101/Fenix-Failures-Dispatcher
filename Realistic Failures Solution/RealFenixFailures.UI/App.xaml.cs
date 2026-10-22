@@ -45,8 +45,9 @@ public partial class App : System.Windows.Application {
             var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
             await dbContext.Database.EnsureCreatedAsync();
 
-            var initializer = scope.ServiceProvider.GetRequiredService<IInitializerService>();
-            await initializer.InitializeAsync(CancellationToken.None);
+            var initializers = scope.ServiceProvider.GetServices<IInitializerService>();
+            foreach (var initializer in initializers)
+                await initializer.InitializeAsync(CancellationToken.None);
         }
         catch (Exception startupException) {
             Program.CloseSplash();

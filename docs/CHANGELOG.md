@@ -4,6 +4,39 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-20 — Suite de TestUnits compila y pasa 148/148: tests ajustados a la API vigente + 2 bugs de producción corregidos
+
+**Qué y por qué**
+
+- La suite **no compilaba** (30 errores) porque los tests quedaron con la API anterior a los commits que enlazaron el flight plan a la sesión y movieron las fallas de tierra a definiciones persistidas. Se ajustaron los tests a la API vigente: `RealisticSessionEngineTests`, `RealisticSessionEnginePersistenceTests` y `RealisticSessionManagerTests` construyen el engine con el `IFlightPlanRepository` nuevo (6º dep) y usan `StartNewAsync(RealisticModeContext, CT)` con `FlightPlanId`; `RealisticProfileCatalogTests` reemplaza los tests de `GroundRange` (eliminado) por resolución de `GroundFailuresCap` por perfil; `FlightSessionServiceTests` y `UserAircraftServiceTests` siembran un `FlightPlan` y usan `FlightSession.FlightPlanId` (FK Restrict; antes insertaban sesiones con FK 0 inexistente).
+- **Fix real 1 — `FlightSessionService.ToResultDto`**: `DestinationIcao` se mapeaba desde `session.FlightPlan?.OriginIcao` (copia de la línea de origen, regresión del commit `5a826a7`); el resultado de sesión devolvía el origen como destino. Ahora lee `FlightPlan.DestinationIcao`.
+- **Fix real 2 — `SimBriefOfpReader`**: `RouteText` se leía de `general/route` (inexistente) y quedaba siempre `null`; regresión del mismo commit que cambió la línea. Ahora vuelve a leer `route/text`, como el formato real del OFP.
+- **Mock SimConnect recalibrado**: el commit `5eb8b03` retemporizó los keyframes del vuelo sintético (despegue en t=65s) pero dejó 2 tests con el timeline viejo (documentado como pendiente en ese mismo commit); se re-sincronizaron (takeoff t=60s, crucero t=165s, reinicio de vuelo t=45s).
+- **Serilog**: los 4 tests de `SerilogDiagnosticsTests` apuntaban a un path de log inyectado por configuración, pero `ApplyDefaultConfiguration` (desde `d50119a`) escribe siempre en `%AppData%\RealFenixFailures\logs`; las aserciones pasan a leer los archivos reales rodantes (`realfenix-<fecha>.log`, `simconnect-diagnostic-<fecha>.log`) con tokens únicos por ejecución.
+
+**Áreas tocadas**: `Application/Services/FlightSessionService.cs` (fix), `Integrations.SimBrief/Services/SimBriefOfpReader.cs` (fix), `TestUnits` (`RealisticSessionEngineTests`, `RealisticSessionEnginePersistenceTests`, `RealisticSessionManagerTests`, `RealisticProfileCatalogTests`, `FlightSessionServiceTests`, `UserAircraftServiceTests`, `MockSimConnectClientTests`, `SerilogDiagnosticsTests`), este CHANGELOG.
+
+**Verificación**
+
+- `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj`: **148/148 pasan, 0 fallos** (antes no compilaba; los 6 fallos en la última corrida compilable —4 Serilog + 2 Mock— quedaron fuera al recalibrar/redireccionar).
+- No se verifica integración real MSFS/Fenix (requiere sesión real) ni se tocó comportamiento de los modos.
+
+### 2026-10-20 — Seed debug temporal: aeronave de ejemplo con sesiones, fallas y desgaste (solo DEBUG)
+
+**Qué y por qué**
+
+- Para no cargar datos a mano cada vez que se regenera la base local en desarrollo (borrar la `.db` y `EnsureCreated` reconstruye el esquema vacío), se agrega un **seed temporal solo DEBUG**: `DebugSampleDataSeeder` (`Infrastructure/Services`, implementa `IDebugSampleDataSeeder` en `Application/Interfaces`). Siembra la aeronave **`LV-DBG`** (A320) con historial completo en una única transacción: 3 `FlightPlan`, 4 `FlightSession` (3 finalizadas + 1 abierta, que no cuenta para totales de horas/vuelos), 4 `TriggeredFailure` con `FenixFailureId` reales del catálogo en estados distintos del ciclo de vida (ResolvedByPilot, NotResolved, AutoResolved, Sent) y 6 `AircraftSystemWear` acumulado. Es idempotente (solo siembra si no existe `LV-DBG`).
+- **Integración**: en `Infrastructure/DependencyInjection.cs` se registra bajo `#if DEBUG` como `IDebugSampleDataSeeder` y también como `IInitializerService -> DebugSampleDataSeeder`, para que corra después de `DatabaseSeeder` (catálogo+presets). `App.OnStartup` pasa a resolver `IEnumerable<IInitializerService>` e iterar en orden de registro (Application antes que Infrastructure ⇒ la FK de `TriggeredFailure.FenixFailureId` se garantiza tras el catálogo). En **Release** el seed no se registra ni se resuelve: no siembra nada. Los seeds estáticos y `DatabaseSeeder` no cambian; el seed debug es temporal y se retira quitando el bloque `#if DEBUG` y las clases.
+- Los `FenixFailureId` de ejemplo (`F_FUEL_PUMP_LEFT_1`, `F_ENGINE_1`, `F_HYD_LEAK_GREEN`, `F_BRAKE_ABCU`) existen en `failures.json` (catálogo curado), así que las fallas siembran con FK válida.
+
+**Áreas tocadas**: NUEVO `Application/Interfaces/IDebugSampleDataSeeder.cs`, NUEVO `Infrastructure/Services/DebugSampleDataSeeder.cs`, NUEVO `docs/realistic-mode/estado-y-diseno.md` (sección «Seed debug temporal»), `Infrastructure/DependencyInjection.cs`, `UI/App.xaml.cs` (resolución `IEnumerable<IInitializerService>`), `docs/arquitectura.md`, este CHANGELOG.
+
+**Verificación**
+
+- Build focalizado Debug: `RealFenixFailures.Infrastructure` **0 errores / 0 advertencias**; `RealFenixFailures.UI` **0 errores / 0 advertencias**. Build **Release** de `RealFenixFailures.Infrastructure`: **0 errores / 0 advertencias** (confirma que el `#if DEBUG` deja el habilitado sin seed).
+- Verificación empírica con repositorios y catálogo reales sobre SQLite de archivo recién creada (`EnsureCreated`), replicando el orden real del arranque: catálogo **384 definiciones**; tras el seeder: **1 aeronave LV-DBG, 3 planes, 4 sesiones (3 finalizadas + 1 abierta), 4 `TriggeredFailure` (0 huérfanas respecto del catálogo), 6 desgastes**; re-ejecutar el seeder no duplica (idempotencia). Los estados y navegaciones de las fallas quedaron asociados a sus sesiones como se diseñó.
+- `RealFenixFailures.TestUnits` **no compila** por WIP ajeno preexistente (ahora 30 errores: `StartNewAsync`/`RealisticModeContext` con `FlightPlanId`, etc., en `RealisticSessionEngineTests` y otros); ninguno en los archivos de este cambio. La suite completa queda pendiente de que ese WIP se consolide.
+
 ### 2026-10-20 — Seed unificado: DatabaseSeeder orquesta catálogo y presets; SeedData vuelve al seed estático
 
 **Qué y por qué**

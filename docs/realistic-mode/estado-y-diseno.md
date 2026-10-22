@@ -77,6 +77,19 @@ Evolución del mismo día: el universo de candidatas de tierra **ya no sale de u
 
 El arranque siembra la base desde un **punto único de orquestación**, `DatabaseSeeder` (`Application/Services`): primero carga el catálogo de fallas (`IFailuresPersistenceService.LoadInitialFailuresAsync`, desde `failures.json` embebido) y después los presets (`IPresetService.InitializeAsync`, Training y Realistic desde sus JSON embebidos), reutilizando los servicios existentes. Implementa `IInitializerService` —el contrato que `App.OnStartup` resuelve desde DI—, así que el arranque no cambia. Los seeds estáticos del esquema (`PresetType` y los 19 `AircraftWearableSystem`) siguen en `SeedData.Apply` (`OnModelCreating`), fuera del seeder runtime. El WIP de aeronave de ejemplo `LV-SEED` con sesiones/fallas/desgaste se retiró: `SeedData` volvió a su alcance original y `FailuresPersistenceService` a su constructor de 2 parámetros. Todo dato semilla futuro se orquesta desde `DatabaseSeeder`, con la restricción de que las fallas Fenix (FK `TriggeredFailure.FenixFailureId`) solo existen después del paso del catálogo.
 
+#### Seed debug temporal: aeronave de ejemplo con sesiones, fallas y desgaste (2026-10-20)
+
+Para **desarrollo** (no cargar datos a mano cada vez que se regenera la base: borrar la `.db` local y `EnsureCreated` reconstruye el esquema vacío) se agrega un **seed temporal solo DEBUG**, `DebugSampleDataSeeder` (`Infrastructure/Services`, implementa `IDebugSampleDataSeeder` en `Application/Interfaces`). En una base recién creada siembra la aeronave de ejemplo **`LV-DBG`** (A320) con su historial, todo en **una única transacción**:
+
+- 3 `FlightPlan` manuales (FK obligatoria de `FlightSession.FlightPlanId`).
+- 4 `FlightSession`: 3 finalizadas (riesgo High/Moderate/Low) y una **abierta** (sin `FinishedAt`, no cuenta para totales de horas/vuelos).
+- 4 `TriggeredFailure` con `FenixFailureId` del catálogo real (`F_FUEL_PUMP_LEFT_1`, `F_ENGINE_1`, `F_HYD_LEAK_GREEN`, `F_BRAKE_ABCU`) en estados distintos del ciclo de vida (ResolvedByPilot, NotResolved, AutoResolved, Sent).
+- 6 `AircraftSystemWear` acumulado (Fuel 22 %, Hydraulic 31,5 %, Landing gear 18 %, APU 9 %, Power plant 15 %, Start faults 6 %).
+
+**Integración con el pipeline de arranque**: en `Infrastructure/DependencyInjection.cs` se registra, bajo `#if DEBUG`, `IDebugSampleDataSeeder` y además `IInitializerService -> DebugSampleDataSeeder`, de modo que corre **después** de `DatabaseSeeder` (catálogo+presets). Para sostener varios initializers, `App.OnStartup` resuelve `IEnumerable<IInitializerService>` y los ejecuta en orden de registro (Application antes que Infrastructure ⇒ el catálogo garantiza la FK antes de las fallas de ejemplo). En **Release** el seed no se registra ni se resuelve: no siembra nada. Es idempotente (solo siembra si aún no existe `LV-DBG`) y temporal: cuando ya no se necesite, se quita el registro `#if DEBUG` y las dos clases, sin tocar `DatabaseSeeder`.
+
+**Verificado** con repositorios y catálogo reales sobre SQLite de archivo recién creada (`EnsureCreated`): 384 definiciones de fallas, 1 aeronave, 3 planes, 4 sesiones, 4 `TriggeredFailure` (ninguna huérfana respecto del catálogo), 6 desgastes; re-ejecutar el seeder no duplica (idempotencia). Compila Debug y Release (Release queda sin seed). La suite de tests completa sigue bloqueada por el WIP ajeno de otra tarea (ver CHANGELOG).
+
 ### Constantes verificadas
 
 | Constante | Valor | Lugar |

@@ -20,7 +20,7 @@ RealFenixFailures.TestUnits ── xUnit (Domain + Integrations.SimConnect)
 - Infrastructure: `RealFenixDbContext` (EF Core + SQLite), repositorios, `Migrations/`, `SeedData`, `FailuresPersistenceService`, `PresetsLoader`, `UserAircraftService`, logging Serilog.
 - Integrations.Fenix: `FenixApiClient` (HTTP), `MockFenixApiClient`, `FenixApiFailureService` (implementa `IFenixFailureApiDispatcher`), modelos del payload y mappers.
 - Integrations.SimConnect: `SimConnectClient` (real, `IFlightSimulationController`), `MockSimConnectClient`, `SimulatorFlightDataProvider` (implementa `ISimFlightDataProvider`), `AircraftStateData`/`SimConnectAircraftState`.
-- UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre `IInitializerService.InitializeAsync()` (implementado por `DatabaseSeeder`, punto único de orquestación de datos semilla: carga el catálogo de fallas y los presets) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
+- UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre cada `IInitializerService.InitializeAsync()` resolviendo `IEnumerable<IInitializerService>` (en orden de registro: `DatabaseSeeder`, punto único de orquestación del catálogo de fallas y presets; y, **solo en DEBUG**, `DebugSampleDataSeeder`, que siembra la aeronave de ejemplo con sesiones, fallas y desgaste) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
 
 En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTypeId` como FK a `FailurePresetTypes`; EF ignora la propiedad enum de conveniencia `FailurePreset.PresetType`. La migración `FixFailurePresetDuplicateColumn` elimina `PresetType1` de bases existentes.
 
@@ -30,7 +30,7 @@ En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTyp
 
 Lifetimes relevantes (Application DI):
 
-- Scoped: `IPresetService`, `IInitializerService` (implementado por `DatabaseSeeder`), **`IFlightSessionService`**, `IEngineOrchestrator`.
+- Scoped: `IPresetService`, `IInitializerService` (implementado por `DatabaseSeeder` y, solo en DEBUG, por `DebugSampleDataSeeder`), **`IFlightSessionService`**, `IEngineOrchestrator`.
 - Singleton: `ISimulatorConnectionService`, **`IFlightEventDetector`**, **`IRealisticSessionManager`**.
 
 El `RealisticSessionManager` (singleton) **no captura servicios scoped**: en `StartNewSessionAsync` crea un `IServiceScope` por sesión (`IServiceScopeFactory.CreateScope()`) y resuelve de ahí `IFlightSessionService`, `IPresetService` e `IFailureTrigger` para construir cada `RealisticSessionEngine`; el scope se descarta al parar (`StopAsync`) — **scope por sesión**.
