@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using RealFenixFailures.Infrastructure;
 using RealFenixFailures.Infrastructure.Logging;
 using Serilog;
 using Serilog.Events;
@@ -6,14 +7,10 @@ using Serilog.Events;
 namespace RealFenixFailures.TestUnits.Logging;
 
 public class SerilogDiagnosticsTests {
-    private static readonly string DiagnosticsLogsDirectory =
-        Path.Combine(Directory.GetCurrentDirectory(), "logs");
-
     [Fact]
     public void ApplyDefaultConfiguration_EnabledTrue_WritesDebugTokenToDiagnosticFileOnly() {
-        var mainLogPath = Path.Combine(Path.GetTempPath(), $"serilog-tests-main-{Guid.NewGuid():N}.log");
         var token = $"diag-token-{Guid.NewGuid():N}";
-        var configuration = BuildConfiguration(enabled: true, mainLogPath);
+        var configuration = BuildConfiguration(enabled: true);
 
         var logger = new LoggerConfiguration().ApplyDefaultConfiguration(configuration).CreateLogger();
         logger.ForContext("SourceContext", SerilogExtensions.SimConnectDiagnosticsSourceContext)
@@ -23,14 +20,13 @@ public class SerilogDiagnosticsTests {
         Assert.Contains(
             GetDiagnosticFiles(),
             file => File.ReadAllText(file).Contains(token, StringComparison.Ordinal));
-        AssertMainLogDoesNotContain(mainLogPath, token);
+        AssertMainLogDoesNotContain(token);
     }
 
     [Fact]
     public void ApplyDefaultConfiguration_EnabledFalse_DoesNotWriteTokenAndDebugDisabled() {
-        var mainLogPath = Path.Combine(Path.GetTempPath(), $"serilog-tests-main-{Guid.NewGuid():N}.log");
         var token = $"diag-token-{Guid.NewGuid():N}";
-        var configuration = BuildConfiguration(enabled: false, mainLogPath);
+        var configuration = BuildConfiguration(enabled: false);
 
         var logger = new LoggerConfiguration().ApplyDefaultConfiguration(configuration).CreateLogger();
         Assert.False(logger.IsEnabled(LogEventLevel.Debug));
@@ -41,21 +37,20 @@ public class SerilogDiagnosticsTests {
         Assert.DoesNotContain(
             GetDiagnosticFiles(),
             file => File.ReadAllText(file).Contains(token, StringComparison.Ordinal));
-        AssertMainLogDoesNotContain(mainLogPath, token);
+        AssertMainLogDoesNotContain(token);
     }
 
     [Fact]
     public void ApplyDefaultConfiguration_OverrideLevels_FilterFrameworkInfoPreserveOwnDebugAndWarnings() {
-        var mainLogPath = Path.Combine(Path.GetTempPath(), $"serilog-tests-main-{Guid.NewGuid():N}.log");
         const string debugDefault = "Debug";
-        const string httpInfoToken = "http-info-token";
-        const string httpWarnToken = "http-warn-token";
-        const string efInfoToken = "ef-info-token";
-        const string systemInfoToken = "system-info-token";
-        const string microsoftInfoToken = "microsoft-info-token";
-        const string ownInfoToken = "own-info-token";
-        const string ownDebugToken = "own-debug-token";
-        var configuration = BuildConfiguration(enabled: false, mainLogPath, defaultLevel: debugDefault,
+        var httpInfoToken = $"http-info-{Guid.NewGuid():N}";
+        var httpWarnToken = $"http-warn-{Guid.NewGuid():N}";
+        var efInfoToken = $"ef-info-{Guid.NewGuid():N}";
+        var systemInfoToken = $"system-info-{Guid.NewGuid():N}";
+        var microsoftInfoToken = $"microsoft-info-{Guid.NewGuid():N}";
+        var ownInfoToken = $"own-info-{Guid.NewGuid():N}";
+        var ownDebugToken = $"own-debug-{Guid.NewGuid():N}";
+        var configuration = BuildConfiguration(enabled: false, defaultLevel: debugDefault,
             overrides: new Dictionary<string, string> {
                 ["Microsoft"] = "Warning",
                 ["System"] = "Warning",
@@ -72,7 +67,7 @@ public class SerilogDiagnosticsTests {
         logger.ForContext("SourceContext", "RealFenixFailures.App").Debug(ownDebugToken);
         logger.Dispose();
 
-        var content = ReadMainLog(mainLogPath, httpWarnToken, ownInfoToken, ownDebugToken);
+        var content = ReadMainLog(httpWarnToken, ownInfoToken, ownDebugToken);
         Assert.Contains(httpWarnToken, content, StringComparison.Ordinal);
         Assert.Contains(ownInfoToken, content, StringComparison.Ordinal);
         Assert.Contains(ownDebugToken, content, StringComparison.Ordinal);
@@ -84,10 +79,9 @@ public class SerilogDiagnosticsTests {
 
     [Fact]
     public void ApplyDefaultConfiguration_MostSpecificEfCommandOverrideDebug_AllowsDebugCommands() {
-        var mainLogPath = Path.Combine(Path.GetTempPath(), $"serilog-tests-main-{Guid.NewGuid():N}.log");
-        const string efCommandDebugToken = "ef-command-debug-token";
-        const string microsoftDebugToken = "microsoft-debug-token";
-        var configuration = BuildConfiguration(enabled: false, mainLogPath, defaultLevel: "Debug",
+        var efCommandDebugToken = $"ef-command-debug-{Guid.NewGuid():N}";
+        var microsoftDebugToken = $"microsoft-debug-{Guid.NewGuid():N}";
+        var configuration = BuildConfiguration(enabled: false, defaultLevel: "Debug",
             overrides: new Dictionary<string, string> {
                 ["Microsoft"] = "Warning",
                 ["Microsoft.EntityFrameworkCore.Database.Command"] = "Debug",
@@ -99,24 +93,23 @@ public class SerilogDiagnosticsTests {
         logger.ForContext("SourceContext", "Microsoft.Hosting.Lifetime").Debug(microsoftDebugToken);
         logger.Dispose();
 
-        var content = ReadMainLog(mainLogPath, efCommandDebugToken);
+        var content = ReadMainLog(efCommandDebugToken);
         Assert.Contains(efCommandDebugToken, content, StringComparison.Ordinal);
         Assert.DoesNotContain(microsoftDebugToken, content, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ApplyDefaultConfiguration_MainSinkExcludesDiagnosticsWhenEnabled() {
-        var mainLogPath = Path.Combine(Path.GetTempPath(), $"serilog-tests-main-{Guid.NewGuid():N}.log");
         var diagToken = $"diag-excluded-token-{Guid.NewGuid():N}";
         var ownToken = $"own-token-{Guid.NewGuid():N}";
-        var configuration = BuildConfiguration(enabled: true, mainLogPath, defaultLevel: "Debug");
+        var configuration = BuildConfiguration(enabled: true, defaultLevel: "Debug");
 
         var logger = new LoggerConfiguration().ApplyDefaultConfiguration(configuration).CreateLogger();
         logger.ForContext("SourceContext", SerilogExtensions.SimConnectDiagnosticsSourceContext).Debug(diagToken);
         logger.ForContext("SourceContext", "RealFenixFailures.App").Debug(ownToken);
         logger.Dispose();
 
-        var content = ReadMainLog(mainLogPath, ownToken);
+        var content = ReadMainLog(ownToken);
         Assert.Contains(ownToken, content, StringComparison.Ordinal);
         Assert.DoesNotContain(diagToken, content, StringComparison.Ordinal);
         Assert.Contains(
@@ -126,14 +119,11 @@ public class SerilogDiagnosticsTests {
 
     private static IConfiguration BuildConfiguration(
         bool enabled,
-        string mainLogPath,
         string defaultLevel = "Warning",
         Dictionary<string, string>? overrides = null) {
         var data = new Dictionary<string, string?> {
             ["SimConnectDiagnostics:Enabled"] = enabled ? "true" : "false",
-            ["Serilog:MinimumLevel:Default"] = defaultLevel,
-            ["Serilog:WriteTo:0:Name"] = "File",
-            ["Serilog:WriteTo:0:Args:path"] = mainLogPath
+            ["Serilog:MinimumLevel:Default"] = defaultLevel
         };
         if (overrides != null) {
             foreach (var pair in overrides) {
@@ -143,15 +133,25 @@ public class SerilogDiagnosticsTests {
         return new ConfigurationBuilder().Add(new InMemoryConfigurationSource(data)).Build();
     }
 
-    private static string ReadMainLog(string mainLogPath, params string[] requiredTokens) {
+    private static IEnumerable<string> GetMainLogFiles() {
+        if (!Directory.Exists(AppPaths.LogsDirectory)) {
+            return Array.Empty<string>();
+        }
+        return Directory.GetFiles(AppPaths.LogsDirectory, "realfenix-*.log");
+    }
+
+    private static string ReadMainLog(params string[] requiredTokens) {
         var content = "";
         var deadline = DateTime.UtcNow.AddSeconds(10);
         while (DateTime.UtcNow < deadline) {
-            if (File.Exists(mainLogPath)) {
-                content = File.ReadAllText(mainLogPath);
-                if (requiredTokens.All(token => content.Contains(token, StringComparison.Ordinal))) {
-                    return content;
-                }
+            content = string.Concat(GetMainLogFiles()
+                .Where(File.Exists)
+                .Select(file => {
+                    try { return File.ReadAllText(file); }
+                    catch (IOException) { return string.Empty; }
+                }));
+            if (requiredTokens.All(token => content.Contains(token, StringComparison.Ordinal))) {
+                return content;
             }
             Thread.Sleep(100);
         }
@@ -159,17 +159,17 @@ public class SerilogDiagnosticsTests {
     }
 
     private static IEnumerable<string> GetDiagnosticFiles() {
-        if (!Directory.Exists(DiagnosticsLogsDirectory)) {
+        if (!Directory.Exists(AppPaths.LogsDirectory)) {
             return Array.Empty<string>();
         }
-        return Directory.GetFiles(DiagnosticsLogsDirectory, "simconnect-diagnostic-*.log");
+        return Directory.GetFiles(AppPaths.LogsDirectory, "simconnect-diagnostic-*.log");
     }
 
-    private static void AssertMainLogDoesNotContain(string mainLogPath, string token) {
-        if (File.Exists(mainLogPath)) {
+    private static void AssertMainLogDoesNotContain(string token) {
+        foreach (var file in GetMainLogFiles()) {
             Assert.False(
-                File.ReadAllText(mainLogPath).Contains(token, StringComparison.Ordinal),
-                $"El log principal no debe contener el token: {mainLogPath}");
+                File.ReadAllText(file).Contains(token, StringComparison.Ordinal),
+                $"El log principal no debe contener el token: {file}");
         }
     }
 

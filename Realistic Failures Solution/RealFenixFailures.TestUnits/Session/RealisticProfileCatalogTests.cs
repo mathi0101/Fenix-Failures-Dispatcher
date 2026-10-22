@@ -53,28 +53,29 @@ public class RealisticProfileCatalogTests {
     }
 
     [Theory]
-    [InlineData(RiskLevel.Low, 1, 2)]
-    [InlineData(RiskLevel.Moderate, 1, 3)]
-    [InlineData(RiskLevel.High, 2, 4)]
-    [InlineData(RiskLevel.Squawk7700, 3, 5)]
-    public void GroundRange_DefaultsPerRisk(RiskLevel risk, int min, int max) {
-        var (actualMin, actualMax) = RealisticProfileCatalog.GroundRange(null, risk);
-
-        Assert.Equal(min, actualMin);
-        Assert.Equal(max, actualMax);
-    }
-
-    [Fact]
-    public void GroundRange_UsesConfiguredRangeForRisk() {
+    [InlineData(RiskLevel.Low, 1)]
+    [InlineData(RiskLevel.Moderate, 2)]
+    [InlineData(RiskLevel.High, 3)]
+    [InlineData(RiskLevel.Squawk7700, 5)]
+    public void Resolve_ConfiguredGroundFailuresCapPerRisk(RiskLevel risk, int cap) {
         var settings = new RealisticModeSettings {
-            GroundFailureRanges = {
-                new GroundFailureRangeSettings { RiskLevel = 3, Min = 1, Max = 1 }
+            Profiles = {
+                new RealisticProfileSettings { RiskLevel = 1, GroundFailuresCap = 1 },
+                new RealisticProfileSettings { RiskLevel = 2, GroundFailuresCap = 2 },
+                new RealisticProfileSettings { RiskLevel = 3, GroundFailuresCap = 3 },
+                new RealisticProfileSettings { RiskLevel = 4, GroundFailuresCap = 5 }
             }
         };
 
-        var (min, max) = RealisticProfileCatalog.GroundRange(settings, RiskLevel.High);
+        var profile = RealisticProfileCatalog.Resolve(settings, risk);
 
-        Assert.Equal(1, min);
-        Assert.Equal(1, max);
+        Assert.Equal(cap, profile.GroundFailuresCap);
+    }
+
+    [Fact]
+    public void Resolve_WithoutConfiguredProfile_DefaultsGroundFailuresCapToZero() {
+        var profile = RealisticProfileCatalog.Resolve(null, RiskLevel.High);
+
+        Assert.Equal(0, profile.GroundFailuresCap);
     }
 }

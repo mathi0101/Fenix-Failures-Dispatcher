@@ -21,6 +21,22 @@ public class UserAircraftServiceTests {
         return context;
     }
 
+    private static FlightPlan AddFlightPlan(RealFenixDbContext db) {
+        var now = DateTime.UtcNow;
+        var plan = new FlightPlan {
+            OriginIcao = "SAEZ",
+            DestinationIcao = "SBGR",
+            AircraftIcaoType = "A320",
+            Source = "SIMBRIEF",
+            DownloadedAtUtc = now,
+            ValidFromUtc = now.AddHours(-2),
+            ValidUntilUtc = now.AddHours(2)
+        };
+        db.FlightPlans.Add(plan);
+        db.SaveChanges();
+        return plan;
+    }
+
     [Fact]
     public async Task GetAllAsync_ComputesTotalsFromFinishedSessionsOnly() {
         await using var db = CreateContext();
@@ -31,22 +47,26 @@ public class UserAircraftServiceTests {
         };
         db.UserAircrafts.Add(aircraft);
         db.SaveChanges();
+        var plan = AddFlightPlan(db);
 
         db.FlightSessions.AddRange(
             new FlightSession {
                 UserAircraftId = aircraft.Id,
+                FlightPlanId = plan.Id,
                 StartedAt = new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc),
                 FinishedAt = new DateTime(2026, 1, 1, 12, 30, 0, DateTimeKind.Utc),
                 RiskLevel = RiskLevel.Moderate
             },
             new FlightSession {
                 UserAircraftId = aircraft.Id,
+                FlightPlanId = plan.Id,
                 StartedAt = new DateTime(2026, 1, 2, 8, 0, 0, DateTimeKind.Utc),
                 FinishedAt = new DateTime(2026, 1, 2, 9, 0, 0, DateTimeKind.Utc),
                 RiskLevel = RiskLevel.Low
             },
             new FlightSession {
                 UserAircraftId = aircraft.Id,
+                FlightPlanId = plan.Id,
                 StartedAt = new DateTime(2026, 1, 3, 8, 0, 0, DateTimeKind.Utc),
                 RiskLevel = RiskLevel.High
             });
@@ -73,6 +93,7 @@ public class UserAircraftServiceTests {
 
         var session = new FlightSession {
             UserAircraftId = aircraft.Id,
+            FlightPlanId = AddFlightPlan(db).Id,
             StartedAt = new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc),
             FinishedAt = new DateTime(2026, 1, 1, 11, 15, 0, DateTimeKind.Utc),
             RiskLevel = RiskLevel.Moderate

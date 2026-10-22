@@ -138,7 +138,7 @@ public class FlightSessionService : IFlightSessionService {
             FinishedAt = session.FinishedAt,
             RiskLevel = session.RiskLevel,
             OriginIcao = session.FlightPlan?.OriginIcao,
-            DestinationIcao = session.FlightPlan?.OriginIcao,
+            DestinationIcao = session.FlightPlan?.DestinationIcao,
             Summary = summary,
             Failures = failures.Select(f => new FailureResultDto {
                 Id = f.Id,

@@ -42,12 +42,13 @@ public class RealisticSessionEnginePersistenceTests {
         return context;
     }
 
-    private static (FenixFailureSystem System, FenixFailureGroup Group, FenixFailureDefinition Definition, FailurePreset Preset, UserAircraft Aircraft) Seed(RealFenixDbContext db) {
+    private static (FenixFailureSystem System, FenixFailureGroup Group, FenixFailureDefinition Definition, FailurePreset Preset, UserAircraft Aircraft, FlightPlan FlightPlan) Seed(RealFenixDbContext db) {
+        var now = DateTime.UtcNow;
         var system = new FenixFailureSystem { Name = "ELEC", ShortName = "ELEC", AtaId = 24 };
         var group = new FenixFailureGroup { Name = "APU", System = system };
         var definition = new FenixFailureDefinition {
             FenixFailureId = GroundFailureId, Name = "APU Generator",
-            Group = group, Severity = FailureSeverity.Major
+            Group = group, Severity = FailureSeverity.Minor
         };
         var preset = new FailurePreset {
             Name = "P-GATE", Description = "d", TriggerDescription = "t",
@@ -59,22 +60,30 @@ public class RealisticSessionEnginePersistenceTests {
         };
         preset.PresetFailureDefinitions.Add(pfd);
         var aircraft = new UserAircraft { Registration = "TEST-GATE-01", IcaoTypeCode = "A320", CreatedAt = DateTime.UtcNow };
-        db.AddRange(system, group, definition, preset, aircraft);
+        var flightPlan = new FlightPlan {
+            OriginIcao = "SAEZ", DestinationIcao = "SBGR", AircraftIcaoType = "A320",
+            Source = "SIMBRIEF", DownloadedAtUtc = now, ValidFromUtc = now.AddHours(-2), ValidUntilUtc = now.AddHours(2)
+        };
+        db.AddRange(system, group, definition, preset, aircraft, flightPlan);
         db.SaveChanges();
-        return (system, group, definition, preset, aircraft);
+        return (system, group, definition, preset, aircraft, flightPlan);
     }
 
     private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db) {
         var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
         var defRepo = new FenixFailureDefinitionRepository(db);
         var flightSessionRepo = new FlightSessionRepository(db);
+        var flightPlanRepo = new FlightPlanRepository(db);
         var triggeredRepo = new TriggeredFailureRepository(db);
         var presetService = new PresetService(presetRepo, new Mock<IPresetsLoader>().Object);
         var sessionService = new FlightSessionService(flightSessionRepo, triggeredRepo);
 
         var settings = new RealisticModeSettings {
             GroundFailureEnabled = true,
-            EvaluationIntervalSeconds = 30
+            EvaluationIntervalSeconds = 30,
+            Profiles = {
+                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, GroundFailuresCap = 1 }
+            }
         };
         var engine = new RealisticSessionEngine(
             _simulator.Object,
@@ -82,6 +91,7 @@ public class RealisticSessionEnginePersistenceTests {
             sessionService,
             presetService,
             _flightEventDetector.Object,
+            flightPlanRepo,
             triggeredRepo,
             settings,
             new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
@@ -121,7 +131,7 @@ public class RealisticSessionEnginePersistenceTests {
         _random.SetupNextInt(1); // desired = 1 falla de tierra
 
         var start = await engine.TryStartSession(new RealisticModeContext(
-            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }),
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None);
 
         Assert.True(start.Started, "no arrancó la sesión");

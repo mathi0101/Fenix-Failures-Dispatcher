@@ -43,14 +43,30 @@ public class FlightSessionServiceTests {
         return aircraft;
     }
 
+    private static FlightPlan AddFlightPlan(RealFenixDbContext db, string? origin, string? destination) {
+        var now = DateTime.UtcNow;
+        var plan = new FlightPlan {
+            OriginIcao = origin ?? "XXXX",
+            DestinationIcao = destination ?? "XXXX",
+            AircraftIcaoType = "A320",
+            Source = "SIMBRIEF",
+            DownloadedAtUtc = now,
+            ValidFromUtc = now.AddHours(-2),
+            ValidUntilUtc = now.AddHours(2)
+        };
+        db.FlightPlans.Add(plan);
+        db.SaveChanges();
+        return plan;
+    }
+
     private static FlightSession AddSession(RealFenixDbContext db, RiskLevel risk, string? origin, string? destination, DateTime? finishedAt) {
         var aircraft = AddAircraft(db);
+        var plan = AddFlightPlan(db, origin, destination);
         var session = new FlightSession {
             UserAircraftId = aircraft.Id,
+            FlightPlanId = plan.Id,
             StartedAt = DateTime.UtcNow.AddHours(-2),
             RiskLevel = risk,
-            OriginIcao = origin,
-            DestinationIcao = destination,
             FinishedAt = finishedAt
         };
         db.FlightSessions.Add(session);

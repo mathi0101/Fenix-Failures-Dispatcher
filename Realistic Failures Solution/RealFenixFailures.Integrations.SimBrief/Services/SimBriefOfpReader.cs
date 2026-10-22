@@ -50,7 +50,7 @@ public sealed class SimBriefOfpReader : ISimBriefOfpReader {
             OffBlockUtc = offBlock == default ? DateTime.UtcNow : offBlock,
             EstimatedArrivalUtc = eta == default ? DateTime.UtcNow.AddMinutes(Math.Max(etmin, 30)) : eta,
             EstimatedDurationMinutes = etmin,
-            RouteText = general?.Element("route")?.Value?.Trim(),
+            RouteText = route?.Element("text")?.Value?.Trim(),
             RouteDistanceNM= routeDistanceNM,
             RawData = content,
             Source = "SimBrief",

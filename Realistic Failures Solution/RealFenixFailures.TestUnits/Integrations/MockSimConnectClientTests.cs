@@ -38,19 +38,19 @@ public class MockSimConnectClientTests {
         Assert.InRange(taxi.GroundSpeed, 8, 15);
         Assert.Equal(1, taxi.Engine2Combustion);
 
-        clock.Advance(TimeSpan.FromSeconds(30));
+        clock.Advance(TimeSpan.FromSeconds(15));
         var takeoffRoll = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.True(takeoffRoll.IsOnGround);
         Assert.True(takeoffRoll.GroundSpeed > 45);
         Assert.True(takeoffRoll.ThrottlePercent1 >= 95);
 
-        clock.Advance(TimeSpan.FromSeconds(25));
+        clock.Advance(TimeSpan.FromSeconds(40));
         var climb = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.False(climb.IsOnGround);
         Assert.True(climb.VerticalSpeed > 0);
         Assert.True(climb.RadioHeight > 300);
 
-        clock.Advance(TimeSpan.FromSeconds(75));
+        clock.Advance(TimeSpan.FromSeconds(65));
         var cruise = await client.GetAircraftStateAsync(CancellationToken.None);
         Assert.False(cruise.IsOnGround);
         Assert.Equal(7000, cruise.RadioHeight);
@@ -92,7 +92,7 @@ public class MockSimConnectClientTests {
         AssertAtColdAndDarkSumuGate(await client.GetAircraftStateAsync(CancellationToken.None));
 
         client.StartFlightSimulation();
-        clock.Advance(TimeSpan.FromSeconds(30));
+        clock.Advance(TimeSpan.FromSeconds(45));
         var restarted = await client.GetAircraftStateAsync(CancellationToken.None);
 
         Assert.True(restarted.IsOnGround);

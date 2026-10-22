@@ -25,6 +25,7 @@ public class RealisticSessionManagerTests {
     private readonly MockRandom _random = new();
     private DateTime _now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
     private Mock<ITriggeredFailureRepository> _triggeredFailureRepository = null!;
+    private Mock<IFlightPlanRepository> _flightPlanRepository = new();
     private Mock<IServiceScope> _scope = null!;
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
@@ -38,6 +39,7 @@ public class RealisticSessionManagerTests {
         serviceProvider.Setup(sp => sp.GetService(typeof(IPresetService))).Returns(_presetService.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IFailureTrigger))).Returns(_failureTrigger.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(ITriggeredFailureRepository))).Returns(_triggeredFailureRepository.Object);
+        serviceProvider.Setup(sp => sp.GetService(typeof(IFlightPlanRepository))).Returns(_flightPlanRepository.Object);
 
         _scope = new Mock<IServiceScope>();
         _scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
@@ -71,8 +73,14 @@ public class RealisticSessionManagerTests {
                 HasSimulatorData = true,
             }));
         _sessionService
-            .Setup(s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new FlightSession { Id = 1, StartedAt = _now, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+            .Setup(s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FlightSession { Id = 1, FlightPlanId = 1, StartedAt = _now, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+        _flightPlanRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FlightPlan {
+                Id = 1, OriginIcao = "SAEZ", DestinationIcao = "SBGR", AircraftIcaoType = "A320",
+                Source = "SIMBRIEF", DownloadedAtUtc = _now
+            });
         var presets = definitions is null
             ? new List<FailurePreset>()
             : new List<FailurePreset> {
@@ -91,7 +99,7 @@ public class RealisticSessionManagerTests {
     }
 
     private static RealisticModeContext Context() =>
-        new(RiskLevel.Moderate, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" });
+        new(RiskLevel.Moderate, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" }, FlightPlanId: 1);
 
     [Fact]
     public async Task StartNewSessionAsync_InvalidStart_ClearsStateAndAllowsRetry() {
@@ -108,7 +116,7 @@ public class RealisticSessionManagerTests {
         Assert.False(manager.IsPaused);
         _scope.Verify(s => s.Dispose(), Times.Once);
         _sessionService.Verify(
-            s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
         // A retry with valid simulator data must succeed.

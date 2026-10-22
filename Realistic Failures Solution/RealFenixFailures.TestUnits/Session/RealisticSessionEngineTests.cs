@@ -19,16 +19,31 @@ public class RealisticSessionEngineTests {
     private readonly Mock<IFlightSessionService> _sessionService = new();
     private readonly Mock<IPresetService> _presetService = new();
     private readonly Mock<IFlightEventDetector> _flightEventDetector = new();
+    private readonly Mock<IFlightPlanRepository> _flightPlanRepository = new();
     private readonly Mock<ITriggeredFailureRepository> _triggeredFailureRepository = new();
     private readonly MockRandom _random = new();
     private DateTime _now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
+    private const int FlightPlanId = 1;
 
     public RealisticSessionEngineTests() {
         // Por defecto, sin fallas activas en BD para que la reconciliación del ciclo de vida no dispare NRE.
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<TriggeredFailure>());
+        // Por defecto, el flight plan del contexto existe (TryStartSession lo exige para arrancar).
+        _flightPlanRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(DefaultFlightPlan());
     }
+
+    private static FlightPlan DefaultFlightPlan() => new() {
+        Id = FlightPlanId,
+        OriginIcao = "SAEZ",
+        DestinationIcao = "SBGR",
+        AircraftIcaoType = "A320",
+        Source = "SIMBRIEF",
+        DownloadedAtUtc = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc)
+    };
 
     private RealisticSessionEngine CreateEngine(RealisticModeSettings? settings = null, IFenixFailureDefinitionRepository? fenixFailureDefinitions = null) => new(
         _simulator.Object,
@@ -36,13 +51,14 @@ public class RealisticSessionEngineTests {
         _sessionService.Object,
         _presetService.Object,
         _flightEventDetector.Object,
+        _flightPlanRepository.Object,
         _triggeredFailureRepository.Object,
         settings,
         new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
         fenixFailureDefinitions);
 
     private static RealisticModeContext Context(RiskLevel risk = RiskLevel.Moderate) =>
-        new(risk, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" });
+        new(risk, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" }, FlightPlanId);
 
     private static SimulatorAircraftStateSnapshot OnGate() =>
         new() { IsOnGround = true, AltitudeMSL = 100, AltitudeAGL = 0, HasSimulatorData = true };
@@ -95,8 +111,8 @@ public class RealisticSessionEngineTests {
 
     private void SetupValidPersistence(RiskLevel risk = RiskLevel.Moderate, IEnumerable<PresetFailureDefinition>? definitions = null) {
         _sessionService
-            .Setup(s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new FlightSession { Id = 42, StartedAt = _now, RiskLevel = risk, UserAircraftId = 1 });
+            .Setup(s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FlightSession { Id = 42, FlightPlanId = FlightPlanId, StartedAt = _now, RiskLevel = risk, UserAircraftId = 1 });
         var presets = new List<FailurePreset> {
             new() { Id = 1, Name = "PRESET-A", FlightPhase = ComplexFlightPhaseEnum.Unknown, PresetFailureDefinitions = definitions?.ToList() ?? [] }
         };
@@ -142,7 +158,7 @@ public class RealisticSessionEngineTests {
         Assert.False(result.Started);
         Assert.Null(engine.Session);
         _sessionService.Verify(
-            s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -159,7 +175,7 @@ public class RealisticSessionEngineTests {
         Assert.False(result.Started);
         Assert.Null(engine.Session);
         _sessionService.Verify(
-            s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -179,7 +195,7 @@ public class RealisticSessionEngineTests {
         Assert.False(result.Started);
         Assert.Null(engine.Session);
         _sessionService.Verify(
-            s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -214,7 +230,7 @@ public class RealisticSessionEngineTests {
         Assert.NotNull(engine.Session);
         Assert.Equal(2, engine.Session.AvailablePresets.Count);
         _sessionService.Verify(
-            s => s.StartNewAsync(RiskLevel.Moderate, context.Aircraft, It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.Is<RealisticModeContext>(c => c.RiskLevel == RiskLevel.Moderate && c.Aircraft == context.Aircraft && c.FlightPlanId == context.FlightPlanId), It.IsAny<CancellationToken>()),
             Times.Once);
         _presetService.Verify(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -224,8 +240,8 @@ public class RealisticSessionEngineTests {
         SetupConnected();
         SetupOnGateData();
         _sessionService
-            .Setup(s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new FlightSession { Id = 42, StartedAt = _now, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+            .Setup(s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FlightSession { Id = 42, FlightPlanId = FlightPlanId, StartedAt = _now, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
         _presetService
             .Setup(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("presets unavailable"));
@@ -235,7 +251,7 @@ public class RealisticSessionEngineTests {
 
         Assert.Null(engine.Session);
         _sessionService.Verify(
-            s => s.StartNewAsync(It.IsAny<RiskLevel>(), It.IsAny<UserAircraftDto>(), It.IsAny<CancellationToken>()),
+            s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _presetService.Verify(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
