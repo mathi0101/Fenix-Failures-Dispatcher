@@ -4,6 +4,15 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-23 — Runbook de release y reglas de protección de ramas
+
+**Qué y por qué**
+
+- Agrega a [desarrollo.md](docs/desarrollo.md) el **runbook completo de release** (dev → master → tag → GitHub Release): precondiciones de calidad, elección de versión SemVer, cierre de `<Version>` en `Directory.Build.props`, tag anotado, publish single-file portable (SimConnect suelto, ZIP sin BD/logs), `gh release create` con notas generadas, post-release (bump `-dev` y verificación del updater) y flujo de hotfix.
+- Documenta la política de PR sobre `master`: forzar pull requests recién cuando haya colaboradores con write; hoy el ruleset `Protección dev/master` (creado en GitHub: bloqueo de borrado y force-push, bypass admin) cubre lo esencial sin fricción para el flujo actual.
+
+**Áreas tocadas**: docs (`docs/desarrollo.md`). Sin cambios de código.
+
 ### 2026-10-23 — Reloj de simulación escalable: mocks v2 de SimConnect y Fenix para probar el motor sin volar
 
 **Qué y por qué**

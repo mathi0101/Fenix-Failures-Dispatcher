@@ -71,6 +71,41 @@ Reglas del flujo clásico (v1/compartido): no editar migraciones ya aplicadas en
 
 **De v1.1 en adelante:** cada cambio de esquema → migración nueva incremental (nunca editar las aplicadas), versión `X.Y.0` + tag en el mismo commit del release.
 
+### Runbook de release (dev → master → tag → GitHub Release)
+
+Ciclo completo para publicar una versión. La fuente de verdad del número es `<Version>` en `Realistic Failures Solution/Directory.Build.props` (el tag `vX.Y.Z` debe coincidir con ese valor); la pestaña Actualizaciones de la app detecta releases de GitHub y distingue estables de pre-releases.
+
+1. **Precondiciones de calidad** (en `dev`, con las features del release mergeadas): build Debug y Release 0 errores / 0 advertencias, `dotnet test` en verde, auditoría de paquetes sin vulnerables, smoke test manual si el release toca integración real (MSFS/Fenix) y CHANGELOG al día.
+
+2. **Elegir versión (SemVer)**: feature nueva → `0.Y.0`; fix → `0.Y.Z`; ruptura de esquema/datos pre-1.0 → `0.Y.0` (antes de 1.0 la API interna puede cambiar en minor). Para canal de testers: `X.Y.Z-beta.N` marcado como pre-release.
+
+3. **Cerrar la versión en `dev`**: actualizar `<Version>` en `Directory.Build.props` quitando el sufijo `-dev` (p. ej. `0.2.0`), commit `chore(release): v0.2.0` (solo ese archivo) y push a `dev`.
+
+4. **`dev` → `master`**: PR `gh pr create --base master --head dev --title "Release v0.2.0"` y merge, o merge directo mientras el ruleset de protección tenga bypass para admin. Si activás "Require a pull request" en el ruleset, este paso es siempre PR.
+
+5. **Tag anotado** (en `master` actualizado, el commit del merge):
+
+   ```sh
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin master --follow-tags
+   ```
+
+6. **Publicar el build portable**: mismo publish single-file que se viene usando (SimConnect `Microsoft.FlightSimulator.SimConnect.dll` queda suelto junto al exe, ver commit `f072a5f`): `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -p:PublishSingleFile=true`. El ZIP debe incluir el exe, `Microsoft.FlightSimulator.SimConnect.dll` y `appsettings.json`; **sin** `realfenixfailures.db` ni `logs/` (eso vive en `%AppData%\RealFenixFailures\`).
+
+7. **GitHub Release** (desde `master`):
+
+   ```sh
+   gh release create v0.2.0 --target master --generate-notes --title "v0.2.0" ruta/al/zip.zip
+   ```
+
+   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md). Para betas agregar `--prerelease` (el updater las muestra separadas de las estables).
+
+8. **Post-release**: subir `<Version>` en `Directory.Build.props` de `dev` a la próxima de desarrollo (p. ej. `0.3.0-dev.0`) y push. Verificar manualmente que la pestaña Actualizaciones detecta el release publicado.
+
+9. **Hotfix**: rama `fix/*` desde `master` → PR/merge a `master` → release `v0.Y.(Z+1)` (pasos 3, 5, 6, 7 pero con `<Version>` y tag patch, sin pasar por `dev`) → back-merge del fix a `dev` para no perderlo.
+
+10. **Protección y PRs (reglas vigentes)**: el ruleset `Protección dev/master` (Settings → Rules → Rulesets) bloquea borrado y force-push de ambas ramas con bypass "Always" para el rol admin. Forzar PR en `master` es recomendable **recién cuando haya colaboradores con write** (mismo ruleset: activar "Require a pull request before merging"); trabajando solo, el bypass ya deja el push directo y un PR por release solo agrega fricción. Opcional: segundo ruleset sobre tags `v*` (target tags, mismas reglas de borrado/force-push).
+
 ## Validación
 
 - Antes de terminar un cambio: build Debug y Release + `dotnet test` sin errores; auditoría de dependencias (`dotnet list RealFenixFailures.slnx package --vulnerable --include-transitive`) sin paquetes vulnerables y builds con **0 advertencias**.
