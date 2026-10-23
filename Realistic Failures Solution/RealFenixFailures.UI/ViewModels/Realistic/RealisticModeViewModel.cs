@@ -29,6 +29,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly IRealisticSessionManager _realisticSessionManager;
     private readonly ISimbriefOfpService _ofpService;
     private readonly UserPreferencesService _preferences;
+    private readonly IRealisticExpectationService? _expectationService;
 
     private int _currentStep = 1;
     private bool _isLoading;
@@ -72,13 +73,15 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         ILogger<RealisticModeViewModel> logger,
         IRealisticSessionManager realisticSessionManager,
         ISimbriefOfpService ofpService,
-        UserPreferencesService preferences) {
+        UserPreferencesService preferences,
+        IRealisticExpectationService? expectationService = null) {
         _aircraftService = aircraftService;
         _orchestrator = orchestrator;
         _logger = logger;
         _realisticSessionManager = realisticSessionManager;
         _ofpService = ofpService;
         _preferences = preferences;
+        _expectationService = expectationService;
 
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
@@ -94,6 +97,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         BackToStep1Command = new RelayCommand(() => CurrentStep = 1, () => !IsEngineActive && !IsOperationPending);
         ContinueToPrepCommand = new RelayCommand(() => CurrentStep = 3, () => SelectedAircraft is not null && !IsEngineActive && !IsOperationPending);
         BackToStep2Command = new RelayCommand(() => CurrentStep = 2, () => !IsEngineActive && !IsOperationPending);
+        NavigateToStepCommand = new RelayCommand<string>(NavigateToStep, CanNavigateToStep);
 
         SelectRiskCommand = new RelayCommand<string>(SelectRisk, _ => !IsEngineActive && !IsOperationPending);
         ConfirmVatsimStartCommand = new RelayCommand(() => _vatsimConfirmTcs?.TrySetResult(true));
@@ -105,6 +109,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         PauseSessionCommand = new RelayCommand(async () => await PauseSessionAsync(), () => IsEngineActive && !IsSessionPaused && !IsOperationPending);
         CancelStopCommand = new RelayCommand(() => StopConfirmationVisible = false, () => !IsOperationPending);
         DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
+        DeleteOfpCommand = new RelayCommand(DeleteOfp, () => CanDeleteOfp);
         DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
 
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
@@ -127,6 +132,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public RelayCommand BackToStep1Command { get; }
     public RelayCommand ContinueToPrepCommand { get; }
     public RelayCommand BackToStep2Command { get; }
+    public RelayCommand<string> NavigateToStepCommand { get; }
     public RelayCommand<string> SelectRiskCommand { get; }
     public RelayCommand<FlightSessionItemViewModel> ToggleSessionCommand { get; }
     public RelayCommand ActivateCommand { get; }
@@ -158,9 +164,34 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsStep1));
                 OnPropertyChanged(nameof(IsStep2));
                 OnPropertyChanged(nameof(IsStep3));
+                OnPropertyChanged(nameof(CanNavigateToStep1));
+                OnPropertyChanged(nameof(CanNavigateToStep2));
+                OnPropertyChanged(nameof(CanNavigateToStep3));
+                NavigateToStepCommand.RaiseCanExecuteChanged();
             }
         }
     }
+
+    /// <summary>Navegación por pastillas (spec §8.5): hacia atrás libre; hacia adelante solo «Continuar».</summary>
+    private void NavigateToStep(string? step) {
+        if (int.TryParse(step, out var value) && CanNavigateToStep(value)) {
+            CurrentStep = value;
+        }
+    }
+
+    private bool CanNavigateToStep(string? step) =>
+        int.TryParse(step, out var value) && CanNavigateToStep(value, out _);
+
+    private bool CanNavigateToStep(int step) => CanNavigateToStep(step, out _);
+
+    private bool CanNavigateToStep(int step, out int resolved) {
+        resolved = step;
+        return step is >= 1 and <= 3 && step <= CurrentStep && !IsEngineActive && !IsOperationPending;
+    }
+
+    public bool CanNavigateToStep1 => CanNavigateToStep(1);
+    public bool CanNavigateToStep2 => CanNavigateToStep(2);
+    public bool CanNavigateToStep3 => CanNavigateToStep(3);
 
     public bool IsStep1 => CurrentStep == 1;
     public bool IsStep2 => CurrentStep == 2;
@@ -249,6 +280,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(HasSelectedRisk));
                 OnPropertyChanged(nameof(SelectedRiskDisplay));
                 OnPropertyChanged(nameof(HeaderProfileDisplay));
+                RefreshExpectation();
                 RaiseActivationState();
             }
         }
@@ -271,6 +303,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public string HeaderProfileDisplay => SelectedRiskLevel.HasValue ? SelectedRiskDisplay : "Sin perfil";
 
     public string RiskProfileButtonText => HasSelectedRisk ? "Cambiar perfil" : "Elegir perfil";
+
+    /// <summary>Subtítulo del card-button de perfil (spec §8.4).</summary>
+    public string ProfileCardSubtitle => HasSelectedRisk ? "Seleccionado" : "Sin perfil";
 
     public bool CanChangeProfile => !IsEngineActive && !IsOperationPending;
 
@@ -378,6 +413,11 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         SelectedAircraft is not null &&
         !IsEngineActive && !IsOperationPending;
 
+    /// <summary>Tooltip del botón Descargar OFP (spec §8.3): explica el bloqueo durante sesión.</summary>
+    public string OfpButtonToolTip => IsEngineActive
+        ? "Sesión activa: el OFP no puede modificarse. Detené la sesión para cargar otro plan."
+        : "Descarga el plan operacional de SimBrief del user, lo valida (ICAO del avión, campos mínimos y ventana UTC) y deja lista la activación.";
+
     public bool OfpValidated => _ofpPlanForUi?.IsUsable == true;
     public bool IsOfpDownloading {
         get => _isOfpDownloading;
@@ -385,6 +425,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (SetProperty(ref _isOfpDownloading, value)) {
                 RaiseActivationState();
                 DownloadOfpCommand.RaiseCanExecuteChanged();
+                DeleteOfpCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -411,11 +452,119 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         };
     }
 
+    #region Detalle del OFP y check de aeronave (spec §8.1/§8.2)
+
+    /// <summary>Hay OFP cargado: muestra las filas de detalle del bloque OFP.</summary>
+    public bool HasOfpDetails => _ofpPlanForUi is not null;
+
+    public string FlightNumberDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.FlightNumber) ? "—" : _ofpPlanForUi.FlightNumber!;
+    public string CallsignDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.Callsign) ? "—" : _ofpPlanForUi.Callsign!;
+    public string OffBlockDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.OffBlockUtc.ToLocalTime().ToString("dd/MM HH:mm");
+    public string ArrivalDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.EstimatedArrivalUtc.ToLocalTime().ToString("dd/MM HH:mm");
+    public string OfpDurationDisplay => _ofpPlanForUi is null || _ofpPlanForUi.EstimatedDurationMinutes <= 0 ? "—" : FormatDuration(_ofpPlanForUi.EstimatedDurationMinutes);
+    public string DistanceDisplay => _ofpPlanForUi?.RouteDistanceNM is > 0 ? $"{_ofpPlanForUi.RouteDistanceNM.Value:N0} NM" : "—";
+    public string OfpAircraftDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.AircraftIcaoType) ? "—" : _ofpPlanForUi.AircraftIcaoType!;
+    public string SourceDisplay => _ofpPlanForUi is null ? "—" : $"{_ofpPlanForUi.Source} · {_ofpPlanForUi.DownloadedAtUtc.ToLocalTime():HH:mm}";
+
+    public string OfpOriginDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.OriginIcao) ? "—" : _ofpPlanForUi.OriginIcao!;
+    public string OfpDestinationDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.DestinationIcao) ? "—" : _ofpPlanForUi.DestinationIcao!;
+
+    /// <summary>Texto del route del OFP (spec §8.1); null para ocultar la fila cuando está vacío.</summary>
+    public string? OfpRouteTextDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.RouteText) ? null : _ofpPlanForUi.RouteText;
+
+    /// <summary>Hay texto de route cargado en el OFP.</summary>
+    public bool HasOfpRouteText => OfpRouteTextDisplay is not null;
+
+    /// <summary>Tooltip UTC de la salida programada (spec §8.1); null cuando no hay OFP.</summary>
+    public string? OffBlockUtcToolTip => _ofpPlanForUi is null ? null : $"Salida programada en UTC: {_ofpPlanForUi.OffBlockUtc:dd/MM HH:mm}";
+
+    /// <summary>Check «Aeronave del OFP» del panel de requisitos: refleja el resultado de la última descarga/validación.</summary>
+    public bool OfpAircraftMatchIsOk => _ofpPlanForUi != null && _ofpPlanForUi?.AircraftIcaoType == _selectedAircraft?.IcaoTypeCode;
+
+    public string OfpAircraftMatchDisplay => _ofpPlanForUi switch {
+        null => "✘ Sin OFP",
+        var p when p.ValidationState == ValidationState.Pending => "✘ Pendiente",
+        var p when p.IsUsable || p.AircraftIcaoType==_selectedAircraft?.IcaoTypeCode => "✔ Cumplido",
+        _ => "✘ Inválido"
+    };
+
+    /// <summary>Fila «OFP» del panel de requisitos: texto corto; el detalle completo vive en el tooltip (OfpValidationToolTip) y en el bloque OFP.</summary>
+    public string OfpRowDisplay => _ofpPlanForUi switch {
+        null => "✘ Sin OFP",
+        var p when p.IsUsable => "✔ Cumplido",
+        var p when p.ValidationState == ValidationState.Pending => "✘ Pendiente",
+        var p when p.ValidationState == ValidationState.Expired => "✘ Vencido",
+        _ => "✘ Inválido"
+    };
+
+    /// <summary>Tooltip de las filas OFP de requisitos: detalle completo de la última validación.</summary>
+    public string OfpValidationToolTip => _ofpPlanForUi switch {
+        null => "Todavía no hay OFP cargado. Descargalo con el botón «Descargar OFP»; es obligatorio para activar.",
+        var p when p.IsUsable => $"OFP válido y listo para activar. {p.ValidationMessage}".Trim(),
+        var p when p.ValidationState == ValidationState.Pending => "Pendiente de validación: descargá el OFP de nuevo para completarla.",
+        var p => string.IsNullOrWhiteSpace(p.ValidationMessage)
+            ? $"Validación sin detalle ({p.ValidationState}). Descargá el OFP de nuevo."
+            : $"{p.ValidationState switch { ValidationState.Expired => "Fuera de ventana", ValidationState.Invalid => "Inválido", _ => p.ValidationState.ToString() }}: {p.ValidationMessage}"
+    };
+
+    public static string FormatDuration(int minutes) => $"{minutes / 60} h {minutes % 60:00} m";
+
+    #endregion
+
+    /// <summary>Estimación de fallas para la próxima sesión (spec §8.7), junto al desgaste medio.</summary>
+    public string ExpectationDisplay {
+        get => _expectationDisplay;
+        private set => SetProperty(ref _expectationDisplay, value);
+    }
+    private string _expectationDisplay = "Sin estimación";
+
+    public string ExpectationToolTip =>
+        "Estimación de presentación (no cambia el motor): usa la física del modelo con el desgaste medio actual "
+        + "y la duración del OFP cargado. Referencia Moderado hasta que elijas un perfil; con perfil, aplica su frecuencia.";
+
     public void ApplyOfpResult(FlightPlanDto dto) {
         _ofpPlanForUi = dto;
+        RaiseOfpState();
+        RefreshExpectation();
+        RaiseActivationState();
+    }
+
+    private void RaiseOfpState() {
         OnPropertyChanged(nameof(OfpValidated));
         OnPropertyChanged(nameof(RouteDisplay));
         OnPropertyChanged(nameof(OfpStatusDisplay));
+        OnPropertyChanged(nameof(HasOfpDetails));
+        OnPropertyChanged(nameof(FlightNumberDisplay));
+        OnPropertyChanged(nameof(CallsignDisplay));
+        OnPropertyChanged(nameof(OffBlockDisplay));
+        OnPropertyChanged(nameof(ArrivalDisplay));
+        OnPropertyChanged(nameof(OfpDurationDisplay));
+        OnPropertyChanged(nameof(DistanceDisplay));
+        OnPropertyChanged(nameof(OfpAircraftDisplay));
+        OnPropertyChanged(nameof(SourceDisplay));
+        OnPropertyChanged(nameof(OfpOriginDisplay));
+        OnPropertyChanged(nameof(OfpDestinationDisplay));
+        OnPropertyChanged(nameof(OfpRouteTextDisplay));
+        OnPropertyChanged(nameof(HasOfpRouteText));
+        OnPropertyChanged(nameof(OffBlockUtcToolTip));
+        OnPropertyChanged(nameof(OfpAircraftMatchIsOk));
+        OnPropertyChanged(nameof(OfpAircraftMatchDisplay));
+        OnPropertyChanged(nameof(OfpRowDisplay));
+        OnPropertyChanged(nameof(OfpValidationToolTip));
+        DeleteOfpCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>Botón rojo de descarte del OFP cargado (pedido del usuario): devuelve el panel al estado «Sin OFP».</summary>
+    public RelayCommand DeleteOfpCommand { get; }
+
+    private bool CanDeleteOfp => HasOfpDetails && !IsOfpDownloading && !IsEngineActive && !IsOperationPending;
+
+    private void DeleteOfp() {
+        if (!CanDeleteOfp) return;
+        _ofpPlanForUi = null;
+        _logger.LogInformation("OFP descartado por el usuario; el panel vuelve al estado sin OFP.");
+        RaiseOfpState();
+        RefreshExpectation();
         RaiseActivationState();
     }
 
@@ -600,6 +749,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 Sessions.Add(new FlightSessionItemViewModel(s));
             }
             OnPropertyChanged(nameof(HasSessions));
+            RefreshExpectation();
         } catch (Exception ex) {
             _logger.LogError(ex, "No se pudo cargar el dashboard de la aeronave {Id}.", aircraftId);
         } finally {
@@ -610,6 +760,22 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private void SelectRisk(string? level) {
         if (int.TryParse(level, out var value) && value is >= 1 and <= 4) {
             SelectedRiskLevel = value;
+        }
+    }
+
+    /// <summary>Recalcula la expectativa de fallas (spec §8.7) con el desgaste medio, la duración del OFP y el perfil vigente.</summary>
+    private void RefreshExpectation() {
+        if (_expectationService is null) return;
+        try {
+            double? avgWear = WearSystems.Count == 0 ? null : WearSystems.Average(w => (double)w.WearPercentage);
+            double? hours = _ofpPlanForUi?.EstimatedDurationMinutes is > 0 ? _ofpPlanForUi.EstimatedDurationMinutes / 60.0 : null;
+            var dto = _expectationService.Compute(avgWear, hours, (RiskLevel?)SelectedRiskLevel);
+
+            ExpectationDisplay = dto.FlightHours is { } h
+                ? $"≈ {dto.ExpectedFailures:0.##} fallas esperadas · P(≥1) = {dto.ProbabilityAtLeastOnePct:0}% para {FormatDuration((int)Math.Round(h * 60))}"
+                : $"≈ {dto.RatePerHour:0.##} fallas/h de vuelo (referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)})";
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "No se pudo calcular la expectativa de fallas.");
         }
     }
 
@@ -816,13 +982,19 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         OnPropertyChanged(nameof(ActionToolTip));
         OnPropertyChanged(nameof(CanChangeProfile));
         OnPropertyChanged(nameof(RiskProfileButtonText));
+        OnPropertyChanged(nameof(ProfileCardSubtitle));
+        OnPropertyChanged(nameof(OfpButtonToolTip));
         OnPropertyChanged(nameof(IsEngineActive));
         OnPropertyChanged(nameof(IsOnGround));
+        OnPropertyChanged(nameof(CanNavigateToStep1));
+        OnPropertyChanged(nameof(CanNavigateToStep2));
+        OnPropertyChanged(nameof(CanNavigateToStep3));
         OnPropertyChanged(nameof(IsSessionActiveWithoutFenix));
         OnPropertyChanged(nameof(IsDiscardPreparedVisible));
         ActivateCommand.RaiseCanExecuteChanged();
         BackToStep1Command.RaiseCanExecuteChanged();
         BackToStep2Command.RaiseCanExecuteChanged();
+        NavigateToStepCommand.RaiseCanExecuteChanged();
         SelectAircraftCommand.RaiseCanExecuteChanged();
         SelectRiskCommand.RaiseCanExecuteChanged();
         ContinueToPrepCommand.RaiseCanExecuteChanged();
@@ -830,6 +1002,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         CancelStopCommand.RaiseCanExecuteChanged();
         DiscardPreparedCommand.RaiseCanExecuteChanged();
         PauseSessionCommand.RaiseCanExecuteChanged();
+        DownloadOfpCommand.RaiseCanExecuteChanged();
+        DeleteOfpCommand.RaiseCanExecuteChanged();
     }
 
     #endregion

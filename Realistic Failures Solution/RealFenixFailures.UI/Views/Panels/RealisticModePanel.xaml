@@ -32,6 +32,91 @@
                                 <Setter TargetName="B" Property="Background" Value="#1A1E28"/>
                                 <Setter TargetName="B" Property="BorderBrush" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Pastilla de navegación de pasos (spec §8.5) -->
+        <Style x:Key="StepPillButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A2540"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Pill" CornerRadius="10" Padding="10,3"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Pill" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Botón primario suave (outline accent), para Descargar OFP (spec §8.3) -->
+        <Style x:Key="AccentOutlineButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="B" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#1A2540"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Botón icono de peligro (cuadrado chico rojo): descartar OFP cargado -->
+        <Style x:Key="DangerIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#3A1414"/>
+            <Setter Property="BorderBrush" Value="#7F1D1D"/>
+            <Setter Property="Foreground" Value="#EF4444"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="B" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="B" Property="Background" Value="#5C1A1A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -155,48 +240,65 @@
                        FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
                        TextWrapping="Wrap" Margin="0,6,0,0"/>
 
-            <!-- Indicador de pasos -->
-            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Border CornerRadius="10" Padding="10,3" Margin="0,0,6,0">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#1A2540"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsStep1}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="1 · Aeronave" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
-                </Border>
-                <Border CornerRadius="10" Padding="10,3" Margin="0,0,6,0">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#1A2540"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsStep2}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="2 · Resumen" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
-                </Border>
-                <Border CornerRadius="10" Padding="10,3" Margin="0,0,6,0">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#1A2540"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsStep3}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="3 · Preparación" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
-                </Border>
-            </StackPanel>
+            <!-- Indicador de pasos (navegable, spec §8.5) + Estado/Perfil en la banda del encabezado (spec §8.6) -->
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="1"
+                            IsEnabled="{Binding CanNavigateToStep1}"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 1 · Aeronave">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep1}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Text="1 · Aeronave" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                    </Button>
+                    <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="2"
+                            IsEnabled="{Binding CanNavigateToStep2}"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 2 · Resumen">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep2}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Text="2 · Resumen" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                    </Button>
+                    <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="3"
+                            IsEnabled="{Binding CanNavigateToStep3}"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 3 · Preparación">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep3}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Text="3 · Preparación" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                    </Button>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}">
+                        <Run Text="Estado: "/><Run Text="{Binding SessionStatusDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
+                    </TextBlock>
+                    <TextBlock FontSize="11" Margin="14,0,0,0" Foreground="{StaticResource Brush.Text.Secondary}">
+                        <Run Text="Perfil: "/><Run Text="{Binding HeaderProfileDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
         </StackPanel>
 
         <!-- CONTENIDO DE PASOS -->
@@ -321,11 +423,7 @@
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <Button HorizontalAlignment="Left" Content="◀  Volver"
-                            Command="{Binding BackToStep1Command}"
-                            Style="{StaticResource GhostButtonStyle}" Height="30" Padding="12,0"
-                            Visibility="{Binding IsEngineActive, Converter={StaticResource InverseBoolToVis}}"/>
-                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                    <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center"
                                Text="{Binding SelectedAircraftTitle}" FontSize="13" FontWeight="Bold"
                                Foreground="{StaticResource Brush.Text.Primary}"/>
                 </Grid>
@@ -489,27 +587,11 @@
 
             <Grid Visibility="{Binding IsStep3, Converter={StaticResource BoolToVis}}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <Button HorizontalAlignment="Left" Content="◀  Volver"
-                            Command="{Binding BackToStep2Command}"
-                            Style="{StaticResource GhostButtonStyle}" Height="30" Padding="12,0"
-                            Visibility="{Binding IsEngineActive, Converter={StaticResource InverseBoolToVis}}"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}">
-                            <Run Text="Estado: "/><Run Text="{Binding SessionStatusDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
-                        </TextBlock>
-                        <TextBlock FontSize="11" Margin="14,0,0,0" Foreground="{StaticResource Brush.Text.Secondary}">
-                            <Run Text="Perfil: "/><Run Text="{Binding HeaderProfileDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
-                        </TextBlock>
-                    </StackPanel>
-                </Grid>
-
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Hidden">
                     <StackPanel>
                     <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                         <StackPanel>
@@ -536,6 +618,10 @@
                                         <TextBlock Text="Desgaste medio" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                         <TextBlock Text="{Binding SelectedAircraft.WearAverageDisplay}" FontSize="11"
                                                    Foreground="{StaticResource Brush.Text.Primary}"/>
+                                        <TextBlock Text="{Binding ExpectationDisplay}" FontSize="10"
+                                                   Foreground="{StaticResource Brush.Accent.Amber.Primary}"
+                                                   ToolTip="{Binding ExpectationToolTip}"
+                                                   TextWrapping="Wrap" Margin="0,3,0,0"/>
                                     </StackPanel>
                                     <TextBlock Grid.Column="3" Text="▾  Desgaste" FontSize="11"
                                                Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
@@ -583,16 +669,73 @@
                             <StackPanel>
                                 <TextBlock Text="OFP Y RUTA" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Ruta" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,8,0" VerticalAlignment="Top"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding RouteDisplay}" FontSize="11"
-                                               Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
-                                </Grid>
+
+                                <!-- Estado vacío (spec §8.1) -->
+                                <TextBlock Text="Sin OFP · Descargalo para ver los detalles del vuelo."
+                                           FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Visibility="{Binding HasOfpDetails, Converter={StaticResource InverseBoolToVis}}"/>
+
+                                <!-- Detalle del OFP (spec §8.1) -->
+                                <StackPanel Visibility="{Binding HasOfpDetails, Converter={StaticResource BoolToVis}}">
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Ruta" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Background="#1A2540" CornerRadius="4" Padding="6,1">
+                                                <TextBlock Text="{Binding OfpOriginDisplay}" FontSize="10"
+                                                           Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                            </Border>
+                                            <TextBlock Text=" → " FontSize="10"
+                                                       Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
+                                            <Border Background="#1A2540" CornerRadius="4" Padding="6,1">
+                                                <TextBlock Text="{Binding OfpDestinationDisplay}" FontSize="10"
+                                                           Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="{Binding OfpRouteTextDisplay}" FontSize="10"
+                                               Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                               Visibility="{Binding HasOfpRouteText, Converter={StaticResource BoolToVis}}"/>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Nº de vuelo" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FlightNumberDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Callsign" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CallsignDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Salida programada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"
+                                                   ToolTip="{Binding OffBlockUtcToolTip}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OffBlockDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"
+                                                   ToolTip="{Binding OffBlockUtcToolTip}"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Llegada estimada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ArrivalDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Duración estimada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding OfpDurationDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Distancia" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding DistanceDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Aeronave del OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding OfpAircraftDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Fuente" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SourceDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0"/>
+                                    </Grid>
+                                </StackPanel>
+
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -604,15 +747,24 @@
                                                Foreground="{StaticResource Brush.Accent.Amber.Primary}" TextWrapping="Wrap"/>
                                 </Grid>
 
-                                <Button Height="26" Padding="12,0" Margin="0,10,0,0" HorizontalAlignment="Left"
-                                        Style="{StaticResource GhostButtonStyle}"
-                                        Command="{Binding DownloadOfpCommand}"
-                                        ToolTip="Descarga el plan operacional de SimBrief del user, lo valida (ICAO del avión, campos mínimos y ventana UTC) y deja lista la activación.">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Descargar OFP" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button Height="32" Padding="14,0" Margin="0,0,6,0"
+                                            Style="{StaticResource AccentOutlineButtonStyle}"
+                                            Command="{Binding DownloadOfpCommand}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="{Binding OfpButtonToolTip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Descargar OFP" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource DangerIconButtonStyle}"
+                                            Command="{Binding DeleteOfpCommand}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Descartar el OFP cargado: el panel vuelve a «Sin OFP» y tendrás que descargar otro antes de activar.">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                    </Button>
+                                </StackPanel>
                                 <TextBlock Text="Userid guardado solo en tus preferencias (nunca en la BD)."
                                            FontSize="9" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,6,0,0"/>
                             </StackPanel>
@@ -642,16 +794,6 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                </Grid>
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Fenix (opcional)" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="No es requisito para activar: sin Fenix la sesión prepara fallas en cola y las envía cuando Fenix está disponible."/>
-                                    <TextBlock Grid.Column="1" Text="✔ Opcional (prepara en cola)" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
@@ -695,43 +837,78 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </Grid>
-                                <Grid>
+                                <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="Obligatorio para activar. Se descarga y valida desde SimBrief; el backend de descarga/validación ya está implementado."/>
-                                    <TextBlock Grid.Column="1" Text="✘ Pendiente" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
-                                </Grid>
-                                <Grid Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Perfil seleccionado:" FontSize="11"
-                                               Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold">
+                                    <TextBlock Grid.Column="0" Text="Aeronave del OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="El tipo ICAO del OFP debe coincidir con la aeronave seleccionada."/>
+                                    <TextBlock Grid.Column="1" Text="{Binding OfpAircraftMatchDisplay}" FontSize="11" FontWeight="SemiBold"
+                                               ToolTip="{Binding OfpValidationToolTip}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Sin perfil seleccionado"/>
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding HasSelectedRisk}" Value="True">
-                                                        <Setter Property="Text" Value="{Binding SelectedRiskDisplay}"/>
-                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
+                                                    <DataTrigger Binding="{Binding OfpAircraftMatchIsOk}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Green.Primary}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </Grid>
-                                <Button Content="{Binding RiskProfileButtonText}" Height="32" Padding="14,0"
-                                        HorizontalAlignment="Left" Margin="0,10,0,0"
-                                        Style="{StaticResource GhostButtonStyle}"
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="Obligatorio para activar: descargá tu plan desde SimBrief y se valida automáticamente (aeronave, campos mínimos y ventana de salida)."/>
+                                    <TextBlock Grid.Column="1" Text="{Binding OfpRowDisplay}" FontSize="11" FontWeight="SemiBold"
+                                               ToolTip="{Binding OfpValidationToolTip}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding OfpValidated}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Green.Primary}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Fenix (opcional)" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="No es requisito para activar: sin Fenix la sesión prepara fallas en cola y las envía cuando Fenix está disponible."/>
+                                    <TextBlock Grid.Column="1" Text="✔ Opcional (prepara en cola)" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+                                </Grid>
+                                <Button Margin="0,10,0,0" Click="OpenRiskProfileWindow"
+                                        Style="{StaticResource CardButtonStyle}"
                                         IsEnabled="{Binding CanChangeProfile}"
-                                        Click="OpenRiskProfileWindow"/>
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Abrí el selector para elegir el perfil de riesgo de la sesión.">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding HeaderProfileDisplay}" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Text.Primary}"/>
+                                            <TextBlock Text="{Binding ProfileCardSubtitle}" FontSize="10"
+                                                       Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                                   Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -814,7 +991,7 @@
                 </StackPanel>
                 </ScrollViewer>
 
-                <StackPanel Grid.Row="2" Margin="0,12,0,0">
+                <StackPanel Grid.Row="1" Margin="0,12,0,0">
                     <Border Background="#2A1C0A" BorderBrush="{StaticResource Brush.Border.Warning}" BorderThickness="1"
                             CornerRadius="8" Padding="12" Margin="0,0,0,10"
                             Visibility="{Binding StopConfirmationVisible, Converter={StaticResource BoolToVis}}">

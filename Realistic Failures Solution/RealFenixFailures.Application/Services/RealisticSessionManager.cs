@@ -83,7 +83,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
         _scopeFactory = scopeFactory;
         _simulator = simulatorConnectionService;
         _flightEventDetector = flightEventDetector;
-        _realisticModeSettings = settings?.Value?.RealisticMode;
+        _realisticModeSettings = settings?.Value?.RealisticMode ?? new RealisticModeSettings();
         _policyFactory = policyFactory;
         var intervalSeconds = settings?.Value?.RealisticMode.EvaluationIntervalSeconds ?? EvaluationIntervalSeconds;
         _evaluationInterval = evaluationInterval ?? TimeSpan.FromSeconds(intervalSeconds);

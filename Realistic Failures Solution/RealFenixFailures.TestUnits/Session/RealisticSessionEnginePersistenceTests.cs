@@ -69,7 +69,7 @@ public class RealisticSessionEnginePersistenceTests {
         return (system, group, definition, preset, aircraft, flightPlan);
     }
 
-    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db) {
+    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null) {
         var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
         var defRepo = new FenixFailureDefinitionRepository(db);
         var flightSessionRepo = new FlightSessionRepository(db);
@@ -81,8 +81,9 @@ public class RealisticSessionEnginePersistenceTests {
         var settings = new RealisticModeSettings {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
+            Physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 1.0 },
             Profiles = {
-                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, GroundFailuresCap = 1, GroundFailureBaseProbability = 1.0 }
+                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
             }
         };
         var engine = new RealisticSessionEngine(
@@ -94,8 +95,9 @@ public class RealisticSessionEnginePersistenceTests {
             flightPlanRepo,
             triggeredRepo,
             settings,
-            new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
-            defRepo);
+            new RealisticFailurePolicy(new FailureRuleEvaluator(), utcNow ?? (() => _now), _random),
+            defRepo,
+            new AircraftSystemWearRepository(db));
         _flightEventDetector
             .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
             .Returns(ComplexFlightPhaseEnum.OnGate);
@@ -146,5 +148,40 @@ public class RealisticSessionEnginePersistenceTests {
         Assert.Equal(GroundFailureId, persisted[0].FenixFailureId);
         Assert.Equal(FailureLifecycleState.Sent, persisted[0].State);
         Assert.NotNull(await db.SessionEventLogs.FirstOrDefaultAsync(e => e.EventCode == "FAILURE_TRIGGERED"));
+    }
+
+    [Fact]
+    public async Task StopSession_AccumulatesWearBySessionFlightHours() {
+        // Espec §3.2: al cerrar sesión, cada sistema suma WearPerFlightHour × horas de vuelo de la
+        // sesión (StartedAt → fin real), con clamp 0–100. La duración del OFP no participa.
+        var db = CreateContext();
+        var seeded = Seed(db);
+        var wearable = new AircraftWearableSystem {
+            AtaId = 24, Name = "Electrical power", ShortName = "Elec", DisplayOrder = 1, WearPerFlightHour = 0.6
+        };
+        db.Add(wearable);
+        db.SaveChanges();
+        db.Add(new AircraftSystemWear {
+            UserAircraftId = seeded.Aircraft.Id, WearableSystemId = wearable.Id,
+            WearPercentage = 50, LastUpdatedAt = _now
+        });
+        db.SaveChanges();
+
+        SetupSimulatorConnected();
+        var clock = DateTime.UtcNow;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        var start = await engine.TryStartSession(new RealisticModeContext(
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None);
+        Assert.True(start.Started);
+
+        // Sesión de 2 horas de vuelo: 50% + 0.6%/h × 2 h ≈ 51.2% (StartedAt es wall-clock del servicio,
+        // el reloj del test corre desde ahí con un pequeño epsilon).
+        clock = DateTime.UtcNow.AddHours(2);
+        await engine.StopSession(CancellationToken.None);
+
+        var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id);
+        Assert.InRange(wear.WearPercentage, 51.2, 51.21);
+        Assert.Equal(clock, wear.LastUpdatedAt);
     }
 }

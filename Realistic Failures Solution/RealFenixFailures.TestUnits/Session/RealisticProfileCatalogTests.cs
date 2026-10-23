@@ -7,39 +7,41 @@ namespace RealFenixFailures.TestUnits.Session;
 
 public class RealisticProfileCatalogTests {
     [Theory]
-    [InlineData(RiskLevel.Low, 5, 2, 0)]
-    [InlineData(RiskLevel.Moderate, 7, 4, 1)]
-    [InlineData(RiskLevel.High, 10, 5, 2)]
-    public void DefaultsFor_ConfiguredCapsPerRisk(RiskLevel risk, int minor, int major, int critical) {
+    [InlineData(RiskLevel.Low, 0.75, 2.5, 3)]
+    [InlineData(RiskLevel.Moderate, 1.0, 3.0, 5)]
+    [InlineData(RiskLevel.High, 1.5, 3.5, 7)]
+    public void DefaultsFor_ConfiguredKnobsPerRisk(RiskLevel risk, double probabilityMultiplier, double wearMaxMultiplier, int aggravationCap) {
         var profile = RealisticProfileCatalog.DefaultsFor(risk);
-        Assert.Equal(minor, profile.MinorCap);
-        Assert.Equal(major, profile.MajorCap);
-        Assert.Equal(critical, profile.CriticalCap);
+        Assert.Equal(probabilityMultiplier, profile.ProbabilityMultiplier, precision: 5);
+        Assert.Equal(wearMaxMultiplier, profile.WearMaxMultiplier, precision: 5);
+        Assert.Equal(aggravationCap, profile.AggravationCap);
     }
 
     [Fact]
-    public void DefaultsFor_Squawk7700_HasNoCaps() {
+    public void DefaultsFor_Squawk7700_HasNoAggravationCap() {
         var profile = RealisticProfileCatalog.DefaultsFor(RiskLevel.Squawk7700);
 
-        Assert.Null(profile.MinorCap);
-        Assert.Null(profile.MajorCap);
-        Assert.Null(profile.CriticalCap);
+        Assert.Null(profile.AggravationCap);
+        Assert.Equal(2.5, profile.ProbabilityMultiplier, precision: 5);
+        Assert.Equal(4.0, profile.WearMaxMultiplier, precision: 5);
     }
 
     [Fact]
     public void Resolve_PrefersConfiguredProfileOverDefaults() {
         var settings = new RealisticModeSettings {
             Profiles = {
-                new RealisticProfileSettings { RiskLevel = 1, MinorCap = 99, MajorCap = 0, CriticalCap = 0 },
-                new RealisticProfileSettings { RiskLevel = 2, MinorCap = 3, MajorCap = 2, CriticalCap = 2 }
+                new RealisticProfileSettings { RiskLevel = 1, AggravationCap = 99, ProbabilityMultiplier = 3.0 },
+                new RealisticProfileSettings { RiskLevel = 2, AggravationCap = 4, ProbabilityMultiplier = 0.5 }
             }
         };
 
         var low = RealisticProfileCatalog.Resolve(settings, RiskLevel.Low);
-        Assert.Equal(99, low.MinorCap);
+        Assert.Equal(99, low.AggravationCap);
+        Assert.Equal(3.0, low.ProbabilityMultiplier, precision: 5);
 
         var moderate = RealisticProfileCatalog.Resolve(settings, RiskLevel.Moderate);
-        Assert.Equal(3, moderate.MinorCap);
+        Assert.Equal(4, moderate.AggravationCap);
+        Assert.Equal(0.5, moderate.ProbabilityMultiplier, precision: 5);
     }
 
     [Fact]
@@ -48,7 +50,7 @@ public class RealisticProfileCatalogTests {
 
         var high = RealisticProfileCatalog.Resolve(settings, RiskLevel.High);
 
-        Assert.Equal(10, high.MinorCap);
+        Assert.Equal(7, high.AggravationCap);
         Assert.Equal(600, high.CriticalRespiteSeconds);
     }
 
@@ -73,21 +75,24 @@ public class RealisticProfileCatalogTests {
     }
 
     [Fact]
-    public void Resolve_WithoutConfiguredProfile_DefaultsGroundFailuresCapToZero() {
+    public void Resolve_WithoutConfiguredProfile_DefaultsGroundFailuresCapPerRisk() {
         var profile = RealisticProfileCatalog.Resolve(null, RiskLevel.High);
 
-        Assert.Equal(0, profile.GroundFailuresCap);
+        Assert.Equal(3, profile.GroundFailuresCap);
     }
 
-    [Theory]
-    [InlineData(RiskLevel.Low, 0.004, 1.5)]
-    [InlineData(RiskLevel.Moderate, 0.01, 2)]
-    [InlineData(RiskLevel.High, 0.015, 2.5)]
-    [InlineData(RiskLevel.Squawk7700, 0.025, 3)]
-    public void DefaultsFor_ConfiguredGroundProbabilityPerRisk(RiskLevel risk, double baseProbability, double wearGain) {
-        var profile = RealisticProfileCatalog.DefaultsFor(risk);
+    [Fact]
+    public void RealisticModeSettings_DefaultPhysics_MatchSpec() {
+        var physics = new RealisticModeSettings().Physics;
 
-        Assert.Equal(baseProbability, profile.GroundFailureBaseProbability, precision: 5);
-        Assert.Equal(wearGain, profile.GroundWearProbabilityGain, precision: 5);
+        Assert.Equal(0.01, physics.FailureRatePerHourBase, precision: 6);
+        Assert.Equal(0.01, physics.GroundSeedBaseProbability, precision: 6);
+        Assert.Equal(1.0, physics.SeverityRateMultiplier.Minor, precision: 5);
+        Assert.Equal(0.4, physics.SeverityRateMultiplier.Major, precision: 5);
+        Assert.Equal(0.15, physics.SeverityRateMultiplier.Critical, precision: 5);
+        Assert.Equal(1, physics.AggravationWeights.Minor);
+        Assert.Equal(2, physics.AggravationWeights.Major);
+        Assert.Equal(4, physics.AggravationWeights.Critical);
+        Assert.Equal(1, physics.SameAtaAggravationExtra);
     }
 }

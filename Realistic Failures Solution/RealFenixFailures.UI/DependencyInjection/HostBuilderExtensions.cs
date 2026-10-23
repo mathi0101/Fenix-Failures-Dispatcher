@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application;
 using RealFenixFailures.Application.Interfaces;
+using RealFenixFailures.Application.Services;
 using RealFenixFailures.Domain;
 using RealFenixFailures.Infrastructure;
 using RealFenixFailures.Infrastructure.Logging;
@@ -20,7 +20,6 @@ namespace RealFenixFailures.UI.DependencyInjection;
 public static class HostBuilderExtensions {
     public static IHostBuilder ConfigureRealFenixFailures(this IHostBuilder hostBuilder) {
         return hostBuilder
-            .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Trace))
             .UseSerilog((context, services, loggerConfiguration) => {
                 loggerConfiguration.ApplyDefaultConfiguration(context.Configuration);
             })
@@ -33,6 +32,7 @@ public static class HostBuilderExtensions {
                 services.AddSimbriefIntegration(context.Configuration);
                 services.AddSingleton<UserPreferencesService>();
                 services.AddSingleton<IUpdateChecker, GithubUpdateChecker>();
+                services.AddSingleton<IRealisticExpectationService, RealisticExpectationService>();
                 services.AddTransient<SettingsWindowViewModel>();
                 services.AddTransient<MainWindow>();
                 services.AddTransient<MainWindowViewModel>();

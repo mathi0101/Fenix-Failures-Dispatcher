@@ -14,6 +14,8 @@ public sealed record FlightPlanDto {
     public DateTime OffBlockUtc { get; init; }
     public DateTime EstimatedArrivalUtc { get; init; }
     public int EstimatedDurationMinutes { get; init; }
+    /// <summary>Distancia de ruta en millas náuticas según el OFP; null si la fuente no la reporta.</summary>
+    public double? RouteDistanceNM { get; init; }
     public string? RouteText { get; init; }
     public ValidationState ValidationState { get; init; }
     public string? ValidationMessage { get; init; }

@@ -2,17 +2,12 @@ namespace RealFenixFailures.Domain.Services;
 
 public class RealisticProfileSettings {
     public int RiskLevel { get; set; }
+    /// <summary>Multiplicador de frecuencia del perfil: escala las λ de todas las fallas (espec §1.1).</summary>
+    public double ProbabilityMultiplier { get; set; } = 1.0;
+    /// <summary>Con desgaste 100% la probabilidad de fallar del sistema se multiplica por este valor (1 → sin efecto).</summary>
+    public double WearMaxMultiplier { get; set; } = 3.0;
+    /// <summary>Puntaje de agravamiento máximo tolerado por la sesión; null = sin tope (espec §2.2).</summary>
+    public int? AggravationCap { get; set; }
     public int GroundFailuresCap { get; set; }
-    /// <summary>Probabilidad base (0–1) de cada falla Minor individual en el seed de tierra, antes del desgaste.</summary>
-    public double GroundFailureBaseProbability { get; set; }
-    /// <summary>Ganancia por desgaste (k): multiplica la probabilidad base según wear% del sistema padre (0 → sin efecto).</summary>
-    public double GroundWearProbabilityGain { get; set; }
-    public int? MinorCap { get; set; }
-    public int? MajorCap { get; set; }
-    public int? CriticalCap { get; set; }
-    public double MinorPerHour { get; set; }
-    public double MajorPerHour { get; set; }
-    public double CriticalPerHour { get; set; }
     public int CriticalRespiteSeconds { get; set; }
 }
-

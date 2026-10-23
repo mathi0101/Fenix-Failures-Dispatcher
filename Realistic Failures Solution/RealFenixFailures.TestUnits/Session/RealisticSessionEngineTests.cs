@@ -45,17 +45,30 @@ public class RealisticSessionEngineTests {
         DownloadedAtUtc = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc)
     };
 
-    private RealisticSessionEngine CreateEngine(RealisticModeSettings? settings = null, IFenixFailureDefinitionRepository? fenixFailureDefinitions = null) => new(
-        _simulator.Object,
-        NullLogger<RealisticSessionEngine>.Instance,
-        _sessionService.Object,
-        _presetService.Object,
-        _flightEventDetector.Object,
-        _flightPlanRepository.Object,
-        _triggeredFailureRepository.Object,
-        settings,
-        new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
-        fenixFailureDefinitions);
+    private RealisticSessionEngine CreateEngine(RealisticModeSettings? settings = null, IFenixFailureDefinitionRepository? fenixFailureDefinitions = null) {
+        settings ??= DefaultSettings();
+        return new RealisticSessionEngine(
+            _simulator.Object,
+            NullLogger<RealisticSessionEngine>.Instance,
+            _sessionService.Object,
+            _presetService.Object,
+            _flightEventDetector.Object,
+            _flightPlanRepository.Object,
+            _triggeredFailureRepository.Object,
+            settings,
+            new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
+            fenixFailureDefinitions);
+    }
+
+    private static RealisticModeSettings DefaultSettings() => new() {
+        Physics = new RealisticPhysicsSettings(),
+        Profiles = {
+            new RealisticProfileSettings { RiskLevel = 1, ProbabilityMultiplier = 0.75, WearMaxMultiplier = 2.5, AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0 },
+            new RealisticProfileSettings { RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 0 },
+            new RealisticProfileSettings { RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 3.5, AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 600 },
+            new RealisticProfileSettings { RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0, AggravationCap = null, GroundFailuresCap = 5, CriticalRespiteSeconds = 300 }
+        }
+    };
 
     private static RealisticModeContext Context(RiskLevel risk = RiskLevel.Moderate) =>
         new(risk, new UserAircraftDto { Id = 1, Registration = "LV-XYZ" }, FlightPlanId);
@@ -89,7 +102,7 @@ public class RealisticSessionEngineTests {
             Group = new FenixFailureGroup {
                 Name = "G-" + id,
                 SystemId = systemId,
-                System = new FenixFailureSystem { Id = systemId, Name = "S-" + systemId, ShortName = "S" }
+                System = new FenixFailureSystem { Id = systemId, AtaId = systemId, Name = "S-" + systemId, ShortName = "S" }
             }
         }
     };
@@ -635,7 +648,7 @@ public class RealisticSessionEngineTests {
         SetupConnected();
         SetupOnGateData();
         SetupValidPersistence(definitions: new[] { Def("F_ENGINE_1", FailureSeverity.Minor) });
-        // 4 fallas propias Minor activas en BD + 1 externa Minor en Fenix (fuera de la cartera de la sesión).
+        // 4 fallas propias Minor activas en BD (score 4) + 1 externa Minor en Fenix (fuera de la cartera de la sesión).
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Range(1, 4).Select(i => new TriggeredFailure {
@@ -651,7 +664,7 @@ public class RealisticSessionEngineTests {
             .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         var engine = CreateEngine();
-        var start = await engine.TryStartSession(Context(RiskLevel.Low), CancellationToken.None);
+        var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
         Assert.True(start.Started);
 
         _now = _now.AddHours(1);
@@ -660,7 +673,7 @@ public class RealisticSessionEngineTests {
 
         var result = await engine.EvaluateAsync(CancellationToken.None);
 
-        // La externa no consume cupo: 4 propias < cap Minor 5, queda lugar para F_ENGINE_1.
+        // La externa no consume score: 4 propias + costo 1 = 5 ≤ AggravationCap 5, hay lugar para F_ENGINE_1.
         Assert.Single(result.TriggeredFailures);
     }
 
@@ -668,7 +681,8 @@ public class RealisticSessionEngineTests {
     public async Task EvaluateAsync_CapFullFromOwnActive_DoesNotChooseNewFailure() {
         SetupConnected();
         SetupOnGateData();
-        SetupValidPersistence(RiskLevel.Low, new[] { Def("F_ENGINE_1", FailureSeverity.Minor) });
+        SetupValidPersistence(RiskLevel.Moderate, new[] { Def("F_ENGINE_1", FailureSeverity.Minor) });
+        // 5 propias Minor activas: score 5 = AggravationCap 5 → el costo de otra (1) excede el tope.
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Range(1, 5).Select(i => new TriggeredFailure {
@@ -678,7 +692,7 @@ public class RealisticSessionEngineTests {
             }).ToArray());
         SetupFenixFailuresOk();
         var engine = CreateEngine();
-        var start = await engine.TryStartSession(Context(RiskLevel.Low), CancellationToken.None);
+        var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
         Assert.True(start.Started);
 
         _now = _now.AddHours(1);
@@ -689,6 +703,77 @@ public class RealisticSessionEngineTests {
 
         Assert.Empty(result.TriggeredFailures);
         _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_SameAtaExtra_BlocksSecondSameSystemFailure_Moderate() {
+        // Reproducción del incidente de la sesión 12 (espec §7.3): dos Majors de ATA 29 activas (score 4);
+        // un 3º hidráulico cuesta 2 + extra 2×1 = 4 → 4+4 = 8 > AggravationCap 5 ⇒ jamás elegible.
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence(RiskLevel.Moderate, new[] {
+            Def("F_HYD_1", FailureSeverity.Major, systemId: 29),
+            Def("F_HYD_2", FailureSeverity.Major, systemId: 29),
+            Def("F_HYD_3", FailureSeverity.Major, systemId: 29)
+        });
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] {
+                new TriggeredFailure { Id = 1, FlightSessionId = 42, FenixFailureId = "F_HYD_1", TriggeredAt = _now, FlightPhase = ComplexFlightPhaseEnum.Cruise, State = FailureLifecycleState.Active, Severity = FailureSeverity.Major },
+                new TriggeredFailure { Id = 2, FlightSessionId = 42, FenixFailureId = "F_HYD_2", TriggeredAt = _now, FlightPhase = ComplexFlightPhaseEnum.Cruise, State = FailureLifecycleState.Active, Severity = FailureSeverity.Major }
+            });
+        SetupFenixFailuresOk();
+        var engine = CreateEngine();
+        var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
+        Assert.True(start.Started);
+
+        _now = _now.AddHours(1);
+        _random.SetupNextDouble(0.0); // el roll dispara, pero F_HYD_3 no entra al sorteo (score)
+        _random.SetupNextDouble(0.0);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Empty(result.TriggeredFailures);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_Squawk7700_NoCap_SecondSameSystemFailurePaysExtra() {
+        // Con 7700 (cap null) el 3º hidráulico SÍ puede salir; el costo se paga igual (fórmula, no bloqueo).
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence(RiskLevel.Squawk7700, new[] {
+            Def("F_HYD_1", FailureSeverity.Major, systemId: 29),
+            Def("F_HYD_2", FailureSeverity.Major, systemId: 29),
+            Def("F_HYD_3", FailureSeverity.Major, systemId: 29)
+        });
+        _triggeredFailureRepository
+            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] {
+                new TriggeredFailure { Id = 1, FlightSessionId = 42, FenixFailureId = "F_HYD_1", TriggeredAt = _now, FlightPhase = ComplexFlightPhaseEnum.Cruise, State = FailureLifecycleState.Active, Severity = FailureSeverity.Major },
+                new TriggeredFailure { Id = 2, FlightSessionId = 42, FenixFailureId = "F_HYD_2", TriggeredAt = _now, FlightPhase = ComplexFlightPhaseEnum.Cruise, State = FailureLifecycleState.Active, Severity = FailureSeverity.Major }
+            });
+        SetupFenixFailuresOk();
+        _simulator
+            .Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _sessionService
+            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var engine = CreateEngine();
+        var start = await engine.TryStartSession(Context(RiskLevel.Squawk7700), CancellationToken.None);
+        Assert.True(start.Started);
+
+        _now = _now.AddHours(1);
+        _random.SetupNextDouble(0.0);
+        _random.SetupNextDouble(0.0);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Single(result.TriggeredFailures);
+        _sessionService.Verify(
+            s => s.AddTriggeredFailureAsync(42, It.Is<PresetFailureDefinition>(p => p.FenixFailureId == "F_HYD_3"), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -779,12 +864,15 @@ public class RealisticSessionEngineTests {
     }
 
     [Fact]
-    public async Task EvaluateAsync_PreparedItemKeptWhenSeverityCapTemporarilyFull() {
-        // Reservas de cola contadas una sola vez (no por item): 3 propias + 2 preparadas Minor llenan el cupo 5;
-        // la preparada se CONSERVA (no se descarta ni se elimina por un cupo temporal).
+    public async Task EvaluateAsync_PreparedItems_FlushRespectsAggravationScore() {
+        // Reservas de cola contadas una sola vez en el score (3 propias + 2 preparadas = 5 ≤ cap 5):
+        // con Fenix de vuelta el flush las envía (una aérea por tick) sin exceder el tope de agravamiento.
         SetupConnected(fenixConnected: false);
         SetupOnGateData();
-        SetupValidPersistence(RiskLevel.Low, new[] { Def("F_A", FailureSeverity.Minor), Def("F_B", FailureSeverity.Minor) });
+        SetupValidPersistence(RiskLevel.Moderate, new[] {
+            Def("F_A", FailureSeverity.Minor, systemId: 28),
+            Def("F_B", FailureSeverity.Minor, systemId: 29)
+        });
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Enumerable.Range(1, 3).Select(i => new TriggeredFailure {
@@ -793,10 +881,10 @@ public class RealisticSessionEngineTests {
                 State = FailureLifecycleState.Active, Severity = FailureSeverity.Minor
             }).ToArray());
         var engine = CreateEngine();
-        var start = await engine.TryStartSession(Context(RiskLevel.Low), CancellationToken.None);
+        var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
         Assert.True(start.Started);
 
-        // Preparar 2 en cola offline (el segundo evaluá con otro salto de reloj).
+        // Preparar 2 en cola offline (sistemas distintos: cada una cuesta 1; score 3→4→5 ≤ cap 5).
         _now = _now.AddHours(1);
         _random.SetupNextDouble(0.0);
         _random.SetupNextDouble(0.0);
@@ -812,12 +900,20 @@ public class RealisticSessionEngineTests {
         _simulator
             .Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _sessionService
+            .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        var result = await engine.EvaluateAsync(CancellationToken.None);
+        // Primer tick de flush: envía la primera preparada (score 5 ≤ cap, el envío no cambia el score).
+        var first = await engine.EvaluateAsync(CancellationToken.None);
+        Assert.Single(first.TriggeredFailures);
+        Assert.Equal(1, engine.PreparedCount);
 
-        Assert.Empty(result.TriggeredFailures);
-        Assert.Equal(2, engine.PreparedCount);
-        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Segundo tick: envía la restante.
+        var second = await engine.EvaluateAsync(CancellationToken.None);
+        Assert.Single(second.TriggeredFailures);
+        Assert.Equal(0, engine.PreparedCount);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

@@ -4,6 +4,47 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-23 — UI §8 del modo Realistic: bloque OFP ampliado, navegación por pastillas y expectativa de fallas
+
+**Qué y por qué**
+
+- Implementa la sección §8 de [spec-modelo-probabilistico-y-desgaste.md](realistic-mode/spec-modelo-probabilistico-y-desgaste.md) sobre `RealisticModePanel`:
+  - **Bloque OFP ampliado** (§8.1): chips origen → destino + texto de ruta, filas Nº de vuelo, Callsign, Salida programada (hora local con UTC en tooltip), Llegada estimada, Duración estimada, Distancia (`RouteDistanceNM` ahora expuesto en `FlightPlanDto` y mapeado por `SimbriefOfpService`), Aeronave del OFP y Fuente. Sin OFP se muestra un estado vacío en lugar de las filas; el estado de validación sigue siempre visible.
+  - **Botón «Descargar OFP» rediseñado** (§8.3): outline accent de 32 px con icono de descarga; el tooltip explica el bloqueo mientras hay sesión activa (`OfpButtonToolTip`).
+  - **Fila «OFP» del panel de requisitos arreglada** (§8.4): era texto estático «✘ Pendiente» que nunca actualizaba; ahora se bindea a `OfpRowDisplay` con color según `OfpValidated`.
+  - **Check nuevo «Aeronave del OFP»** (§8.4): refleja el resultado de la validación de tipo ICAO del OFP contra la aeronave seleccionada (`OfpAircraftMatchDisplay`/`OfpAircraftMatchIsOk`). Nuevo orden: MSFS · Datos aeronave · Aeronave del OFP · OFP · Perfil, con Fenix como nota opcional al final; la fila «Perfil seleccionado» desaparece (quedó duplicada dentro del card-button).
+  - **Card-button de perfil** (§8.4): reemplaza al ghost pequeño; muestra nombre del perfil (`HeaderProfileDisplay`), subtítulo «Seleccionado»/«Sin perfil» (`ProfileCardSubtitle`) e icono de edición; deshabilitado con sesión activa u operación pendiente.
+  - **Ajustes por feedback visual** (mismo día): los estados de las filas OFP de requisitos pasan a ser **cortos** («✔ Cumplido»/«✘ Sin OFP»/«✘ Pendiente»/«✘ Vencido»/«✘ Inválido») para que no rompan el layout, y el mensaje completo de validación se muestra en el tooltip (`OfpValidationToolTip` nuevo) — el detalle largo queda en el bloque OFP de la izquierda, que es su lugar. Además, botón **cuadrado chico rojo con icono de borrar** junto a «Descargar OFP» (`DeleteOfpCommand`, estilo `DangerIconButtonStyle`) para descartar el OFP cargado: deshabilitado sin OFP, durante la descarga, con sesión activa u operación pendiente; borra solo el estado de la UI (`_ofpPlanForUi = null` + recálculo + log) — la fila de BD queda sin efecto y un nuevo download la reemplaza (`ISimbriefOfpService` no tiene borrado y no se agregó).
+  - **Pastillas navegables** (§8.5): las 3 pastillas de pasos pasan a ser botones (`NavigateToStepCommand` con `CommandParameter` string; hacia atrás libre, hacia adelante solo «Continuar»); deshabilitadas con el motor activo u operación pendiente. Se quitan los botones «◀ Volver» de los encabezados de pasos 2 y 3, y «Estado · Perfil» sube a la banda del encabezado, a la misma altura que las pastillas (§8.6).
+  - **Expectativa de fallas** (§8.7): junto al desgaste medio del header colapsable se muestra `ExpectationDisplay` (≈ fallas esperadas y P(≥1) para la duración del OFP; sin duración, la tasa por hora con su referencia), calculada por el nuevo `RealisticExpectationService` — estimación de presentación que reutiliza la física del motor, no cambia su comportamiento. Se recalcula con OFP, perfil y dashboard.
+- `RealisticModeViewModel`: `NavigateToStepCommand` + bools `CanNavigateToStep1/2/3` (con `PropertyChanged` en cambios de paso y de estado del motor), propiedades de detalle OFP (`OfpOriginDisplay`, `OfpDestinationDisplay`, `OfpRouteTextDisplay`/`HasOfpRouteText`, `OffBlockUtcToolTip`), `OfpButtonToolTip` y `ProfileCardSubtitle`; `DeleteOfpCommand`/`CanDeleteOfp` y `RaiseOfpState()` (extracción del bloque de `OnPropertyChanged` de `ApplyOfpResult`).
+
+**Áreas tocadas**: Application (`RealisticExpectationDto`, `IRealisticExpectationService`, `RealisticExpectationService`, `FlightPlanDto.RouteDistanceNM`, `SimbriefOfpService`), UI (`RealisticModePanel.xaml`, `RealisticModeViewModel`, `HostBuilderExtensions` con el registro del servicio), TestUnits (`RealisticExpectationServiceTests`, 8 tests) y `docs/realistic-mode/estado-y-diseno.md`.
+
+**Verificación**
+
+- Build Debug: **0 errores, 0 advertencias**. `dotnet test`: **185/185 pasan** (8 nuevos de la expectativa: referencia 0.22/h, desgaste 0 + 2 h Moderate → 0.44 esperadas, triplicado con desgaste 100 %, multiplicador por perfil, sin datos y horas no positivas).
+- **No verificado visualmente en sesión real MSFS/Fenix**; antes de desplegar a la PC de testing hay que borrar `realfenixfailures.db` (esquema nuevo del motor v2) y migrar su `appsettings.json`.
+
+### 2026-10-23 — Motor Realistic v2: fórmula probabilística unificada, score de agravamiento y desgaste dinámico por horas de vuelo
+
+**Qué y por qué**
+
+- Motivación: el incidente real de la sesión 12 (2026-10-22, perfil Moderate sin desgaste: doble falla hidráulica Major del mismo ATA 29 que terminó en emergencia declarada). El modelo vigente no medía carga combinada (caps por severidad independientes), no agrupaba por sistema y el respiro solo actuaba tras una Critical. Spec completa con la discusión de diseño: `docs/realistic-mode/spec-modelo-probabilistico-y-desgaste.md`.
+- **Fórmula unificada** para tierra y vuelo: `p = p_base × mult_severidad × mult_perfil × factor_desgaste × peso_preset`, con física global nueva `RealisticMode:Physics` (`FailureEngineSettings.RealisticPhysicsSettings`). En vuelo la fórmula produce λ (eventos/hora) y `RealisticFailurePolicy.RollTick` integra el tiempo real (Poisson, `1−e^(−Σλ·Δt)` con Δt capado): la cadencia queda invariante al `EvaluationIntervalSeconds`; sorteo único ponderado por λ (reemplaza el doble sorteo severidad→candidato).
+- **Score de agravamiento**: se eliminan `MinorCap`/`MajorCap`/`CriticalCap` y `MinorPerHour`/`MajorPerHour`/`CriticalPerHour`; queda `AggravationCap` por perfil sobre el score combinado (activas + reservas de cola, pesos 1/2/4, filtrado pre-roll). Sin bloqueo por ATA: los 2º/3º fallos del mismo sistema pagan `SameAtaAggravationExtra` (1) por falla previa simultánea del mismo ATA. `GroundFailuresCap` y el respiro tras Critical se conservan. El perfil pasa de 11 a 6 knobs; `appsettings.json` migrado a la estructura nueva (los `appsettings` locales viejos dejan de leerse: caen a defaults del catálogo).
+- **Desgaste dinámico**: `WearMaxMultiplier` por perfil (2.5/3/3.5/4) reemplaza a los gains (`WearFactor = 1+(max−1)×wear/100`). Columna nueva `AircraftWearableSystem.WearPerFlightHour` (%/h, con seed data por ATA) y acumulación al cerrar sesión (`wear += rate × horas de sesión`, clamp 0–100) vía el nuevo `IAircraftSystemWearRepository`/`AircraftSystemWearRepository` — antes el desgaste era estático.
+- Seed de tierra: mismo mecanismo Bernoulli individual + truncado por cap (mayor desgaste → mayor p → azar), ahora con la fórmula unificada y la p_base global.
+- `RealisticSessionManager` acepta settings ausentes con defaults (antes propagaba null y el engine lo rechaza); `RealisticSessionEngine` gana parámetro opcional `IAircraftSystemWearRepository`.
+
+**Áreas tocadas**: Domain (`FailureEngineSettings`, `RealisticProfileSettings`, `RealisticProfileCatalog`, `AircraftWearableSystem`, nueva interfaz `IAircraftSystemWearRepository`), Application (`RealisticFailurePolicy` reescrito, `RealisticSessionEngine`, `RealisticSessionManager`), Infrastructure (`AircraftSystemWearRepository`, `DependencyInjection`, `SeedData` con `WearPerFlightHour`), UI (`appsettings.json`), TestUnits (policy/catalogo/engine/persistence actualizados + 21 tests nuevos) y `docs/realistic-mode/estado-y-diseno.md`.
+
+**Verificación**
+
+- Build Debug y Release: **0 errores, 0 advertencias**.
+- `dotnet test`: **177/177 pasan** (13 nuevos: física y seed con fórmula unificada, WearFactor lineal, λ por severidad/perfil/preset, score y extras ATA, invariancia de la cadencia a intervalo 5 s vs 30 s, reproducción del incidente de la sesión 12 — 3º hidráulico nunca elegible en Moderate, posible en 7700 pagando el extra —, flush de preparadas por score y acumulación de desgaste sobre SQLite real: 2 h × 0.6 %/h → +1.2 %).
+- **No verificado en sesión real MSFS/Fenix**; la integración real requiere borrar `realfenixfailures.db` (esquema nuevo) y migrar el `appsettings` de la PC de testing.
+
 ### 2026-10-22 — Splash frames embebidos en el ensamblado: la raíz de la app publicada queda sin la carpeta Assets
 
 **Qué y por qué**

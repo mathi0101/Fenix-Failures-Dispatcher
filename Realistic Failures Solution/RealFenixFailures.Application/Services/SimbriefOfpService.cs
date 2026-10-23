@@ -99,6 +99,7 @@ public sealed class SimbriefOfpService : ISimbriefOfpService {
         OffBlockUtc = p.OffBlockUtc,
         EstimatedArrivalUtc = p.EstimatedArrivalUtc,
         EstimatedDurationMinutes = p.EstimatedDurationMinutes,
+        RouteDistanceNM = p.RouteDistanceNM,
         RouteText = p.RouteText,
         ValidationState = p.ValidationState,
         ValidationMessage = p.ValidationMessage,
