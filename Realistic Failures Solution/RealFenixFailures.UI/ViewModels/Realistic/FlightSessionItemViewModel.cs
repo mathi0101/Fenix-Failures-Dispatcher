@@ -18,6 +18,7 @@ public sealed class FlightSessionItemViewModel : ObservableObject {
         OriginIcao = dto.OriginIcao;
         DestinationIcao = dto.DestinationIcao;
         Result = dto.Result;
+        IsDiscarded = dto.DiscardedAt is not null;
         TriggeredFailures = new ObservableCollection<TriggeredFailureItemViewModel>(
             dto.TriggeredFailures
                .OrderBy(f => f.TriggeredAt)
@@ -33,6 +34,11 @@ public sealed class FlightSessionItemViewModel : ObservableObject {
     public string? OriginIcao { get; }
     public string? DestinationIcao { get; }
     public ResultSummaryDto? Result { get; }
+
+    /// <summary>Sesión descartada desde la recuperación (§6): quedó en historial sin desgaste.</summary>
+    public bool IsDiscarded { get; }
+
+    public string DiscardedDisplay => IsDiscarded ? "Descartada" : string.Empty;
     public ObservableCollection<TriggeredFailureItemViewModel> TriggeredFailures { get; }
 
     public bool IsExpanded {
@@ -42,7 +48,7 @@ public sealed class FlightSessionItemViewModel : ObservableObject {
 
     public bool HasFailures => FailureCount > 0;
 
-    public string DateDisplay => StartedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public string DateDisplay => StartedAt.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
 
     public string RiskLevelDisplay => RiskLevel switch {
         1 => "Bajo",

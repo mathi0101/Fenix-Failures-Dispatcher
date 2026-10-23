@@ -100,6 +100,16 @@ public sealed record FailureResultDto {
     public DateTime? ResolvedAtUtc { get; init; }
 }
 
+/// <summary>Delta de desgaste aplicado a un sistema por la sesión (diseño §12/§13, columna «Δ sesión» del modal).</summary>
+public sealed record SystemWearDeltaDto {
+    public required int AtaId { get; init; }
+    public required string SystemName { get; init; }
+    public double DeltaPercentage { get; init; }
+    public double TotalPercentage { get; init; }
+    /// <summary>El sistema quedó sobre el umbral de mantenimiento (80 %).</summary>
+    public bool RequiresMaintenance => TotalPercentage >= 80.0;
+}
+
 /// <summary>Resultado completo de una sesión para el modal (diseño objetivo §13).</summary>
 public sealed record SessionResultDto {
     public required int SessionId { get; init; }
@@ -111,6 +121,8 @@ public sealed record SessionResultDto {
     public TimeSpan? Duration => FinishedAt.HasValue ? FinishedAt.Value - StartedAt : null;
     public ResultSummaryDto Summary { get; init; } = new();
     public IReadOnlyList<FailureResultDto> Failures { get; init; } = Array.Empty<FailureResultDto>();
+    /// <summary>Desglose del desgaste aplicado por esta sesión, por sistema (vacío si la sesión no aplicó desgaste).</summary>
+    public IReadOnlyList<SystemWearDeltaDto> WearDeltas { get; init; } = Array.Empty<SystemWearDeltaDto>();
 }
 
 /// <summary>Sesion de vuelo del historial (Paso 2), con sus fallas.</summary>
@@ -123,9 +135,14 @@ public sealed record FlightSessionDto {
     public string? OriginIcao { get; init; }
     public string? DestinationIcao { get; init; }
     public DateTime? OffBlockUtc { get; init; }
+    /// <summary>ETA del OFP: base del desgaste diferido al finalizar una sesión huérfana (diseño §6).</summary>
+    public DateTime? EstimatedArrivalUtc { get; init; }
     public IReadOnlyList<TriggeredFailureDto> TriggeredFailures { get; init; } = Array.Empty<TriggeredFailureDto>();
     public IReadOnlyList<SessionEventLogDto> EventLogs { get; init; } = Array.Empty<SessionEventLogDto>();
     public ResultSummaryDto? Result { get; init; }
+
+    /// <summary>No nulo cuando la sesión fue descartada desde la recuperación (queda en historial como descartada).</summary>
+    public DateTime? DiscardedAt { get; init; }
 
     public int FailureCount => TriggeredFailures.Count;
     public TimeSpan? Duration => FinishedAt.HasValue ? FinishedAt.Value - StartedAt : null;

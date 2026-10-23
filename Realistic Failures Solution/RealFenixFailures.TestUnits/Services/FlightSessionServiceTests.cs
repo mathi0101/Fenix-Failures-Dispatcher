@@ -193,7 +193,7 @@ public class FlightSessionServiceTests {
         var (service, db) = CreateSut();
         var session = AddSession(db, RiskLevel.Low, "SUMU", "SAEZ", null);
 
-        var result = await service.FinalizeSessionAsync(session.Id, DateTime.UtcNow, CancellationToken.None);
+        var result = await service.FinalizeSessionAsync(session.Id, DateTime.UtcNow, null, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
@@ -210,5 +210,115 @@ public class FlightSessionServiceTests {
 
         Assert.Single(result);
         Assert.Null(result[0].FinishedAt);
+    }
+
+    private static DateTime TrimMicroseconds(DateTime value) => new(value.Ticks / 10 * 10, value.Kind);
+
+    private static FlightSessionService CreateSutWithWear(RealFenixDbContext db) {
+        var service = new FlightSessionService(
+            new FlightSessionRepository(db),
+            new TriggeredFailureRepository(db),
+            new AircraftSystemWearRepository(db));
+        return service;
+    }
+
+    private static (AircraftWearableSystem System, AircraftSystemWear Wear) AddWearable(RealFenixDbContext db, int aircraftId, double ratePerHour, double basePercentage) {
+        var system = new AircraftWearableSystem {
+            AtaId = 29,
+            Name = "Hidráulica",
+            ShortName = "HYD",
+            DisplayOrder = 1,
+            WearPerFlightHour = ratePerHour
+        };
+        db.AircraftWearableSystems.Add(system);
+        db.SaveChanges();
+        var wear = new AircraftSystemWear {
+            UserAircraftId = aircraftId,
+            WearableSystemId = system.Id,
+            WearPercentage = basePercentage,
+            LastUpdatedAt = DateTime.UtcNow
+        };
+        db.AircraftSystemWears.Add(wear);
+        db.SaveChanges();
+        return (system, wear);
+    }
+
+    private static TriggeredFailure AddTriggeredFailure(RealFenixDbContext db, int sessionId, FailureLifecycleState state) {
+        var fenixId = $"F_{state}_{db.TriggeredFailures.Count()}";
+        AddFenixFailure(db, fenixId, FailureSeverity.Major);
+        var failure = new TriggeredFailure {
+            FlightSessionId = sessionId,
+            FenixFailureId = fenixId,
+            FailureName = $"Falla {state}",
+            TriggeredAt = DateTime.UtcNow.AddHours(-1),
+            FlightPhase = ComplexFlightPhaseEnum.Cruise,
+            State = state,
+            Severity = FailureSeverity.Major
+        };
+        db.TriggeredFailures.Add(failure);
+        db.SaveChanges();
+        return failure;
+    }
+
+    [Fact]
+    public async Task FinalizeSessionAsync_ConsolidatesUnresolved_AsNotResolvedSessionEnded() {
+        var (service, db) = CreateSut();
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Sent);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Rejected);
+
+        var finishedAt = DateTime.UtcNow;
+        var result = await service.FinalizeSessionAsync(session.Id, finishedAt, null, CancellationToken.None);
+
+        var failures = db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id).ToList();
+        var unresolved = failures.Where(f => f.State == FailureLifecycleState.NotResolved).ToList();
+        Assert.Equal(2, unresolved.Count);
+        Assert.All(unresolved, f => {
+            Assert.Equal(ResolutionSource.SessionEnded, f.ResolutionSource);
+            Assert.NotNull(f.ResolvedAtUtc);
+            Assert.Equal(TrimMicroseconds(finishedAt), TrimMicroseconds(f.ResolvedAtUtc!.Value));
+        });
+        Assert.Contains(failures, f => f.State == FailureLifecycleState.Rejected);
+        Assert.Equal(0, result.Summary.ActiveAtEnd);
+    }
+
+    [Fact]
+    public async Task DiscardSessionAsync_MarksDiscarded_AndDoesNotApplyWear() {
+        var (service, db) = CreateSut();
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
+        AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
+
+        await service.DiscardSessionAsync(session.Id, DateTime.UtcNow, CancellationToken.None);
+
+        var stored = db.FlightSessions.First();
+        Assert.NotNull(stored.DiscardedAt);
+        Assert.NotNull(stored.FinishedAt);
+        Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
+            f => f.State == FailureLifecycleState.NotResolved);
+        Assert.Equal(10.0, db.AircraftSystemWears.Single().WearPercentage, precision: 6);
+    }
+
+    [Fact]
+    public async Task FinalizeUnfinishedSessionAsync_AppliesWearByEta_OfFlightPlan() {
+        var db = CreateContext();
+        var service = CreateSutWithWear(db);
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
+        AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
+
+        // ETA 2 h después del arranque de la sesión (AddSession arranca la sesión 2 h atrás).
+        var plan = db.FlightPlans.First(p => p.Id == session.FlightPlanId);
+        plan.EstimatedArrivalUtc = session.StartedAt.AddHours(2);
+        db.SaveChanges();
+
+        var result = await service.FinalizeUnfinishedSessionAsync(session.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
+        Assert.Equal(20.0, db.AircraftSystemWears.Single().WearPercentage, precision: 6);
+        Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
+            f => f.State == FailureLifecycleState.NotResolved);
     }
 }

@@ -4,6 +4,34 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-23 — UTC real para el historial con mocks de tiempo escalado
+
+- **Causa**: `RealisticSessionEngine` persistía disparos, estados y cierre con el reloj de la política (acelerado), mientras el inicio de sesión y los eventos del detector usaban UTC real. El modal ordenaba correctamente por fechas incompatibles y mostraba una cronología desordenada.
+- **Corrección**: fechas persistidas y DTO de fallas en UTC de pared, incluidas las preparadas; el evento de inicio comparte `StartedAt`. Cadencia, tregua y horas de desgaste conservan el reloj de escenario; actualización del desgaste en UTC real. Sin cambio de esquema ni reparación automática de historial anterior. Estado actualizado en [Realistic](realistic-mode/estado-y-diseno.md#reloj-de-simulación-escalable-mocks-v2-para-probar-el-motor-sin-volar-2026-10-23).
+- **Verificación**: regresión reproducida antes de corregir con `dotnet test RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj --filter AcceleratedScenario --no-restore` (1 fallida: fecha de disparo fuera del intervalo UTC real). Build Debug de solución con 0 errores/advertencias; **191/191** pruebas con `--filter "FullyQualifiedName!~SerilogDiagnosticsTests"`, incluidas cronología, cadencia, confirmación/resolución y persistencia SQLite de preparadas/desgaste. En el intento de suite completa, los 5 tests de logging fallaron por `UnauthorizedAccessException` al acceder a `%AppData%\RealFenixFailures\logs` desde el sandbox; se excluyeron de la ejecución final. No verificado manualmente en la app ni con MSFS/Fenix.
+
+### 2026-10-23 — Cierre consolidado de sesión Realista, recuperación de huérfanas, modal de resultados y hora Zulu
+
+**Qué y por qué**
+
+- Implementa el mapa wayfinder `.scratch/cierre-sesion-realista/` (flujo final al pulsar «DETENER» + cambios de front pedidos por el usuario).
+- **Cierre único (§9)**: `FinalizeSessionAsync(sessionId, finishedAt, wearDeltas, ct)` centraliza el cierre — `FinishedAt` UTC, consolidación de no resueltas (`NotResolved` + `ResolutionSource.SessionEnded` + `ResolvedAtUtc` de cierre; `Rejected` intactas), resultado calculado post-consolidación (`ActiveAtEnd` = 0). El motor desarma falla por falla en Fenix (best-effort) antes de consolidar y acumula desgaste devolviendo los deltas por sistema; el reset global del orquestador queda como red de seguridad. `RealisticSessionManager.LastSessionResult` expone el resultado para la UI.
+- **Recuperación (§6/§13)**: `UnfinishedSessionsWindow` al arrancar con Finalizar (desgaste diferido según **ETA del OFP**, nuevo `FinalizeUnfinishedSessionAsync`) / Descartar (nuevo `DiscardSessionAsync` + `FlightSession.DiscardedAt`, queda en historial como descartada **sin desgaste**) / Dejar para después; al finalizar se abre el modal.
+- **Modal de resultados (§13)**: `SessionResultWindow` según mock HTML aprobado (resumen por estado/severidad, cronología completa de `SessionEventLog`, fallas con consolidación, delta de desgaste por sistema). Nueva entidad `SessionSystemWearDelta` (+ repo `GetWearDeltasAsync`/`AddWearDelta`, `SystemWearDeltaDto`) persistida al cerrar para que el modal sea re-abrible desde el historial (botón «Resultados» + `ShowSessionResultFromHistoryCommand`).
+- **Hora Zulu (front + logs)**: reloj UTC en la status bar de la MainWindow (`HH:mm:ss UTC`, timer de 1 s); feed, historial, item de fallas, log en vivo y bloque OFP en UTC sin reconversión (fin de la dualidad local/tooltip del OFP, que ya viene en UTC de SimBrief); logs en disco en UTC vía `UtcTimestampEnricher` + plantillas `{UtcTimestamp:...}` en los dos sinks de `SerilogExtensions`.
+- **Feed integrado al ojito (§14)**: «Fallas de la sesión actual» se fusiona dentro de «Pensamiento del motor» (oculto por defecto); aviso sin Fenix y descarte de preparadas quedan siempre visibles.
+
+**Áreas tocadas**: Domain (`FlightSession.DiscardedAt`, `SessionSystemWearDelta`, repos), Application (`FlightSessionService`, `RealisticSessionEngine`, `RealisticSessionManager`, `IFlightSessionService`, `IRealisticSessionManager`, DTOs), Infrastructure (`RealFenixDbContext`, `FlightSessionRepository`, `UtcTimestampEnricher`, `SerilogExtensions`), UI (MainWindow reloj + recuperación, `UnfinishedSessionsWindow`, `SessionResultWindow` + VM, `RealisticModePanel`, `RealisticModeViewModel`, `MainWindowViewModel`, `FlightSessionItemViewModel`, `TriggeredFailureItemViewModel`, `UnfinishedSessionItemViewModel`), TestUnits (3 tests nuevos + 4 al nuevo contrato).
+
+**Esquema**: cambió el modelo — borrar `realfenixfailures.db` (`%AppData%\RealFenixFailures\`) para que `EnsureCreatedAsync` lo regenere.
+
+**Verificación**: build Debug y Release sin warnings/errores; suite xUnit 193/193 (nuevos: consolidación al cierre, descarte sin desgaste, desgaste por ETA del OFP). **No verificado en sesión real MSFS/Fenix** (queda para la PC de testing).
+
+**Pendientes**
+
+- Verificación manual en sesión real (cierre con fallas activas, recuperación al reabrir, modal y logs UTC).
+- La sesión huérfana de otra aeronave a la seleccionada muestra el modal sin cronología (los eventos se leen del dashboard de la aeronave seleccionada).
+
 ### 2026-10-23 — Workflows de CI/CD (GitHub Actions)
 
 **Qué y por qué**

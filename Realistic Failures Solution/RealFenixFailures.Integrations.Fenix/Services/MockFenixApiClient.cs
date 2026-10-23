@@ -81,9 +81,6 @@ public class MockFenixApiClient : IFenixApiClient {
             await JsonSerializer.SerializeAsync(stream, response, cancellationToken: ct);
             stream.Position = 0;
 
-            _logger.LogDebug("MockFenixApiClient: Returning failures stream with {Count} active failures",
-                _failureState.Count(f => f.Value));
-
             return stream;
         } finally {
             _lock.ExitReadLock();

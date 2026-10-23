@@ -139,7 +139,9 @@ public class RealisticSessionEnginePersistenceTests {
         Assert.True(start.Started, "no arrancó la sesión");
         Assert.Equal(1, engine.PreparedCount);
 
+        var before = DateTime.UtcNow;
         var result = await engine.EvaluateAsync(CancellationToken.None);
+        var after = DateTime.UtcNow;
 
         Assert.False(result.ShouldPauseSession);
         Assert.Single(result.TriggeredFailures);
@@ -147,13 +149,15 @@ public class RealisticSessionEnginePersistenceTests {
         Assert.Single(persisted);
         Assert.Equal(GroundFailureId, persisted[0].FenixFailureId);
         Assert.Equal(FailureLifecycleState.Sent, persisted[0].State);
+        Assert.InRange(persisted[0].TriggeredAt, before, after);
+        Assert.Equal(persisted[0].TriggeredAt, result.TriggeredFailures[0].TriggeredAtUtc);
         Assert.NotNull(await db.SessionEventLogs.FirstOrDefaultAsync(e => e.EventCode == "FAILURE_TRIGGERED"));
     }
 
     [Fact]
     public async Task StopSession_AccumulatesWearBySessionFlightHours() {
         // Espec §3.2: al cerrar sesión, cada sistema suma WearPerFlightHour × horas de vuelo de la
-        // sesión (StartedAt → fin real), con clamp 0–100. La duración del OFP no participa.
+        // sesión en tiempo de escenario, con clamp 0–100. La duración del OFP no participa.
         var db = CreateContext();
         var seeded = Seed(db);
         var wearable = new AircraftWearableSystem {
@@ -175,13 +179,16 @@ public class RealisticSessionEnginePersistenceTests {
             CancellationToken.None);
         Assert.True(start.Started);
 
-        // Sesión de 2 horas de vuelo: 50% + 0.6%/h × 2 h ≈ 51.2% (StartedAt es wall-clock del servicio,
-        // el reloj del test corre desde ahí con un pequeño epsilon).
-        clock = DateTime.UtcNow.AddHours(2);
+        // Dos horas de escenario acumulan desgaste sin desplazar las fechas UTC del historial.
+        var beforeStop = DateTime.UtcNow;
+        clock = clock.AddHours(2);
         await engine.StopSession(CancellationToken.None);
+        var afterStop = DateTime.UtcNow;
 
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id);
         Assert.InRange(wear.WearPercentage, 51.2, 51.21);
-        Assert.Equal(clock, wear.LastUpdatedAt);
+        Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
+        var session = await db.FlightSessions.AsNoTracking().SingleAsync();
+        Assert.InRange(session.FinishedAt!.Value, beforeStop, afterStop);
     }
 }

@@ -54,6 +54,19 @@ public class FlightSessionRepository : IFlightSessionRepository {
         await _dbContext.SaveChangesAsync(ct);
     }
 
+    public async Task<IReadOnlyList<SessionSystemWearDelta>> GetWearDeltasAsync(int sessionId, CancellationToken ct) {
+        var deltas = await _dbContext.SessionSystemWearDeltas
+            .AsNoTracking()
+            .Where(x => x.FlightSessionId == sessionId)
+            .OrderBy(x => x.AtaId)
+            .ToListAsync(ct);
+        return deltas;
+    }
+
+    public void AddWearDelta(SessionSystemWearDelta delta) {
+        _dbContext.SessionSystemWearDeltas.Add(delta);
+    }
+
     public Task SaveChangesAsync(CancellationToken ct) {
         return _dbContext.SaveChangesAsync(ct);
     }

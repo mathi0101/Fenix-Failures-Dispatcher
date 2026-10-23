@@ -22,6 +22,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private readonly IEngineOrchestrator _orchestrator;
     private readonly IPresetService _presetService;
     private readonly IFlightHistoryService _flightHistoryService;
+    private readonly IFlightSessionService _flightSessionService;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly ILogger<MainWindowViewModel> _logger;
 
@@ -59,6 +60,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         IEngineOrchestrator orchestrator,
         IPresetService presetService,
         IFlightHistoryService flightHistoryService,
+        IFlightSessionService flightSessionService,
         RealisticModeViewModel realisticModeViewModel,
         IFlightEventDetector flightEventDetector,
         SettingsWindowViewModel settings,
@@ -66,6 +68,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         _orchestrator = orchestrator;
         _presetService = presetService;
         _flightHistoryService = flightHistoryService;
+        _flightSessionService = flightSessionService;
         _flightEventDetector = flightEventDetector;
         Realistic = realisticModeViewModel;
         Settings = settings;
@@ -347,6 +350,73 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     #endregion
 
+    #region Recuperación de sesiones sin finalizar (diseño objetivo §6/§13)
+
+    /// <summary>Sesiones sin finalizar detectadas al arrancar (sesión huérfana: la app se cerró con el modo activo).</summary>
+    public ObservableCollection<UnfinishedSessionItemViewModel> UnfinishedSessions { get; } = new();
+
+    /// <summary>Resultado de la última sesión huérfana finalizada desde el diálogo de recuperación (para el modal de resultados).</summary>
+    public SessionResultDto? LastFinalizedResult { get; private set; }
+
+    /// <summary>El diálogo de recuperación se cierra cuando ya no queda nada por resolver.</summary>
+    public event EventHandler? UnfinishedSessionsResolved;
+
+    private bool _isRecoveryBusy;
+
+    public async Task LoadUnfinishedSessionsAsync() {
+        try {
+            var sessions = await _flightSessionService.GetUnfinishedSessionsAsync(CancellationToken.None);
+            UnfinishedSessions.Clear();
+            foreach (var session in sessions)
+                UnfinishedSessions.Add(new UnfinishedSessionItemViewModel(this, session));
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "No se pudieron cargar las sesiones sin finalizar para la recuperación");
+        }
+    }
+
+    public async Task FinalizeUnfinishedSessionAsync(int sessionId) {
+        if (_isRecoveryBusy) return;
+        _isRecoveryBusy = true;
+        try {
+            LastFinalizedResult = await _flightSessionService.FinalizeUnfinishedSessionAsync(sessionId, CancellationToken.None);
+            RemoveUnfinishedSession(sessionId);
+            _logger.LogInformation("Sesión huérfana {SessionId} finalizada desde la recuperación", sessionId);
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo finalizar la sesión huérfana {SessionId}", sessionId);
+        } finally {
+            _isRecoveryBusy = false;
+        }
+    }
+
+    public async Task DiscardUnfinishedSessionAsync(int sessionId) {
+        if (_isRecoveryBusy) return;
+        _isRecoveryBusy = true;
+        try {
+            await _flightSessionService.DiscardSessionAsync(sessionId, DateTime.UtcNow, CancellationToken.None);
+            RemoveUnfinishedSession(sessionId);
+            _logger.LogInformation("Sesión huérfana {SessionId} descartada desde la recuperación", sessionId);
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo descartar la sesión huérfana {SessionId}", sessionId);
+        } finally {
+            _isRecoveryBusy = false;
+        }
+    }
+
+    /// <summary>Refresca el panel Realista después del diálogo de recuperación y abre el modal de resultados si se finalizó una huérfana.</summary>
+    public async Task RefreshAfterRecoveryAsync() {
+        await Realistic.InitializeAsync();
+        if (LastFinalizedResult is not null)
+            await Realistic.ShowSessionResultByIdAsync(LastFinalizedResult.SessionId);
+    }
+
+    private void RemoveUnfinishedSession(int sessionId) {
+        var item = UnfinishedSessions.FirstOrDefault(s => s.SessionId == sessionId);
+        if (item is not null) UnfinishedSessions.Remove(item);
+        if (UnfinishedSessions.Count == 0) UnfinishedSessionsResolved?.Invoke(this, EventArgs.Empty);
+    }
+
+    #endregion
+
     #region Orchestator Property Changed Event
 
     // Event handler para los cambios en el orquestador
@@ -382,7 +452,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-            LogEntries.Add($"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
+            LogEntries.Add($"{e.TimestampUtc.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} UTC  {e.Message}");
             while (LogEntries.Count > MaxLogEntries) {
                 LogEntries.RemoveAt(0);
             }

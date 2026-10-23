@@ -9,5 +9,12 @@ public interface IFlightSessionRepository {
     Task AddTriggeredFailureAsync(TriggeredFailure triggeredFailure, CancellationToken ct);
     Task AddEventLogAsync(SessionEventLog eventLog, CancellationToken ct);
     Task DeleteAsync(int id, CancellationToken ct);
+
+    /// <summary>Deltas de desgaste persistidos de una sesión (modal de resultados, diseño §13).</summary>
+    Task<IReadOnlyList<SessionSystemWearDelta>> GetWearDeltasAsync(int sessionId, CancellationToken ct);
+
+    /// <summary>Encola un delta de desgaste para persistir con SaveChangesAsync.</summary>
+    void AddWearDelta(SessionSystemWearDelta delta);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

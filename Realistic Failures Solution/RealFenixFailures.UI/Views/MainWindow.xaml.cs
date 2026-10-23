@@ -13,6 +13,7 @@ public partial class MainWindow : Window {
 
     private readonly MainWindowViewModel _viewModel;
     private bool _isCloseDialogOpen;
+    private readonly System.Windows.Threading.DispatcherTimer _utcClockTimer;
 
     /// <summary>
     /// Servicio de bandeja del sistema, inyectado desde <see cref="App.OnStartup"/>.
@@ -31,9 +32,35 @@ public partial class MainWindow : Window {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = _viewModel;
-        Loaded += async (_, _) => await _viewModel.InitializeAsync();
+        Loaded += async (_, _) => {
+            await _viewModel.InitializeAsync();
+            await ShowUnfinishedSessionsDialogAsync();
+        };
         Closing += MainWindow_Closing;
         SettingsPanelHost.CloseRequested += (_, _) => _viewModel.IsSettingsOpen = false;
+
+        UpdateUtcClock();
+        _utcClockTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _utcClockTimer.Tick += (_, _) => UpdateUtcClock();
+        _utcClockTimer.Start();
+    }
+
+    /// <summary>Hora UTC real de pared (Zulu), siempre UTC aunque el escenario DEBUG corra escalado.</summary>
+    private void UpdateUtcClock() {
+        UtcClockText.Text = DateTime.UtcNow.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
+    }
+
+    /// <summary>
+    /// Recuperación de sesiones sin finalizar (diseño objetivo §6/§13): si al arrancar quedó una sesión
+    /// realista abierta, muestra el diálogo con Finalizar / Descartar / Dejar para después y refresca el panel.
+    /// </summary>
+    private async Task ShowUnfinishedSessionsDialogAsync() {
+        await _viewModel.LoadUnfinishedSessionsAsync();
+        if (_viewModel.UnfinishedSessions.Count == 0) return;
+
+        var dialog = new UnfinishedSessionsWindow(_viewModel) { Owner = this };
+        dialog.ShowDialog();
+        await _viewModel.RefreshAfterRecoveryAsync();
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e) {

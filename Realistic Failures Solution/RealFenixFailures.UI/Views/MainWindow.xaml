@@ -118,15 +118,24 @@
                     </StackPanel>
 
                     <!-- Flight Phase -->
-                    <Border Grid.Column="3" HorizontalAlignment="Center"
-                            Background="#1A2540" CornerRadius="20" Padding="14,4">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="FASE: " FontSize="10" FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding CurrentFlightPhaseDisplay}" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Background="#1A2540" CornerRadius="20" Padding="14,4">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="FASE: " FontSize="10" FontWeight="Bold"
+                                           Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding CurrentFlightPhaseDisplay}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="1"
+                                CornerRadius="20" Padding="14,4" Margin="10,0,0,0"
+                                ToolTip="Hora UTC (Zulu)">
+                            <TextBlock x:Name="UtcClockText" FontSize="11" FontWeight="SemiBold"
+                                       FontFamily="Cascadia Mono, Consolas"
+                                       Foreground="{StaticResource Brush.Text.Secondary}"
+                                       VerticalAlignment="Center" Text="--:--:-- UTC"/>
+                        </Border>
+                    </StackPanel>
 
                     <Button Grid.Column="4" Content="⚙"
                             Command="{Binding OpenSettingsCommand}"

@@ -157,7 +157,7 @@ public class RealisticSessionManagerTests {
         Assert.Null(manager.SessionState);
         _scope.Verify(s => s.Dispose(), Times.Once);
         _sessionService.Verify(
-            s => s.StopAsync(1, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(), It.IsAny<IReadOnlyList<SystemWearDeltaDto>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -222,7 +222,7 @@ public class RealisticSessionManagerTests {
         Assert.False(manager.IsPaused);
         _scope.Verify(s => s.Dispose(), Times.Once);
         _sessionService.Verify(
-            s => s.StopAsync(1, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(), It.IsAny<IReadOnlyList<SystemWearDeltaDto>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

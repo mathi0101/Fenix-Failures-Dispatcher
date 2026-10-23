@@ -25,12 +25,13 @@ public static class SerilogExtensions {
 
         loggerConfiguration
             .Enrich.FromLogContext()
+            .Enrich.With(new UtcTimestampEnricher())
             .WriteTo.Logger(mainLogger => mainLogger
                 .Filter.ByExcluding(Matching.FromSource(SimConnectDiagnosticsSourceContext))
                 .WriteTo.File(
                     Path.Combine(AppPaths.LogsDirectory, "realfenix-.log"),
                     rollingInterval: Enum.TryParse<RollingInterval>(serilogSection["WriteTo:0:Args:rollingInterval"], ignoreCase: true, out var rollingInterval) ? rollingInterval : RollingInterval.Day,
-                    outputTemplate: serilogSection["WriteTo:0:Args:outputTemplate"] ?? "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] <s:{SourceContext}> {Message:lj} {NewLine}{Exception}"));
+                    outputTemplate: serilogSection["WriteTo:0:Args:outputTemplate"] ?? "{UtcTimestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] <s:{SourceContext}> {Message:lj} {NewLine}{Exception}"));
 
         if (configuration.GetValue<bool>("SimConnectDiagnostics:Enabled")) {
             loggerConfiguration.MinimumLevel.Override(SimConnectDiagnosticsSourceContext, LogEventLevel.Debug);
@@ -40,7 +41,7 @@ public static class SerilogExtensions {
                 .WriteTo.File(
                     Path.Combine(AppPaths.LogsDirectory, "simconnect-diagnostic-.log"),
                     rollingInterval: RollingInterval.Day,
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
+                    outputTemplate: "{UtcTimestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         }
 
         return loggerConfiguration;

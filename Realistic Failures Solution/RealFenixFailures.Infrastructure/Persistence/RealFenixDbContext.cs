@@ -17,6 +17,7 @@ public class RealFenixDbContext : DbContext {
     public DbSet<FlightSession> FlightSessions => Set<FlightSession>();
     public DbSet<TriggeredFailure> TriggeredFailures => Set<TriggeredFailure>();
     public DbSet<SessionEventLog> SessionEventLogs => Set<SessionEventLog>();
+    public DbSet<SessionSystemWearDelta> SessionSystemWearDeltas => Set<SessionSystemWearDelta>();
     public DbSet<UserAircraft> UserAircrafts => Set<UserAircraft>();
     public DbSet<AircraftWearableSystem> AircraftWearableSystems => Set<AircraftWearableSystem>();
     public DbSet<AircraftSystemWear> AircraftSystemWears => Set<AircraftSystemWear>();

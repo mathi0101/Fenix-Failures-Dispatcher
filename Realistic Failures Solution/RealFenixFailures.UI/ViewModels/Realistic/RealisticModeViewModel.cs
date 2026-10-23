@@ -27,6 +27,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly IEngineOrchestrator _orchestrator;
     private readonly ILogger<RealisticModeViewModel> _logger;
     private readonly IRealisticSessionManager _realisticSessionManager;
+    private readonly IFlightSessionService _flightSessionService;
     private readonly ISimbriefOfpService _ofpService;
     private readonly UserPreferencesService _preferences;
     private readonly IRealisticExpectationService? _expectationService;
@@ -72,6 +73,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IEngineOrchestrator orchestrator,
         ILogger<RealisticModeViewModel> logger,
         IRealisticSessionManager realisticSessionManager,
+        IFlightSessionService flightSessionService,
         ISimbriefOfpService ofpService,
         UserPreferencesService preferences,
         IRealisticExpectationService? expectationService = null) {
@@ -79,6 +81,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _orchestrator = orchestrator;
         _logger = logger;
         _realisticSessionManager = realisticSessionManager;
+        _flightSessionService = flightSessionService;
         _ofpService = ofpService;
         _preferences = preferences;
         _expectationService = expectationService;
@@ -97,6 +100,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         BackToStep1Command = new RelayCommand(() => CurrentStep = 1, () => !IsEngineActive && !IsOperationPending);
         ContinueToPrepCommand = new RelayCommand(() => CurrentStep = 3, () => SelectedAircraft is not null && !IsEngineActive && !IsOperationPending);
         BackToStep2Command = new RelayCommand(() => CurrentStep = 2, () => !IsEngineActive && !IsOperationPending);
+        ShowSessionResultFromHistoryCommand = new RelayCommand<int>(async id => await ShowSessionResultFromHistoryAsync(id));
         NavigateToStepCommand = new RelayCommand<string>(NavigateToStep, CanNavigateToStep);
 
         SelectRiskCommand = new RelayCommand<string>(SelectRisk, _ => !IsEngineActive && !IsOperationPending);
@@ -466,12 +470,12 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string FlightNumberDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.FlightNumber) ? "—" : _ofpPlanForUi.FlightNumber!;
     public string CallsignDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.Callsign) ? "—" : _ofpPlanForUi.Callsign!;
-    public string OffBlockDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.OffBlockUtc.ToLocalTime().ToString("dd/MM HH:mm");
-    public string ArrivalDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.EstimatedArrivalUtc.ToLocalTime().ToString("dd/MM HH:mm");
+    public string OffBlockDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.OffBlockUtc.ToString("dd/MM HH:mm", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
+    public string ArrivalDisplay => _ofpPlanForUi is null ? "—" : _ofpPlanForUi.EstimatedArrivalUtc.ToString("dd/MM HH:mm", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
     public string OfpDurationDisplay => _ofpPlanForUi is null || _ofpPlanForUi.EstimatedDurationMinutes <= 0 ? "—" : FormatDuration(_ofpPlanForUi.EstimatedDurationMinutes);
     public string DistanceDisplay => _ofpPlanForUi?.RouteDistanceNM is > 0 ? $"{_ofpPlanForUi.RouteDistanceNM.Value:N0} NM" : "—";
     public string OfpAircraftDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.AircraftIcaoType) ? "—" : _ofpPlanForUi.AircraftIcaoType!;
-    public string SourceDisplay => _ofpPlanForUi is null ? "—" : $"{_ofpPlanForUi.Source} · {_ofpPlanForUi.DownloadedAtUtc.ToLocalTime():HH:mm}";
+    public string SourceDisplay => _ofpPlanForUi is null ? "—" : $"{_ofpPlanForUi.Source} · {_ofpPlanForUi.DownloadedAtUtc.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)} UTC";
 
     public string OfpOriginDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.OriginIcao) ? "—" : _ofpPlanForUi.OriginIcao!;
     public string OfpDestinationDisplay => string.IsNullOrWhiteSpace(_ofpPlanForUi?.DestinationIcao) ? "—" : _ofpPlanForUi.DestinationIcao!;
@@ -481,9 +485,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     /// <summary>Hay texto de route cargado en el OFP.</summary>
     public bool HasOfpRouteText => OfpRouteTextDisplay is not null;
-
-    /// <summary>Tooltip UTC de la salida programada (spec §8.1); null cuando no hay OFP.</summary>
-    public string? OffBlockUtcToolTip => _ofpPlanForUi is null ? null : $"Salida programada en UTC: {_ofpPlanForUi.OffBlockUtc:dd/MM HH:mm}";
 
     /// <summary>Check «Aeronave del OFP» del panel de requisitos: refleja el resultado de la última descarga/validación.</summary>
     public bool OfpAircraftMatchIsOk => _ofpPlanForUi != null && _ofpPlanForUi?.AircraftIcaoType == _selectedAircraft?.IcaoTypeCode;
@@ -553,7 +554,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         OnPropertyChanged(nameof(OfpDestinationDisplay));
         OnPropertyChanged(nameof(OfpRouteTextDisplay));
         OnPropertyChanged(nameof(HasOfpRouteText));
-        OnPropertyChanged(nameof(OffBlockUtcToolTip));
         OnPropertyChanged(nameof(OfpAircraftMatchIsOk));
         OnPropertyChanged(nameof(OfpAircraftMatchDisplay));
         OnPropertyChanged(nameof(OfpRowDisplay));
@@ -844,6 +844,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 StopConfirmationVisible = false;
                 await _orchestrator.StopCurrentModeAsync(CancellationToken.None);
                 _logger.LogInformation("Modo Realista detenido.");
+                await ShowLastSessionResultAsync();
                 return;
             }
 
@@ -876,11 +877,57 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
+    #region Modal de resultados (diseño objetivo §13)
+
+    /// <summary>Abre el modal de resultados de una sesión finalizada por id (botón «DETENER», historial o recuperación).</summary>
+    public async Task ShowSessionResultByIdAsync(int sessionId) {
+        try {
+            var result = await _flightSessionService.GetResultAsync(sessionId, CancellationToken.None);
+            if (result is null) {
+                _logger.LogWarning("No hay resultados para la sesión {SessionId}", sessionId);
+                return;
+            }
+
+            // Cronología: la traemos del dashboard de la aeronave seleccionada si corresponde a esa sesión.
+            IReadOnlyList<SessionEventLogDto> eventLogs = [];
+            if (SelectedAircraft is not null) {
+                var dash = await _aircraftService.GetDashboardAsync(SelectedAircraft.Id, CancellationToken.None);
+                var dto = dash.Aircraft.FlightSessions.FirstOrDefault(s => s.Id == sessionId);
+                if (dto is not null) eventLogs = dto.EventLogs;
+            }
+
+            var vm = new SessionResultWindowViewModel(result, eventLogs, SelectedAircraft?.Registration);
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+                var owner = System.Windows.Application.Current?.MainWindow;
+                var window = new Views.SessionResultWindow(vm) { Owner = owner };
+                window.ShowDialog();
+            });
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo mostrar el resultado de la sesión {SessionId}", sessionId);
+        }
+    }
+
+    /// <summary>Abre el resultado de la sesión que acaba de cerrarse (tras pulsar «DETENER»).</summary>
+    private async Task ShowLastSessionResultAsync() {
+        var result = _realisticSessionManager.LastSessionResult;
+        if (result is null) return;
+        await LoadDashboardAsync(SelectedAircraft!.Id);
+        await ShowSessionResultByIdAsync(result.SessionId);
+    }
+
+    /// <summary>Re-abre el resultado de una sesión del historial (paso 2).</summary>
+    public RelayCommand<int> ShowSessionResultFromHistoryCommand { get; }
+
+    public async Task ShowSessionResultFromHistoryAsync(int sessionId) =>
+        await ShowSessionResultByIdAsync(sessionId);
+
+    #endregion
+
     private void RealisticSessionManager_FailureTriggered(object? sender, FailureTriggeredEventArgs e) {
         System.Windows.Application.Current?.Dispatcher!.InvokeAsync(() => {
             LiveTriggeredFailures.Insert(0, new LiveFailureEntryViewModel {
                 FenixFailureId = e.FenixFailureId,
-                TimestampText = $"{e.TriggeredAtUtc.ToLocalTime():HH:mm:ss}",
+                TimestampText = $"{e.TriggeredAtUtc.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} UTC",
                 Description = e.Description
             });
             TrimLiveFailures();
@@ -900,7 +947,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             } else {
                 LiveTriggeredFailures.Insert(0, new LiveFailureEntryViewModel {
                     FenixFailureId = e.FenixFailureId,
-                    TimestampText = $"{e.OccurredAtUtc.ToLocalTime():HH:mm:ss}",
+                    TimestampText = $"{e.OccurredAtUtc.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} UTC",
                     Description = e.Description
                 });
                 TrimLiveFailures();

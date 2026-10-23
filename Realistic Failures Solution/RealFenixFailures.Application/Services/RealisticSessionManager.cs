@@ -56,6 +56,9 @@ public class RealisticSessionManager : IRealisticSessionManager {
     #region Properties
     public RealisticSession? SessionState => _engine?.Session;
 
+    /// <summary>Resultado consolidado de la última sesión cerrada (modal de resultados §13); nulo si nunca se cerró una.</summary>
+    public SessionResultDto? LastSessionResult { get; private set; }
+
     public int PreparedCount => _engine?.PreparedCount ?? 0;
 
     public bool IsPaused {
@@ -147,9 +150,16 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     public async Task StopAsync(CancellationToken ct) {
         if (_engine == null) return;
+        int? sessionId = null;
         try {
+            sessionId = _engine.Session?.Session.Id;
             await StopLoopAsync();
             await _engine!.StopSession(ct);
+            // Resultado consolidado de la sesión recién cerrada, para el modal de resultados (§13).
+            if (sessionId is int sid && _sessionScope != null) {
+                var sessionService = _sessionScope.ServiceProvider.GetService<IFlightSessionService>();
+                if (sessionService != null) LastSessionResult = await sessionService.GetResultAsync(sid, ct);
+            }
         } finally {
             _engine.PreparedQueueChanged -= Engine_PreparedQueueChanged;
             _engine = null;

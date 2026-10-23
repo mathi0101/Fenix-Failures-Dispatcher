@@ -10,6 +10,9 @@ public class FlightSession {
     public int UserAircraftId { get; set; }
     public DateTime? FinishedAt { get; set; }
 
+    /// <summary>No nulo cuando la sesión fue descartada desde la recuperación de sesiones sin finalizar (no aplica desgaste).</summary>
+    public DateTime? DiscardedAt { get; set; }
+
     public UserAircraft? UserAircraft { get; set; }
     public FlightPlan? FlightPlan { get; set; }
     public ICollection<TriggeredFailure> TriggeredFailures { get; set; } = new List<TriggeredFailure>();

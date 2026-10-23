@@ -8,6 +8,9 @@ namespace RealFenixFailures.Application.Interfaces;
 public interface IRealisticSessionManager : INotifyPropertyChanged {
     RealisticSession? SessionState { get; }
 
+    /// <summary>Resultado consolidado de la última sesión cerrada (modal de resultados §13); nulo si nunca se cerró una.</summary>
+    SessionResultDto? LastSessionResult { get; }
+
     bool IsPaused { get; }
 
     int PreparedCount { get; }

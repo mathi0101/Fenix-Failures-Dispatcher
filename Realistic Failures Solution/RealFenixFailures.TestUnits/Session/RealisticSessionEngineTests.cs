@@ -60,6 +60,74 @@ public class RealisticSessionEngineTests {
             fenixFailureDefinitions);
     }
 
+    [Fact]
+    public async Task AcceleratedScenario_PersistsWallUtcAndKeepsScenarioCadence() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence(definitions: [Def("F_CLOCK", FailureSeverity.Major)]);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var before = DateTime.UtcNow;
+        _sessionService.Setup(s => s.StartNewAsync(It.IsAny<RealisticModeContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FlightSession { Id = 42, FlightPlanId = FlightPlanId, StartedAt = before, RiskLevel = RiskLevel.Moderate, UserAircraftId = 1 });
+        _flightEventDetector.Setup(d => d.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null,
+                _flightEventDetector.Object, new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")));
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddHours(10);
+        var scenarioNow = _now;
+        _random.SetupNextDouble(0.0);
+        _random.SetupNextDouble(0.0);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+        Assert.Equal(scenarioNow, engine.Session!.LastTriggeredAtUtc);
+        await engine.StopSession(CancellationToken.None);
+        var after = DateTime.UtcNow;
+
+        var failure = Assert.Single(result.TriggeredFailures);
+        _sessionService.Verify(s => s.AddTriggeredFailureAsync(42, It.IsAny<PresetFailureDefinition>(),
+            It.IsAny<ComplexFlightPhaseEnum>(), It.Is<DateTime>(t => t >= before && t <= after), It.IsAny<CancellationToken>()), Times.Once);
+        _sessionService.Verify(s => s.FinalizeSessionAsync(42, It.Is<DateTime>(t => t >= before && t <= after),
+            It.IsAny<IReadOnlyList<SystemWearDeltaDto>>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.InRange(failure.TriggeredAtUtc, before, after);
+        var timestamps = _sessionService.Invocations
+            .Where(i => i.Method.Name is nameof(IFlightSessionService.AddEventLogAsync) or nameof(IFlightSessionService.AddTriggeredFailureAsync))
+            .Select(i => (DateTime)i.Arguments[i.Method.Name == nameof(IFlightSessionService.AddEventLogAsync) ? 5 : 3])
+            .ToArray();
+        Assert.Equal(4, timestamps.Length); // inicio, motores, falla y cierre
+        Assert.All(timestamps, t => Assert.InRange(t, before, after));
+        Assert.Equal(timestamps.OrderBy(t => t), timestamps);
+    }
+
+    [Theory]
+    [InlineData(FailureLifecycleState.Sent, true, FailureLifecycleState.Active)]
+    [InlineData(FailureLifecycleState.Active, false, FailureLifecycleState.ResolvedByPilot)]
+    public async Task AcceleratedScenario_LifecycleDatesUseWallUtc(FailureLifecycleState previous, bool failed, FailureLifecycleState expected) {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddHours(10);
+        _triggeredFailureRepository.Setup(r => r.GetActiveForSessionAsync(42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new TriggeredFailure { FlightSessionId = 42, FenixFailureId = "F_CLOCK", State = previous }]);
+        SetupFenixFailures(new FenixFailureDto("F_CLOCK", "Clock", failed, null));
+        var before = DateTime.UtcNow;
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+        var after = DateTime.UtcNow;
+
+        var change = Assert.Single(result.StateChanges);
+        Assert.Equal(expected, change.NewState);
+        Assert.InRange(change.OccurredAtUtc, before, after);
+        _sessionService.Verify(s => s.UpdateTriggeredFailureStateAsync(42, "F_CLOCK", expected,
+            It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<ResolutionSource?>(), change.OccurredAtUtc, It.IsAny<CancellationToken>()), Times.Once);
+        _sessionService.Verify(s => s.AddEventLogAsync(42, SessionEventCategory.FailureStateChanged,
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), change.OccurredAtUtc, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static RealisticModeSettings DefaultSettings() => new() {
         Physics = new RealisticPhysicsSettings(),
         Profiles = {
@@ -302,7 +370,7 @@ public class RealisticSessionEngineTests {
 
         Assert.Null(engine.Session);
         _sessionService.Verify(
-            s => s.StopAsync(42, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.FinalizeSessionAsync(42, It.IsAny<DateTime>(), It.IsAny<IReadOnlyList<SystemWearDeltaDto>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -1115,7 +1183,7 @@ public class RealisticSessionEngineTests {
             s => s.AddEventLogAsync(42, SessionEventCategory.SessionStopped, "SESSION_STOPPED", It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _sessionService.Verify(
-            s => s.StopAsync(42, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            s => s.FinalizeSessionAsync(42, It.IsAny<DateTime>(), It.IsAny<IReadOnlyList<SystemWearDeltaDto>>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object, new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos"));

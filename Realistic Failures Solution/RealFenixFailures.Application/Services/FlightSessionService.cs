@@ -9,10 +9,13 @@ namespace RealFenixFailures.Application.Services;
 public class FlightSessionService : IFlightSessionService {
     private readonly IFlightSessionRepository _sessionRepository;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
+    private readonly IAircraftSystemWearRepository? _aircraftSystemWearRepository;
 
-    public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository) {
+    public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository,
+        IAircraftSystemWearRepository? aircraftSystemWearRepository = null) {
         _sessionRepository = sessionRepository;
         _triggeredFailureRepository = triggeredFailureRepository;
+        _aircraftSystemWearRepository = aircraftSystemWearRepository;
     }
 
     public async Task<FlightSession> StartNewAsync(RealisticModeContext context, CancellationToken cancellationToken) {
@@ -103,7 +106,8 @@ public class FlightSessionService : IFlightSessionService {
     public async Task<SessionResultDto?> GetResultAsync(int sessionId, CancellationToken ct) {
         var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
         if (session is null) return null;
-        return ToResultDto(session);
+        var deltas = MapWearDeltas(await _sessionRepository.GetWearDeltasAsync(sessionId, ct));
+        return ToResultDto(session, deltas);
     }
 
     public async Task<IReadOnlyList<FlightSessionDto>> GetUnfinishedSessionsAsync(CancellationToken ct) {
@@ -111,16 +115,123 @@ public class FlightSessionService : IFlightSessionService {
         return sessions.Select(ToDto).ToArray();
     }
 
-    public async Task<SessionResultDto> FinalizeSessionAsync(int sessionId, DateTime finishedAt, CancellationToken ct) {
+    public async Task<SessionResultDto> FinalizeSessionAsync(int sessionId, DateTime finishedAt, IReadOnlyList<SystemWearDeltaDto>? wearDeltas, CancellationToken ct) {
         var session = await _sessionRepository.GetByIdAsync(sessionId, ct) ?? throw new KeyNotFoundException();
+        IReadOnlyList<SystemWearDeltaDto> deltas = wearDeltas ?? [];
         if (session.FinishedAt is null) {
-            session.FinishedAt = finishedAt.Kind == DateTimeKind.Utc ? finishedAt : finishedAt.ToUniversalTime();
+            var finishedUtc = finishedAt.Kind == DateTimeKind.Utc ? finishedAt : finishedAt.ToUniversalTime();
+            session.FinishedAt = finishedUtc;
+            ConsolidateUnresolved(session, finishedUtc);
+            PersistWearDeltas(session.Id, deltas);
             await _sessionRepository.SaveChangesAsync(ct);
+        } else {
+            deltas = MapWearDeltas(await _sessionRepository.GetWearDeltasAsync(sessionId, ct));
         }
-        return ToResultDto(session);
+        return ToResultDto(session, deltas);
     }
 
-    private static SessionResultDto ToResultDto(FlightSession session) {
+    public async Task<SessionResultDto> FinalizeUnfinishedSessionAsync(int sessionId, CancellationToken ct) {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct) ?? throw new KeyNotFoundException();
+
+        if (session.FinishedAt is null) {
+            // Desgaste diferido (sesión huérfana, diseño objetivo §6): sin telemetría del vuelo real, el
+            // usuario decidió usar la ETA del OFP como fin del vuelo (sin clampear a «ahora»); sin OFP no hay desgaste.
+            var etaDeltas = await AccumulateWearByEtaAsync(session, ct);
+            try {
+                await AddEventLogAsync(sessionId, SessionEventCategory.SessionStopped, "SESSION_FINALIZED_RECOVERY",
+                    "Sesión sin finalizar finalizada desde la recuperación (desgaste según ETA del OFP)",
+                    ComplexFlightPhaseEnum.Unknown, DateTime.UtcNow, ct);
+            } catch (Exception) {
+                // El registro del evento no puede impedir la finalización.
+            }
+            return await FinalizeSessionAsync(sessionId, DateTime.UtcNow, etaDeltas, ct);
+        }
+
+        return await FinalizeSessionAsync(sessionId, DateTime.UtcNow, null, ct);
+    }
+
+    public async Task DiscardSessionAsync(int sessionId, DateTime discardedAtUtc, CancellationToken ct) {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct) ?? throw new KeyNotFoundException();
+        if (session.FinishedAt is not null) return;
+
+        var discarded = discardedAtUtc.Kind == DateTimeKind.Utc ? discardedAtUtc : discardedAtUtc.ToUniversalTime();
+        session.FinishedAt = discarded;
+        session.DiscardedAt = discarded;
+        ConsolidateUnresolved(session, discarded);
+        await AddEventLogAsync(sessionId, SessionEventCategory.SessionStopped, "SESSION_DISCARDED",
+            "Sesión sin finalizar descartada desde la recuperación (sin desgaste)",
+            ComplexFlightPhaseEnum.Unknown, discarded, ct);
+        await _sessionRepository.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Consolidación al cierre (diseño objetivo §9): toda falla no resuelta (Preparing/Queued/Sent/Active)
+    /// pasa a NotResolved con fuente SessionEnded y hora de resolución = momento de cierre. Las Rejected quedan como están.
+    /// </summary>
+    private static void ConsolidateUnresolved(FlightSession session, DateTime finishedUtc) {
+        foreach (var failure in session.TriggeredFailures ?? []) {
+            if (failure.State is not (FailureLifecycleState.Preparing or FailureLifecycleState.Queued
+                or FailureLifecycleState.Sent or FailureLifecycleState.Active)) continue;
+            failure.State = FailureLifecycleState.NotResolved;
+            failure.ResolvedAtUtc = finishedUtc;
+            failure.ResolvedPhase = failure.FlightPhase;
+            failure.ResolutionSource = ResolutionSource.SessionEnded;
+        }
+    }
+
+    /// <summary>Desgaste de una sesión huérfana: tasa por sistema × horas hasta la ETA del OFP (fallas de la sesión no lo modifican). Devuelve los deltas aplicados.</summary>
+    private async Task<IReadOnlyList<SystemWearDeltaDto>> AccumulateWearByEtaAsync(FlightSession session, CancellationToken ct) {
+        if (_aircraftSystemWearRepository is null) return [];
+        var eta = session.FlightPlan?.EstimatedArrivalUtc;
+        if (eta is null) return [];
+        try {
+            var hours = (eta.Value - session.StartedAt).TotalHours;
+            if (hours <= 0) return [];
+            var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.UserAircraftId, ct);
+            var deltas = new List<SystemWearDeltaDto>();
+            foreach (var wear in wears) {
+                var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
+                if (rate <= 0) continue;
+                var delta = rate * hours;
+                wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
+                wear.LastUpdatedAt = eta.Value;
+                deltas.Add(new SystemWearDeltaDto {
+                    AtaId = wear.WearableSystem!.AtaId,
+                    SystemName = wear.WearableSystem.Name,
+                    DeltaPercentage = delta,
+                    TotalPercentage = wear.WearPercentage
+                });
+            }
+            if (deltas.Count > 0) await _aircraftSystemWearRepository.SaveAsync(ct);
+            return deltas;
+        } catch (Exception) {
+            // El desgaste diferido no puede impedir la finalización de la sesión huérfana.
+            return [];
+        }
+    }
+
+    private static IReadOnlyList<SystemWearDeltaDto> MapWearDeltas(IReadOnlyList<SessionSystemWearDelta> deltas) =>
+        deltas.Select(d => new SystemWearDeltaDto {
+            AtaId = d.AtaId,
+            SystemName = d.SystemName,
+            DeltaPercentage = d.DeltaPercentage,
+            TotalPercentage = d.TotalPercentage
+        }).ToArray();
+
+    /// <summary>Persiste los deltas de desgaste de la sesión para el modal de resultados (re-abirible desde historial).</summary>
+    private void PersistWearDeltas(int sessionId, IReadOnlyList<SystemWearDeltaDto> deltas) {
+        foreach (var delta in deltas) {
+            _sessionRepository.AddWearDelta(new SessionSystemWearDelta {
+                FlightSessionId = sessionId,
+                AtaId = delta.AtaId,
+                SystemName = delta.SystemName,
+                DeltaPercentage = delta.DeltaPercentage,
+                TotalPercentage = delta.TotalPercentage
+            });
+        }
+    }
+
+    private static SessionResultDto ToResultDto(FlightSession session, IReadOnlyList<SystemWearDeltaDto>? wearDeltas = null) {
         var failures = session.TriggeredFailures ?? [];
         var summary = new ResultSummaryDto {
             TotalFailures = failures.Count,
@@ -150,7 +261,8 @@ public class FlightSessionService : IFlightSessionService {
                 TriggeredAt = f.TriggeredAt,
                 FlightPhase = f.FlightPhase,
                 ResolvedAtUtc = f.ResolvedAtUtc
-            }).ToArray()
+            }).ToArray(),
+            WearDeltas = (wearDeltas ?? []).ToArray()
         };
     }
 
@@ -162,6 +274,7 @@ public class FlightSessionService : IFlightSessionService {
         OriginIcao = f.FlightPlan?.OriginIcao,
         DestinationIcao = f.FlightPlan?.DestinationIcao,
         OffBlockUtc = f.FlightPlan?.OffBlockUtc,
+        EstimatedArrivalUtc = f.FlightPlan?.EstimatedArrivalUtc,
         TriggeredFailures = (f.TriggeredFailures ?? []).Select(tf => new TriggeredFailureDto {
             Id = tf.Id,
             FenixFailureId = tf.FenixFailureId,
@@ -189,6 +302,7 @@ public class FlightSessionService : IFlightSessionService {
             FlightPhase = e.FlightPhase,
             TriggeredFailureId = e.TriggeredFailureId
         }).ToArray(),
-        Result = f.FinishedAt is null ? null : ToResultDto(f).Summary
+        Result = f.FinishedAt is null ? null : ToResultDto(f).Summary,
+        DiscardedAt = f.DiscardedAt
     };
 }
