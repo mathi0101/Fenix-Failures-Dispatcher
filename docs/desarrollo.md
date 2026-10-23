@@ -90,19 +90,21 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
    git push origin master --follow-tags
    ```
 
-6. **Publicar el build portable**: mismo publish single-file que se viene usando (SimConnect `Microsoft.FlightSimulator.SimConnect.dll` queda suelto junto al exe, ver commit `f072a5f`): `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -p:PublishSingleFile=true`. El ZIP debe incluir el exe, `Microsoft.FlightSimulator.SimConnect.dll` y `appsettings.json`; **sin** `realfenixfailures.db` ni `logs/` (eso vive en `%AppData%\RealFenixFailures\`).
+6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, arma el ZIP (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `appsettings.json`, sin BD/logs) y crea el release. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos tres archivos.
 
-7. **GitHub Release** (desde `master`):
+7. **GitHub Release** (desde `master`): automático con el workflow `Release` al pushear el tag (crea el release en `master` con `--generate-notes` y adjunta el ZIP; los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales). A mano:
 
    ```sh
    gh release create v0.2.0 --target master --generate-notes --title "v0.2.0" ruta/al/zip.zip
    ```
 
-   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md). Para betas agregar `--prerelease` (el updater las muestra separadas de las estables).
+   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md).
 
 8. **Post-release**: subir `<Version>` en `Directory.Build.props` de `dev` a la próxima de desarrollo (p. ej. `0.3.0-dev.0`) y push. Verificar manualmente que la pestaña Actualizaciones detecta el release publicado.
 
 9. **Hotfix**: rama `fix/*` desde `master` → PR/merge a `master` → release `v0.Y.(Z+1)` (pasos 3, 5, 6, 7 pero con `<Version>` y tag patch, sin pasar por `dev`) → back-merge del fix a `dev` para no perderlo.
+
+10. **CI/CD (GitHub Actions)**: `ci.yml` compila y corre la suite en cada push a `dev`/`master` y en cada PR (runner windows-latest limpio: si algo solo anda por dependencias locales de la PC, el CI lo delata). `release.yml` automatiza los pasos 6-7 con el push del tag `v*` (y admite ejecución manual `workflow_dispatch` que solo arma y sube el ZIP como artefacto de prueba, sin crear release). El workflow de release asume publish **self-contained** (no exige .NET Desktop Runtime en las PCs de los usuarios).
 
 10. **Protección y PRs (reglas vigentes)**: el ruleset `Protección dev/master` (Settings → Rules → Rulesets) bloquea borrado y force-push de ambas ramas con bypass "Always" para el rol admin. Forzar PR en `master` es recomendable **recién cuando haya colaboradores con write** (mismo ruleset: activar "Require a pull request before merging"); trabajando solo, el bypass ya deja el push directo y un PR por release solo agrega fricción. Opcional: segundo ruleset sobre tags `v*` (target tags, mismas reglas de borrado/force-push).
 

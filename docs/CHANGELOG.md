@@ -4,6 +4,16 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-23 — Workflows de CI/CD (GitHub Actions)
+
+**Qué y por qué**
+
+- `ci.yml`: build Release + suite de tests en cada push a `dev`/`master` y en cada PR, sobre `windows-latest` limpio — valida el build sin dependencias de la PC local (SimConnect versionado y mocks lo permiten) y marca cada commit ✓/✗ en GitHub.
+- `release.yml`: automatiza los pasos 6-7 del runbook de release con el push de un tag `v*` (publish single-file self-contained win-x64 → ZIP portable exe + SimConnect + appsettings, sin BD/logs → `gh release create --generate-notes` apuntando a `master`; tags con sufijo se marcan pre-release). También tiene disparo manual (`workflow_dispatch`) que solo arma el ZIP y lo sube como artefacto de prueba, sin crear release — permite validar la cadena de publicación sin versiones públicas.
+- Runbook de `desarrollo.md` actualizado: pasos 6-7 marcados como automáticos, nuevo paso 10 con la explicación de CI/CD.
+
+**Áreas tocadas**: `.github/workflows/ci.yml` y `.github/workflows/release.yml` (nuevos), docs (`docs/desarrollo.md`). Pendiente de verificar en la primera corrida real.
+
 ### 2026-10-23 — Runbook de release y reglas de protección de ramas
 
 **Qué y por qué**
