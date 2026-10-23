@@ -112,6 +112,11 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         DeleteOfpCommand = new RelayCommand(DeleteOfp, () => CanDeleteOfp);
         DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
 
+        SetSimulatedScaleCommand = new RelayCommand<string>(
+            s => { if (double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var scale)) _orchestrator.SetSimulatedTimeScale(scale); });
+        AdvanceSimulatedTimeCommand = new RelayCommand<string>(
+            s => { if (double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var minutes)) _orchestrator.AdvanceSimulatedTime(TimeSpan.FromMinutes(minutes)); });
+
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
@@ -126,6 +131,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public RelayCommand<UserAircraftItemViewModel> SelectAircraftCommand { get; }
     public RelayCommand<UserAircraftItemViewModel> DeleteAircraftCommand { get; }
+    public RelayCommand<string> SetSimulatedScaleCommand { get; }
+    public RelayCommand<string> AdvanceSimulatedTimeCommand { get; }
     public RelayCommand ToggleCreateFormCommand { get; }
     public RelayCommand CreateAircraftCommand { get; }
     public RelayCommand RefreshAircraftCommand { get; }
@@ -587,6 +594,14 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     /// La sesión realista está pausada (p. ej. por pérdida de datos del simulador); habilita REANUDAR EVALUACIÓN.
     /// Refleja <c>IRealisticSessionManager.IsPaused</c> vía PropertyChanged.
     /// </summary>
+    /// <summary>
+    /// Multiplicador de tiempo simulado vigente (para el knob de debug del panel).
+    /// </summary>
+    public string SimulatedTimeScaleDisplay => _orchestrator.SimulatedTimeScale switch {
+        1.0 => "1x",
+        var s => $"{s:0.#}x",
+    };
+
     public bool IsSessionPaused {
         get => _isSessionPaused;
         private set {
@@ -957,6 +972,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             } else if (e.PropertyName == nameof(IEngineOrchestrator.IsEngineActive) ||
                        e.PropertyName == nameof(IEngineOrchestrator.CurrentMode)) {
                 IsEngineActive = _orchestrator.IsEngineActive;
+            } else if (e.PropertyName == nameof(IEngineOrchestrator.SimulatedTimeScale)) {
+                OnPropertyChanged(nameof(SimulatedTimeScaleDisplay));
             }
         });
     }

@@ -30,4 +30,12 @@ public interface IEngineOrchestrator : INotifyPropertyChanged {
 
     // Método para obtener el historial de fallas recientes
     Task<List<FailureTriggerLogDto>> GetRecentFailuresAsync(CancellationToken ct);
+
+    // Reloj de simulación (mocks + motor comparten el mismo tiempo escalado)
+    /// <summary>Multiplicador de velocidad del tiempo simulado (1 = tiempo real).</summary>
+    double SimulatedTimeScale { get; }
+    /// <summary>Cambia el multiplicador de velocidad del tiempo simulado en vivo.</summary>
+    void SetSimulatedTimeScale(double scale);
+    /// <summary>Salta el tiempo de escenario hacia adelante (p. ej. ir directo al descenso).</summary>
+    void AdvanceSimulatedTime(TimeSpan scenarioTime);
 }

@@ -13,12 +13,17 @@ public static class DependencyInjection {
         services.Configure<FenixApiOptions>(configuration.GetSection(FenixApiOptions.SectionName));
         services.AddSingleton<IFenixStreamFailuresReaderService, FenixStreamFailuresReaderService>();
 
-#if DEBUG && false
-        services.AddSingleton<IFenixApiClient, MockFenixApiClient>();
-#else
-        services.AddHttpClient<IFenixApiClient, FenixApiClient>();
+        // Mock seleccionable por config (FenixApi:UseMock) para probar el motor sin Fenix real corriendo.
+        // Solo aplica en builds DEBUG: en Release siempre va contra la API real.
+#if DEBUG
+        if (bool.TryParse(configuration["FenixApi:UseMock"], out var useMock) && useMock) {
+            services.AddSingleton<IFenixApiClient, MockFenixApiClient>();
+            services.AddSingleton<IFenixFailureApiDispatcher, FenixApiFailureService>();
+            return services;
+        }
 #endif
 
+        services.AddHttpClient<IFenixApiClient, FenixApiClient>();
         services.AddSingleton<IFenixFailureApiDispatcher, FenixApiFailureService>();
         return services;
     }

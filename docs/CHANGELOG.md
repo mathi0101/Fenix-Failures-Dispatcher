@@ -4,6 +4,24 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-23 — Reloj de simulación escalable: mocks v2 de SimConnect y Fenix para probar el motor sin volar
+
+**Qué y por qué**
+
+- **`ScaledTimeProvider` nuevo** (`Domain/Services`): `TimeProvider` escalable — `GetUtcNow` avanza a ×escala, `SetScale` cambia la velocidad conservando el tiempo de escenario ya transcurrido (sin salto) y `Advance(TimeSpan)` salta el escenario hacia adelante. Escala mínima 0.1, no finitos → 1.0. Registrado como singleton en `AddApplication` con **factory explícita** y expuesto también como `TimeProvider` (el mismo singleton): el ctor opcional de `ScaledTimeProvider` toma un `TimeProvider` y, con resolución automática por DI, cicla contra el registro de `TimeProvider` — recursión infinita en la resolución que colgaba la app en el splash sin error (diagnosticada con `dotnet-stack` sobre el proceso vivo). De modo que mock de SimConnect, timer automático del orquestador y loop de evaluación Realistic comparten el **mismo** reloj: con escala >1 acelera todo simultáneo (vuelo, cadencia λ, desgaste, tregua, timestamps de disparo). Con escala 1 es idéntico al comportamiento actual (también en Release).
+- **Mock de SimConnect v2**: el vuelo sintético pasa de 5 minutos a **~2h35 puerta-a-puerta** (9300 s, ~28 keyframes deterministas: cold&dark → pushback T+12 → arranque T+14/15 → taxi → despegue T+24:30 → ascenso → crucero FL350 → descenso T+118 → approach → aterrizaje T+140:30 → taxi-in → shutdown → cold&dark que se sostiene). El estado sigue siendo función pura del tiempo de escenario.
+- **Motor sobre tiempo de escenario**: `RealisticSessionManager` inyecta el reloj escalado a `RealisticFailurePolicy` (`utcNow`), y sus loops de evaluación (y el timer automático de `EngineOrchestrator`) reemplazan `PeriodicTimer` por esperas por tramos (≤250 ms de pared) contra objetivos en tiempo de escenario — cambios de escala en vivo y saltos se reflejan en el próximo tick. El marcador `T+hh:mm:ss` y la escala se agregan a los logs de disparo Realistic y de control de modos; `FailureTriggerLogDto` de Training/Custom usa el reloj de escenario.
+- **Knob en UI**: `IEngineOrchestrator` + `EngineOrchestrator` exponen `SimulatedTimeScale`, `SetSimulatedTimeScale`, `AdvanceSimulatedTime`; `RealisticModeViewModel` agrega `SetSimulatedScaleCommand`/`AdvanceSimulatedTimeCommand` y `SimulatedTimeScaleDisplay`; `RealisticModePanel.xaml` agrega el bloque «RELOJ DE SIMULACIÓN (DEBUG)» en el paso 3 (1x/5x/15x/60x, saltos +10min/+30min/+1h), visible con motor activo.
+- **Mock de Fenix v2**: `MockFenixApiClient` deja las 10 fallas hardcodeadas y sirve el **catálogo real** `failures.json` (embebido en Domain, leído vía `EmbeddedJsonLoader`) con estado `failed` mutable persistente entre lecturas; IDs desconocidos se registran con warning. La selección mock/real pasa de `#if DEBUG && false` a config: `FenixApi:UseMock` (solo DEBUG; `appsettings.json` del repo lo deja en `true` para desarrollar sin Fenix; Release siempre real).
+- TestUnits: `MockSimConnectClientTests` reescrito al timeline nuevo (6 tests) + `ScaledTimeProviderTests` (4 tests).
+
+**Áreas tocadas**: Domain (`ScaledTimeProvider`), Application (`EngineOrchestrator`, `RealisticSessionManager`, `IEngineOrchestrator`, `DependencyInjection`), Integrations.SimConnect (`MockSimConnectClient`), Integrations.Fenix (`MockFenixApiClient`, `DependencyInjection`), UI (`RealisticModePanel.xaml`, `RealisticModeViewModel`, `appsettings.json`), TestUnits (2 archivos) y docs (`integraciones/simconnect.md`, `integraciones/fenix-api.md`, `realistic-mode/estado-y-diseno.md`).
+
+**Verificación**
+
+- Build Debug de solución y de UI: **0 errores / 0 advertencias**. `dotnet test`: **190/190 pasan** (10 nuevos: cronograma del vuelo 2h35 con pushback/arranque/taxi/despegue/crucero FL350/aterrizaje/rollout, cold&dark final sostenido, reinicio de timeline, vuelo completo a ×60 con cambio de escala en vivo y saltos, clamps y semántica de `SetScale`/`Advance`).
+- **No verificado en runtime**: el knob de la UI y una corrida completa del modo Realistic a 60x quedan para probar manualmente en la app (y en la PC de testing); la integración con MSFS/Fenix real no está afectada (escala 1).
+
 ### 2026-10-23 — UI §8 del modo Realistic: bloque OFP ampliado, navegación por pastillas y expectativa de fallas
 
 **Qué y por qué**

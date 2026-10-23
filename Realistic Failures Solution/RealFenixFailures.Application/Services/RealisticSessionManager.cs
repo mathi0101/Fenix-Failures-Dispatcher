@@ -30,9 +30,10 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     private RealisticSessionEngine? _engine;
     private IServiceScope? _sessionScope;
-    private PeriodicTimer? _evaluationTimer;
     private CancellationTokenSource? _evaluationCts;
     private Task? _evaluationLoopTask;
+    private readonly ScaledTimeProvider? _clock;
+    private DateTimeOffset? _sessionStartedAtScenario;
     private bool _isPaused;
     private readonly TimeSpan _evaluationInterval;
     private const int EvaluationIntervalSeconds = 30;
@@ -77,7 +78,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
         IFlightEventDetector flightEventDetector,
         TimeSpan? evaluationInterval = null,
         IOptions<FailureEngineSettings>? settings = null,
-        Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
+        Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null,
+        ScaledTimeProvider? simulatedClock = null) {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _scopeFactory = scopeFactory;
@@ -85,6 +87,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
         _flightEventDetector = flightEventDetector;
         _realisticModeSettings = settings?.Value?.RealisticMode ?? new RealisticModeSettings();
         _policyFactory = policyFactory;
+        _clock = simulatedClock;
         var intervalSeconds = settings?.Value?.RealisticMode.EvaluationIntervalSeconds ?? EvaluationIntervalSeconds;
         _evaluationInterval = evaluationInterval ?? TimeSpan.FromSeconds(intervalSeconds);
     }
@@ -97,7 +100,9 @@ public class RealisticSessionManager : IRealisticSessionManager {
         try {
             scope = _scopeFactory.CreateScope();
             var evaluator = scope.ServiceProvider.GetService<IFailureRuleEvaluator>() ?? new FailureRuleEvaluator();
-            var policy = _policyFactory is null ? new RealisticFailurePolicy(evaluator) : _policyFactory(evaluator);
+            var policy = _policyFactory is null
+                ? new RealisticFailurePolicy(evaluator, utcNow: _clock is null ? null : () => _clock.GetUtcNow().UtcDateTime)
+                : _policyFactory(evaluator);
             var engine = new RealisticSessionEngine(
                 _simulator,
                 _loggerFactory.CreateLogger<RealisticSessionEngine>(),
@@ -118,18 +123,18 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 return ServiceResult<string>.Fail(new InvalidOperationException(), result.Text);
             }
 
-            var timer = new PeriodicTimer(_evaluationInterval);
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var loopTask = Task.Run(() => RunEvaluationLoopAsync(timer, cts.Token), cts.Token);
+            var loopTask = Task.Run(() => RunEvaluationLoopAsync(cts.Token), cts.Token);
 
             _engine = engine;
             _sessionScope = scope;
             scope = null;
-            _evaluationTimer = timer;
+            _sessionStartedAtScenario = _clock?.GetUtcNow();
             _evaluationCts = cts;
             _evaluationLoopTask = loopTask;
             IsPaused = false;
-            _logger.LogInformation("Realistic session started for aircraft {Registration}", context.Aircraft.Registration);
+            _logger.LogInformation("Realistic session started for aircraft {Registration} (escala de tiempo {Scale}x)",
+                context.Aircraft.Registration, _clock?.Scale ?? 1.0);
             return ServiceResult<string>.Ok($"Realistic session started for aircraft {context.Aircraft.Registration}");
         } catch (Exception ex) {
             _logger.LogError(ex, "Error starting realistic session");
@@ -150,6 +155,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
             _engine = null;
             _sessionScope?.Dispose();
             _sessionScope = null;
+            _sessionStartedAtScenario = null;
             IsPaused = false;
             OnPropertyChanged(nameof(PreparedCount));
         }
@@ -179,13 +185,10 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 await RestoreFailuresAfterPauseAsync(ct);
             }
             _engine.ResetCadence();
-            var timer = new PeriodicTimer(_evaluationInterval);
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var loopTask = Task.Run(() => RunEvaluationLoopAsync(timer, cts.Token), cts.Token);
+            var loopTask = Task.Run(() => RunEvaluationLoopAsync(cts.Token), cts.Token);
 
-            _evaluationTimer?.Dispose();
             _evaluationCts?.Dispose();
-            _evaluationTimer = timer;
             _evaluationCts = cts;
             _evaluationLoopTask = loopTask;
             IsPaused = false;
@@ -293,9 +296,13 @@ public class RealisticSessionManager : IRealisticSessionManager {
         public static EvaluationLoopSignal StopFatal(Exception error) => new(false, error);
     }
 
-    private async Task RunEvaluationLoopAsync(PeriodicTimer timer, CancellationToken ct) {
+    private async Task RunEvaluationLoopAsync(CancellationToken ct) {
         try {
-            while (await timer.WaitForNextTickAsync(ct) && !ct.IsCancellationRequested) {
+            while (!ct.IsCancellationRequested) {
+                await WaitForNextEvaluationTickAsync(ct);
+                if (ct.IsCancellationRequested)
+                    break;
+
                 var signal = await EvaluateAndExecuteAsync(ct);
                 if (!signal.ShouldContinue) {
                     if (signal.FatalError is not null) {
@@ -313,6 +320,27 @@ public class RealisticSessionManager : IRealisticSessionManager {
     }
 
     /// <summary>
+    /// Tick de evaluación sobre el reloj de simulación: espera el intervalo en tiempo de escenario.
+    /// Con escala &gt; 1 (o con saltos de escenario) el próximo tick ocurre proporcionalmente antes en
+    /// tiempo de pared; los cambios de escala en vivo se reflejan en el tick siguiente.
+    /// </summary>
+    private async Task WaitForNextEvaluationTickAsync(CancellationToken ct) {
+        var now = _clock?.GetUtcNow() ?? DateTimeOffset.UtcNow;
+        var due = now + _evaluationInterval;
+        while (true) {
+            now = _clock?.GetUtcNow() ?? DateTimeOffset.UtcNow;
+            var remaining = due - now;
+            if (remaining <= TimeSpan.Zero)
+                return;
+
+            var scale = _clock?.Scale ?? 1.0;
+            var wallChunkMs = remaining.TotalMilliseconds / Math.Max(scale, ScaledTimeProvider.MinScale);
+            var chunk = TimeSpan.FromMilliseconds(Math.Clamp(wallChunkMs, 15, 250));
+            await Task.Delay(chunk, ct);
+        }
+    }
+
+    /// <summary>
     /// Cierre seguro ante un fallo fatal de evaluación. Se ejecuta DENTRO de la task del loop (nunca se auto-espera),
     /// por lo que no invoca <c>StopLoopAsync</c> ni <c>StopAsync</c> (que esperarían <c>_evaluationLoopTask</c>).
     /// Descarta engine, scope, timer/cts y deja el manager sin sesión ni modo aparentemente activo.
@@ -321,8 +349,6 @@ public class RealisticSessionManager : IRealisticSessionManager {
         _evaluationCts?.Cancel();
         _evaluationCts?.Dispose();
         _evaluationCts = null;
-        _evaluationTimer?.Dispose();
-        _evaluationTimer = null;
         _evaluationLoopTask = null;
         _engine = null;
         _sessionScope?.Dispose();
@@ -347,8 +373,6 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 _logger.LogWarning(ex, "Evaluation loop exited with an unexpected error");
             }
         }
-        _evaluationTimer?.Dispose();
-        _evaluationTimer = null;
         _evaluationCts?.Dispose();
         _evaluationCts = null;
     }
@@ -368,6 +392,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
             }
 
             foreach (var triggered in result.TriggeredFailures) {
+                _logger.LogInformation("Falla {FenixId} disparada {ScenarioMark} (fase {Phase}, escala {Scale}x)",
+                    triggered.FenixFailureId, ScenarioMark(), _flightEventDetector.CurrentPhase, _clock?.Scale ?? 1.0);
                 FailureTriggered?.Invoke(this, new FailureTriggeredEventArgs {
                     FenixFailureId = triggered.FenixFailureId,
                     Description = triggered.Description,
@@ -397,6 +423,13 @@ public class RealisticSessionManager : IRealisticSessionManager {
     #endregion
 
     #region Privates
+    /// <summary>Marcador de tiempo de escenario (T+hh:mm:ss desde el inicio de la sesión) para trazabilidad en logs.</summary>
+    private string ScenarioMark() {
+        if (_clock is null || _sessionStartedAtScenario is not DateTimeOffset started)
+            return string.Empty;
+        return $"a T+{_clock.GetUtcNow() - started:hh\\:mm\\:ss}";
+    }
+
     private void Engine_PreparedQueueChanged(object? sender, EventArgs e) {
         OnPropertyChanged(nameof(PreparedCount));
     }

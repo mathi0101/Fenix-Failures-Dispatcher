@@ -988,6 +988,41 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+
+                    <!-- DEBUG: reloj de simulación (vuelo mock escalado) -->
+                    <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,12,0,0"
+                            Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="RELOJ DE SIMULACIÓN (DEBUG)" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding SimulatedTimeScaleDisplay}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Accent.Blue.Primary}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Button Content="1x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="1"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"
+                                        ToolTip="Tiempo real"/>
+                                <Button Content="5x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="5"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
+                                <Button Content="15x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="15"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
+                                <Button Content="60x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="60"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0"
+                                        ToolTip="Un vuelo de 2h30 corre en 2min30"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="Saltar:" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button Content="+10 min" Command="{Binding AdvanceSimulatedTimeCommand}" CommandParameter="10"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
+                                <Button Content="+30 min" Command="{Binding AdvanceSimulatedTimeCommand}" CommandParameter="30"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
+                                <Button Content="+1 h" Command="{Binding AdvanceSimulatedTimeCommand}" CommandParameter="60"
+                                        Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0"
+                                        ToolTip="Salta el escenario (p. ej. directo al descenso)"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 </ScrollViewer>
 

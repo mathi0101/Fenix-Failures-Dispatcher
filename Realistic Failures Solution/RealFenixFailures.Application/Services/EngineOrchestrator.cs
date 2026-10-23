@@ -31,7 +31,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
     private FailurePreset? _activePreset;
 
-    private PeriodicTimer? _automaticTimer;
+    private readonly ScaledTimeProvider _clock;
+    private DateTimeOffset? _simulatedStartedAt;
     private CancellationTokenSource? _automaticTimerCts;
 
 
@@ -109,7 +110,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         IFlightEventDetector flightEventDetector,
         IFlightSimulationController flightSimulationController,
         IOptions<FailureEngineSettings> settings,
-        ILogger<EngineOrchestrator> logger) {
+        ILogger<EngineOrchestrator> logger,
+        ScaledTimeProvider? simulatedClock = null) {
         _presetService = presetService;
         _simulatorConnectionService = simulatorService;
         _userAircraftService = userAircraftService;
@@ -119,6 +121,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         _flightSimulationController = flightSimulationController;
         _settings = settings.Value;
         _logger = logger;
+        _clock = simulatedClock ?? new ScaledTimeProvider();
     }
     #endregion
 
@@ -133,7 +136,6 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                 return;
 
             _automaticTimerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            _automaticTimer = new PeriodicTimer(TimeSpan.FromSeconds(_settings.CheckConnectionIntervalSeconds));
             IsTimerRunning = true;
 
             _ = Task.Run(() => RunAutomaticTimerLoopAsync(_automaticTimerCts.Token), _automaticTimerCts.Token);
@@ -151,19 +153,39 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                 return;
 
             _automaticTimerCts?.Cancel();
-            _automaticTimer?.Dispose();
-            _automaticTimer = null;
+            _automaticTimerCts = null;
             IsTimerRunning = false;
         } finally {
             _operationLock.Release();
         }
     }
 
-    private async Task RunAutomaticTimerLoopAsync(CancellationToken ct) {
-        if (_automaticTimer == null) return;
+    /// <summary>
+    /// Tick del timer automático sobre el reloj de simulación: cada tick espera el intervalo en tiempo
+    /// de escenario (<see cref="ScaledTimeProvider"/>). Con escala &gt; 1 los ticks se suceden más rápido
+    /// en tiempo real; cambios de escala y saltos (<c>Advance</c>) se reflejan en el próximo tick.
+    /// </summary>
+    private async Task WaitForNextAutomaticTickAsync(CancellationToken ct) {
+        var interval = TimeSpan.FromSeconds(_settings.CheckConnectionIntervalSeconds);
+        var due = _clock.GetUtcNow() + interval;
+        while (true) {
+            var remaining = due - _clock.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+                return;
 
+            var wallChunkMs = remaining.TotalMilliseconds / Math.Max(_clock.Scale, ScaledTimeProvider.MinScale);
+            var chunk = TimeSpan.FromMilliseconds(Math.Clamp(wallChunkMs, 15, 250));
+            await Task.Delay(chunk, ct);
+        }
+    }
+
+    private async Task RunAutomaticTimerLoopAsync(CancellationToken ct) {
         try {
-            while (await _automaticTimer.WaitForNextTickAsync(ct) && !ct.IsCancellationRequested) {
+            while (!ct.IsCancellationRequested) {
+                await WaitForNextAutomaticTickAsync(ct);
+                if (ct.IsCancellationRequested)
+                    break;
+
                 ConnectionStatus = await _simulatorConnectionService.GetConnectionStatusAsync(ct);
 
                 // El modo Realista ya alimenta el detector con su propio loop de evaluación (30s);
@@ -183,6 +205,34 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         } catch (Exception ex) {
             _logger.LogError(ex, "Unexpected error in automatic timer loop.");
         }
+    }
+
+    #endregion
+
+    #region Reloj de simulación (tiempo escalado)
+
+    /// <summary>Multiplicador de velocidad del tiempo simulado (1 = tiempo real).</summary>
+    public double SimulatedTimeScale => _clock.Scale;
+
+    public void SetSimulatedTimeScale(double scale) {
+        _clock.SetScale(scale);
+        _logger.LogInformation("Escala de tiempo simulado cambiada a {Scale}x", _clock.Scale);
+        OnPropertyChanged(nameof(SimulatedTimeScale));
+    }
+
+    /// <summary>Salta el tiempo de escenario hacia adelante (p. ej. ir directo al descenso).</summary>
+    public void AdvanceSimulatedTime(TimeSpan scenarioTime) {
+        _clock.Advance(scenarioTime);
+        var elapsed = _simulatedStartedAt is DateTimeOffset started
+            ? $"T+{(_clock.GetUtcNow() - started):hh\\:mm\\:ss}"
+            : "sin escenario iniciado";
+        _logger.LogInformation("Tiempo de escenario adelantado {Delta}. Posición: {Elapsed} (escala {Scale}x)", scenarioTime, elapsed, _clock.Scale);
+        OnPropertyChanged(nameof(SimulatedTimeScale));
+    }
+
+    private void MarkSimulatedStart() {
+        _simulatedStartedAt = _clock.GetUtcNow();
+        _logger.LogInformation("Escenario de simulación iniciado en T0 (escala {Scale}x).", _clock.Scale);
     }
 
     #endregion
@@ -224,6 +274,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             CurrentMode = UserAppMode.Realistic;
             IsEngineActive = true;
             _flightSimulationController.StartFlightSimulation();
+            MarkSimulatedStart();
 
             _logger.LogInformation("Realistic mode started for aircraft {Registration}. RealisticSessionManager will select from available presets.",
                 aircraft.Registration);
@@ -258,13 +309,13 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             if (!armedFailures.IsSuccess) {
                 _logger.LogError("Failed to arm training preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
-                AddRecentLog(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
+                AddRecentLog(new FailureTriggerLogDto(_clock.GetUtcNow().UtcDateTime, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                 return;
             }
 
             foreach (var def in armedFailures.Value!) {
                 var log = new FailureTriggerLogDto(
-                    DateTime.UtcNow,
+                    _clock.GetUtcNow().UtcDateTime,
                     def.FenixFailureId,
                     def.FenixFailure!.Name,
                     def.Preset!.FlightPhase,
@@ -275,6 +326,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             CurrentMode = UserAppMode.Training;
             IsEngineActive = true;
             _flightSimulationController.StartFlightSimulation();
+            MarkSimulatedStart();
 
             _logger.LogInformation("Training preset {PresetId} loaded: {PresetName}",
                 presetId, _activePreset.Name);
@@ -315,13 +367,13 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
                 if (!armedFailures.IsSuccess) {
                     _logger.LogError("Failed to arm custom preset {PresetId} ({PresetName})", presetId, _activePreset.Name);
-                    AddRecentLog(new FailureTriggerLogDto(DateTime.UtcNow, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
+                    AddRecentLog(new FailureTriggerLogDto(_clock.GetUtcNow().UtcDateTime, "", "Error al activar preset", _activePreset.FlightPhase, _activePreset.Name));
                     return;
                 }
 
                 foreach (var def in armedFailures.Value!) {
                     var log = new FailureTriggerLogDto(
-                        DateTime.UtcNow,
+                        _clock.GetUtcNow().UtcDateTime,
                         def.FenixFailureId,
                         def.FenixFailure!.Name,
                         def.Preset!.FlightPhase,
@@ -333,6 +385,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
             CurrentMode = UserAppMode.Custom;
             IsEngineActive = true;
             _flightSimulationController.StartFlightSimulation();
+            MarkSimulatedStart();
 
             _logger.LogInformation("Custom mode started with {Count} failures. Activate immediately: {Activate}",
                 _activePreset.PresetFailureDefinitions.Count, activateImmediately);
@@ -361,6 +414,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
                 _activePreset = null;
                 _activeScenarioFailures.Clear();
                 _flightEventDetector.Reset();
+                _simulatedStartedAt = null;
 
                 _logger.LogInformation("Mode {Mode} stopped.", CurrentMode);
 
