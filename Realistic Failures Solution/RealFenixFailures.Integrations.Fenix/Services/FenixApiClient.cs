@@ -39,7 +39,7 @@ public class FenixApiClient : IFenixApiClient {
             var response = await _httpClient.GetAsync(endpoint, ct);
 
             if (!response.IsSuccessStatusCode) {
-                _logger.LogWarning("Fenix GET manual failures returned status code {StatusCode}", response.StatusCode);
+                _logger.LogDebug("Fenix GET manual failures returned status code {StatusCode}", response.StatusCode);
                 return null;
             }
             var stream = await response.Content.ReadAsStreamAsync(ct);
@@ -59,7 +59,7 @@ public class FenixApiClient : IFenixApiClient {
             var response = await _httpClient.PostAsJsonAsync(endpoint, rq, JsonOptions, ct);
 
             if (!response.IsSuccessStatusCode) {
-                _logger.LogWarning("Fenix POST saveManual failed for {FailureId}. Status code {StatusCode}", rq.Id, response.StatusCode);
+                _logger.LogDebug("Fenix POST saveManual failed for {FailureId}. Status code {StatusCode}", rq.Id, response.StatusCode);
                 return null;
             }
             return await response.Content.ReadAsStreamAsync(ct);

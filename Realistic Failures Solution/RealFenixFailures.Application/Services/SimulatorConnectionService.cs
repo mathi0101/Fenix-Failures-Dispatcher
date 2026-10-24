@@ -56,7 +56,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
         try {
             var dto = await _fenixFailureApiDispatcher.GetAllFailuresAsync(ct);
             if (dto is null) {
-                _logger.LogWarning("GetCurrentFenixFailures: la lectura del listado de fallas no devolvió stream (Fenix no disponible).");
+                _logger.LogDebug("GetCurrentFenixFailures: la lectura del listado de fallas no devolvió stream (Fenix no disponible).");
                 return ServiceResult<AllFenixFailuresResponseDto?>.Fail(new InvalidOperationException("Fenix failure stream not read"));
             }
             return ServiceResult<AllFenixFailuresResponseDto?>.Ok(dto);

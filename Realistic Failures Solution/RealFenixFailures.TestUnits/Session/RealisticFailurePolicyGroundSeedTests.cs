@@ -16,6 +16,38 @@ namespace RealFenixFailures.TestUnits.Session;
 public class RealisticFailurePolicyGroundSeedTests {
     private readonly MockRandom _random = new();
 
+    [Fact]
+    public void TickDiagnostics_PreserveSelectionsAndRandomSequence() {
+        var observed = new RealisticFailurePolicy(new FailureRuleEvaluator(), random: new Random(42));
+        var original = new RealisticFailurePolicy(new FailureRuleEvaluator(), random: new Random(42));
+        FlightFailureCandidate<string>[] candidates = [new("A", 1), new("B", 2)];
+        for (var i = 0; i < 40; i++) {
+            var expected = original.RollTick(candidates, 3600, out var expectedChoice);
+            var actual = observed.RollTick(candidates, 3600, out var choice, out var trace);
+            Assert.Equal(expected, actual);
+            Assert.Equal(expectedChoice, choice);
+            Assert.Equal(3, trace.TotalLambda);
+            Assert.Equal(1 - Math.Exp(-3), trace.Probability);
+            Assert.Equal(actual, trace.Roll < trace.Probability);
+            Assert.Equal(actual, trace.SelectionRoll.HasValue);
+        }
+        Assert.Equal(original.Next(), observed.Next());
+    }
+
+    [Fact]
+    public void GroundDiagnostics_ObserveActualRolls_WithoutChangingSelectionOrRandomSequence() {
+        var observed = new RealisticFailurePolicy(new FailureRuleEvaluator(), random: new Random(42));
+        var original = new RealisticFailurePolicy(new FailureRuleEvaluator(), random: new Random(42));
+        GroundFailureCandidate<string>[] candidates = [new("A", 1, 50), new("B", 0.7, 90), new("C", 0, 0)];
+        var rolls = new List<(double Probability, double Roll, bool Accepted)>();
+        var expected = original.SelectGroundFailures(candidates, 1);
+        var actual = observed.SelectGroundFailures(candidates, 1, (c, roll, accepted) => rolls.Add((c.Probability, roll, accepted)));
+        Assert.Equal(expected, actual);
+        Assert.Equal(2, rolls.Count);
+        Assert.All(rolls, r => Assert.Equal(r.Roll < r.Probability, r.Accepted));
+        Assert.Equal(original.Next(), observed.Next());
+    }
+
     private RealisticFailurePolicy CreatePolicy() =>
         new(new FailureRuleEvaluator(), () => new DateTime(2026, 10, 23, 12, 0, 0, DateTimeKind.Utc), _random);
 

@@ -11,6 +11,9 @@ public sealed record GroundFailureCandidate<T>(T Item, double Probability, doubl
 /// <summary>Candidato en vuelo con su λ efectiva (eventos/hora, ya con perfil, severidad, desgaste y peso del preset aplicados).</summary>
 public sealed record FlightFailureCandidate<T>(T Item, double Lambda);
 
+/// <summary>Valores del sorteo real; observarlos no consume azar adicional.</summary>
+public readonly record struct FlightTickRoll(double DeltaSeconds, double TotalLambda, double Probability, double? Roll, double? SelectionRoll);
+
 public sealed class RealisticFailurePolicy {
     private readonly IFailureRuleEvaluator _ruleEvaluator;
     private readonly Func<DateTime> _utcNow;
@@ -84,17 +87,26 @@ public sealed class RealisticFailurePolicy {
     /// ponderado por λ. Invariante al intervalo de evaluación: solo Δt (tiempo real) y las λ determinan la cadencia.
     /// </summary>
     public bool RollTick<T>(IReadOnlyList<FlightFailureCandidate<T>> candidates, double deltaSeconds, out T? chosen) where T : class {
+        return RollTick(candidates, deltaSeconds, out chosen, out _);
+    }
+
+    public bool RollTick<T>(IReadOnlyList<FlightFailureCandidate<T>> candidates, double deltaSeconds, out T? chosen, out FlightTickRoll diagnostic) where T : class {
         chosen = null;
+        diagnostic = new(deltaSeconds, 0, 0, null, null);
         if (candidates.Count == 0) return false;
 
         var hours = Math.Max(0, deltaSeconds / 3600.0);
         var totalLambda = candidates.Sum(c => Math.Max(0, c.Lambda));
+        diagnostic = diagnostic with { TotalLambda = totalLambda };
         if (totalLambda <= 0) return false;
 
         var tickProbability = 1 - Math.Exp(-totalLambda * hours);
-        if (_random.NextDouble() >= tickProbability) return false;
+        var probabilityRoll = _random.NextDouble();
+        diagnostic = diagnostic with { Probability = tickProbability, Roll = probabilityRoll };
+        if (probabilityRoll >= tickProbability) return false;
 
         var roll = _random.NextDouble() * totalLambda;
+        diagnostic = diagnostic with { SelectionRoll = roll };
         var cumulative = 0.0;
         foreach (var candidate in candidates) {
             cumulative += Math.Max(0, candidate.Lambda);
@@ -111,13 +123,17 @@ public sealed class RealisticFailurePolicy {
     /// Seed de tierra: sorteo Bernoulli independiente por candidato; los elegidos que superen el cap se truncan
     /// priorizando mayor desgaste → mayor probabilidad → azar. Con cap &lt;= 0 no se selecciona nada.
     /// </summary>
-    public IReadOnlyList<GroundFailureCandidate<T>> SelectGroundFailures<T>(IReadOnlyList<GroundFailureCandidate<T>> candidates, int cap) {
+    public IReadOnlyList<GroundFailureCandidate<T>> SelectGroundFailures<T>(IReadOnlyList<GroundFailureCandidate<T>> candidates, int cap,
+        Action<GroundFailureCandidate<T>, double, bool>? observeRoll = null) {
         if (cap <= 0 || candidates.Count == 0) return [];
         var rolled = new List<(GroundFailureCandidate<T> Candidate, double OrderKey)>();
         foreach (var candidate in candidates) {
             if (candidate.Probability <= 0) continue;
-            if (_random.NextDouble() < candidate.Probability)
+            var roll = _random.NextDouble();
+            var accepted = roll < candidate.Probability;
+            if (accepted)
                 rolled.Add((candidate, _random.NextDouble()));
+            observeRoll?.Invoke(candidate, roll, accepted);
         }
         if (rolled.Count <= cap) return rolled.Select(x => x.Candidate).ToArray();
         return rolled

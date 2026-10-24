@@ -76,9 +76,8 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 OnConnectionStateChanged?.Invoke(true);
                 return true;
             } catch (Exception ex) {
-                if (ex is not COMException { HResult: unchecked((int)0x80004005) }) {
-                    _logger.LogError(ex, "Error connecting to SimConnect");
-                }
+                // El health check reintenta después: MSFS/SimConnect puede no estar disponible.
+                _logger.LogDebug(ex, "Error connecting to SimConnect");
                 Disconnect();
                 return false;
             }
@@ -169,6 +168,9 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         while (!ct.IsCancellationRequested && _isConnected) {
             try {
                 _simConnect?.ReceiveMessage();
+            } catch (COMException ex) when (ex.HResult == unchecked((int)0x80004005)) {
+                _logger.LogDebug(ex, "SimConnect no disponible durante la lectura de mensajes");
+                _isConnected = false;
             } catch (Exception ex) {
                 _logger.LogError(ex, "Exception in SimConnect Message Pump");
                 _isConnected = false;
@@ -194,6 +196,8 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                     DATA_DEFINITION.AircraftState,
                     0,
                     SIMCONNECT_SIMOBJECT_TYPE.USER);
+            } catch (COMException ex) when (ex.HResult == unchecked((int)0x80004005)) {
+                _logger.LogDebug(ex, "SimConnect no disponible al solicitar datos");
             } catch (Exception ex) {
                 _logger.LogWarning(ex, "Error requesting data");
             }

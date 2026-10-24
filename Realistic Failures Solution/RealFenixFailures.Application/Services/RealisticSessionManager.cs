@@ -184,6 +184,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
         // Marcar pausado ANTES de detener el loop: bloquea cualquier tick en curso/encolado
         // de elegir fallas nuevas y deja IsPaused=true aunque el desarme tarde.
         IsPaused = true;
+        _logger.LogDebug("Realistic sesión {SessionId}: pausa solicitada, detener evaluación y desarmar fallas activas", _engine.Session?.Session.Id);
         await StopLoopAsync();
         await DisarmActiveFailuresForPauseAsync(ct);
         _logger.LogInformation("Realistic session paused");
@@ -191,6 +192,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     public async Task ResumeAsync(CancellationToken ct, bool restoreFailures = false) {
         if (_engine == null || !IsPaused) return;
+        _logger.LogDebug("Realistic sesión {SessionId}: reanudación solicitada, restaurar fallas {Restore}", _engine.Session?.Session.Id, restoreFailures);
         try {
             if (restoreFailures) {
                 await RestoreFailuresAfterPauseAsync(ct);
@@ -203,6 +205,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
             _evaluationCts = cts;
             _evaluationLoopTask = loopTask;
             IsPaused = false;
+            _logger.LogDebug("Realistic sesión {SessionId}: reanudación completada y timer iniciado, intervalo escenario {Interval}, escala {Scale}x", _engine.Session?.Session.Id, _evaluationInterval, _clock?.Scale ?? 1.0);
             _logger.LogInformation("Realistic session resumed {Restore}", restoreFailures ? "con restauración de fallas" : "sin restauración");
         } catch (Exception ex) {
             _logger.LogError(ex, "Error resuming realistic session");
@@ -229,6 +232,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
             try {
                 var ok = await _simulator.DisarmFailureAsync(failure.FenixFailureId, ct);
                 if (ok) {
+                    _logger.LogDebug("Realistic sesión {SessionId}: desarme por pausa confirmado para {FailureId}", _engine.Session.Session.Id, failure.FenixFailureId);
                     _logger.LogInformation("Pause: failure disarmed in Fenix: {Id}", failure.FenixFailureId);
                 } else {
                     _logger.LogWarning("Pause: failed to disarm {Id}", failure.FenixFailureId);
@@ -259,6 +263,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
             try {
                 var dispatched = await DispatchArmAsync(armRequest, ct);
                 if (dispatched) {
+                    _logger.LogDebug("Realistic sesión {SessionId}: restauración confirmada para {FailureId}, failed {Failed}, condición {@Condition}",
+                        _engine.Session.Session.Id, failure.FenixFailureId, armRequest.Failed, armRequest.FailureCondition);
                     _logger.LogInformation("Resume: failure re-armed in Fenix: {Id}", failure.FenixFailureId);
                 } else {
                     _logger.LogWarning("Resume: failed to re-arm {Id}", failure.FenixFailureId);
@@ -394,6 +400,9 @@ public class RealisticSessionManager : IRealisticSessionManager {
         if (IsPaused || SessionState == null || _engine == null) return EvaluationLoopSignal.Stop();
         try {
             var result = await _engine.EvaluateAsync(ct);
+            if (result.TriggeredFailures.Count > 0 || result.StateChanges.Count > 0)
+                _logger.LogDebug("Realistic sesión {SessionId}: evaluación con acciones, envíos {SentCount}, cambios de estado {StateCount}, escala {Scale}x, {ScenarioMark}",
+                    _engine.Session?.Session.Id, result.TriggeredFailures.Count, result.StateChanges.Count, _clock?.Scale ?? 1.0, ScenarioMark());
 
             if (result.ShouldPauseSession) {
                 _evaluationCts?.Cancel();

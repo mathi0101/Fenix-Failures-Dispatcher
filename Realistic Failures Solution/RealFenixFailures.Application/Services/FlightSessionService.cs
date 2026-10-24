@@ -128,6 +128,7 @@ public class FlightSessionService : IFlightSessionService {
             ConsolidateUnresolved(session, finishedUtc);
             PersistWearDeltas(session.Id, deltas);
             await _sessionRepository.SaveChangesAsync(ct);
+            _logger.LogDebug("Realistic sesión {SessionId}: consolidación de cierre guardada, fin UTC {FinishedAtUtc}, deltas de desgaste {WearCount}", sessionId, finishedUtc, deltas.Count);
         } else {
             deltas = MapWearDeltas(await _sessionRepository.GetWearDeltasAsync(sessionId, ct));
         }
@@ -209,7 +210,11 @@ public class FlightSessionService : IFlightSessionService {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
                 var delta = rate * hours;
+                var previousWear = wear.WearPercentage;
                 wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
+                if (wear.WearPercentage > previousWear)
+                    _logger.LogDebug("Realistic sesión {SessionId}: desgaste diferido calculado ATA {Ata}, tasa {Rate}/h, horas {Hours}, previo {Before}%, delta calculado {Delta}%, efectivo {AppliedDelta}%, total {After}%; pendiente de guardar",
+                        session.Id, wear.WearableSystem!.AtaId, rate, hours, previousWear, delta, wear.WearPercentage - previousWear, wear.WearPercentage);
                 wear.LastUpdatedAt = eta.Value;
                 deltas.Add(new SystemWearDeltaDto {
                     AtaId = wear.WearableSystem!.AtaId,
@@ -219,6 +224,8 @@ public class FlightSessionService : IFlightSessionService {
                 });
             }
             if (deltas.Count > 0) await _aircraftSystemWearRepository.SaveAsync(ct);
+            if (deltas.Count > 0)
+                _logger.LogDebug("Realistic sesión {SessionId}: desgaste de recuperación guardado, sistemas {Count}", session.Id, deltas.Count);
             return deltas;
         } catch (Exception ex) {
             _logger.LogError(ex, "No se pudo guardar el desgaste diferido de la sesión {SessionId}", session.Id);
