@@ -101,7 +101,7 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
    git push origin master --follow-tags
    ```
 
-6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, arma el ZIP (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `appsettings.json`, sin BD/logs) y crea el release. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos tres archivos.
+6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, publica en una carpeta explícita (`${{ runner.temp }}/RealFenixFailures-publish`), arma el ZIP desde esa misma carpeta (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `appsettings.json`, sin BD/logs) y crea el release. No busca ejecutables recursivamente en bin/Release; si falta un archivo requerido, el empaquetado falla. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos tres archivos.
 
 7. **GitHub Release** (desde `master`): automático con el workflow `Release` al pushear el tag (crea el release en `master` con `--generate-notes` y adjunta el ZIP; los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales). A mano:
 

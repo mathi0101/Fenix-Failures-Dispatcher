@@ -14,6 +14,12 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-24 — Empaquetar el release desde una salida de publish explícita
+
+- El workflow Release usa `--output` hacia `${{ runner.temp }}/RealFenixFailures-publish` y copia los tres archivos del ZIP desde esa misma carpeta. Se elimina la búsqueda recursiva del primer ejecutable en bin/Release, que podía seleccionar el apphost de compilación en lugar del ejecutable self-contained publicado. Copy-Item falla explícitamente si falta un archivo requerido.
+- Validación local con la versión 0.1.7-beta.1: dotnet publish Release win-x64, self-contained y single-file con extracción de bibliotecas nativas, sin advertencias reportadas. Se ejecuta el bloque PowerShell de empaquetado extraído del workflow, simulando la ejecución manual en dev: el ZIP contiene exactamente exe, wrapper SimConnect y appsettings.json; los SHA256 de las tres entradas coinciden con la carpeta de publish. El exe informa ProductVersion 0.1.7-beta.1 (más hash del commit).
+- No se ejecuta la app ni se publica en GitHub; ejecución remota de Actions y prueba manual MSFS/Fenix pendientes. Flujo documentado en [desarrollo](desarrollo.md).
+
 ### 2026-10-24 — Reporte común de errores inesperados, logs de soporte y donación
 
 - **Reporte transversal**: `UnexpectedErrorSink`, registrado en la composición Serilog de UI, lleva al mismo diálogo las excepciones inesperadas Warning/Error de las capas de la app. Fatal/`LogCritical` genera reporte fatal y cierra después de confirmar; errores recuperables permiten continuar. No se abren crash dialogs por cancelaciones, conectividad/timeout/socket, desconexiones COM de SimConnect ni warnings operativos sin excepción. El sink no introduce referencias WPF en Application/Domain/integraciones.

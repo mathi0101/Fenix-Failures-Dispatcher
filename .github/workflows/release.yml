@@ -25,16 +25,16 @@ jobs:
           dotnet publish "Realistic Failures Solution/RealFenixFailures.UI/RealFenixFailures.UI.csproj"
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          --output "${{ runner.temp }}/RealFenixFailures-publish"
 
       - name: Arm ZIP portable (exe + SimConnect + appsettings, sin BD ni logs)
         shell: pwsh
         run: |
-          $pub = Get-ChildItem "Realistic Failures Solution/RealFenixFailures.UI/bin/Release" -Recurse -Filter "RealFenixFailures.UI.exe" |
-            Select-Object -First 1 -ExpandProperty DirectoryName
+          $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
           $stage = "$env:RUNNER_TEMP/RealFenixFailures"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "appsettings.json")) {
-            Copy-Item (Join-Path $pub $f) $stage
+            Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
           }
           $tag = if ($env:GITHUB_REF_NAME -like 'v*') { $env:GITHUB_REF_NAME } else { 'v0.0.0-test' }
           Compress-Archive -Path "$stage/*" -DestinationPath "$env:RUNNER_TEMP/RealFenixFailures-$tag-win-x64.zip"
