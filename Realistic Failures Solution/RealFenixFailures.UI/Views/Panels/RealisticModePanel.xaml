@@ -1095,7 +1095,7 @@
                                 Command="{Binding ResumeSessionCommand}"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Visibility="{Binding IsSessionPaused, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Reanuda la evaluación tras una pausa por desconexión manual. No es la pausa de fallas (no implementada).">
+                                ToolTip="Reanuda la evaluación del motor tras una pausa y re-arma en Fenix las fallas que estaban en curso (mejor esfuerzo: las que no se puedan reconstruir quedan en el log).">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="⏵" VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0"/>
                                 <TextBlock Text="REANUDAR EVALUACIÓN" VerticalAlignment="Center"

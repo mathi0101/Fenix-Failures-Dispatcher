@@ -29,7 +29,7 @@ public class RealisticSessionManagerTests {
     private Mock<IServiceScope> _scope = null!;
     private readonly Mock<IAircraftSystemWearRepository> _wearRepository = new();
 
-    private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
+    private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null, RealisticModeSettings? realisticSettings = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
         _triggeredFailureRepository
             .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -56,6 +56,7 @@ public class RealisticSessionManagerTests {
             _simulator.Object,
             _flightEventDetector.Object,
             evaluationInterval,
+            realisticSettings is null ? null : Microsoft.Extensions.Options.Options.Create(new FailureEngineSettings { RealisticMode = realisticSettings }),
             policyFactory: policyFactory);
     }
 
@@ -82,6 +83,36 @@ public class RealisticSessionManagerTests {
         _sessionService.Verify(s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(),
             It.Is<IReadOnlyList<SystemWearDeltaDto>>(d => d.Count == 1 && d[0].AtaId == 24
                 && Math.Abs(d[0].DeltaPercentage - 1.2) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task StopAsync_WearCap_AccumulatesRandomSubsetOfSystems() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var settings = new RealisticModeSettings { Wear = new WearSettings { SessionSystemsCap = 2 } };
+        AircraftSystemWear NewWear(int ataId) => new() {
+            UserAircraftId = 1, WearPercentage = 0,
+            WearableSystem = new AircraftWearableSystem { AtaId = ataId, Name = $"S{ataId}", ShortName = $"S{ataId}", WearPerFlightHour = 0.6 }
+        };
+        var w21 = NewWear(21);
+        var w22 = NewWear(22);
+        var w23 = NewWear(23);
+        var w24 = NewWear(24);
+        _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([w21, w22, w23, w24]);
+        var manager = CreateManager(TimeSpan.FromHours(1),
+            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random), settings);
+        Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _now = _now.AddHours(2);
+
+        await manager.StopAsync(CancellationToken.None);
+
+        _sessionService.Verify(s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(),
+            It.Is<IReadOnlyList<SystemWearDeltaDto>>(d => d.Count >= 1 && d.Count <= 2), It.IsAny<CancellationToken>()), Times.Once);
+        _wearRepository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+        var untouched = new[] { w21, w22, w23, w24 }.Count(w => w.WearPercentage == 0);
+        Assert.True(untouched >= 2);
     }
 
     private void SetupConnected() {

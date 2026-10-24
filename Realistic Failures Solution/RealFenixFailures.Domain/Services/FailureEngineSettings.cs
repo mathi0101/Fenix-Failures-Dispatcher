@@ -85,4 +85,10 @@ public class OfpWindowSettings {
 public class WearSettings {
     public double AmplificationFactor { get; set; } = 0.5;
     public int ThresholdNoticePct { get; set; } = 80;
+    /// <summary>
+    /// Tope de sistemas que acumulan desgaste al cerrar la sesión: se elige una cantidad aleatoria
+    /// entre 1 (hardcodeado) y este valor, y solo esos sistemas suman. Valores menores a 1 se clampean a 1.
+    /// Limita el realismo forzado de "todos los sistemas" y el tamaño del desgaste en el resumen.
+    /// </summary>
+    public int SessionSystemsCap { get; set; } = 5;
 }
