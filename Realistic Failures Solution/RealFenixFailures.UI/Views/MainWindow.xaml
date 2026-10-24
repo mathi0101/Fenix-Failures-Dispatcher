@@ -6,7 +6,7 @@
         xmlns:panels="clr-namespace:RealFenixFailures.UI.Views.Panels" 
         xmlns:vm="clr-namespace:RealFenixFailures.UI.ViewModels" d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
         mc:Ignorable="d"
-        Title="Realistic A320 Fenix Failures"
+        Title="Real Fenix Failures"
         Icon="pack://application:,,,/Assets/Branding/app-icon.ico"
         Height="820" Width="1100"
         MinHeight="720" MinWidth="900"
@@ -53,9 +53,9 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
                         </Border>
-                        <TextBlock Text="REALISTIC A320" FontSize="12" FontWeight="Bold"
+                        <TextBlock Text="Real Fenix" FontSize="12" FontWeight="Bold"
                                    Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                        <TextBlock Text=" · FENIX FAILURES" FontSize="12"
+                        <TextBlock Text=" Failures" FontSize="12"
                                    Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -118,20 +118,30 @@
                     </StackPanel>
 
                     <!-- Flight Phase -->
-                    <Border Grid.Column="3" HorizontalAlignment="Center"
-                            Background="#1A2540" CornerRadius="20" Padding="14,4">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="FASE: " FontSize="10" FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding CurrentFlightPhaseDisplay}" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Background="#1A2540" CornerRadius="20" Padding="14,4">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="FASE: " FontSize="10" FontWeight="Bold"
+                                           Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding CurrentFlightPhaseDisplay}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="1"
+                                CornerRadius="20" Padding="14,4" Margin="10,0,0,0"
+                                ToolTip="Hora UTC (Zulu)">
+                            <TextBlock x:Name="UtcClockText" FontSize="11" FontWeight="SemiBold"
+                                       FontFamily="Cascadia Mono, Consolas"
+                                       Foreground="{StaticResource Brush.Text.Secondary}"
+                                       VerticalAlignment="Center" Text="--:--:-- UTC"/>
+                        </Border>
+                    </StackPanel>
 
-                    <Button Grid.Column="4" Content="↻  Refresh"
-                            Command="{Binding RefreshCommand}"
+                    <Button Grid.Column="4" Content="⚙"
+                            Command="{Binding OpenSettingsCommand}"
                             Style="{StaticResource GhostButtonStyle}"
-                            FontSize="12"/>
+                            FontSize="14"
+                            ToolTip="Configuración"/>
                 </Grid>
             </Border>
 
@@ -245,6 +255,29 @@
                         <panels:CustomModePanel Visibility="{Binding IsCustomModeSelected, Converter={StaticResource BoolToVis}}"/>
                         <panels:RealisticModePanel Visibility="{Binding IsRealisticModeSelected, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
+                </Border>
+            </Grid>
+
+            <!-- SETTINGS OVERLAY: opaca TODO lo que está debajo de la status bar
+                 (contenido principal) y muestra el panel de configuración fijo en el centro.
+                 La status bar y la title bar quedan visibles e intactas. -->
+            <Grid Grid.Row="2"
+                  Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVis}}">
+                <!-- Fondo opaco + bloqueo del contenido -->
+                <Border Background="#C0080A0F"/>
+
+                <!-- Panel centrado -->
+                <Border Background="{StaticResource Brush.Background.Card}"
+                        CornerRadius="12"
+                        BorderBrush="{StaticResource Brush.Border.Default}"
+                        BorderThickness="1"
+                        Width="780" Height="620"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
+                    </Border.Effect>
+                    <panels:SettingsPanel x:Name="SettingsPanelHost"
+                                          DataContext="{Binding Settings}"/>
                 </Border>
             </Grid>
 

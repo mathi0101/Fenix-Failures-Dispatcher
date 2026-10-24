@@ -1,0 +1,97 @@
+<Window x:Class="RealFenixFailures.UI.Views.UnfinishedSessionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sesiones sin finalizar"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        Background="#13161E"
+        ShowInTaskbar="False"
+        MaxHeight="480">
+
+    <Window.Resources>
+        <Style x:Key="RecoveryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#F5F7FA"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="10" Padding="20" Background="#13161E">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                           Foreground="#F5B741" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Text="Sesiones sin finalizar"
+                           FontSize="16" FontWeight="SemiBold" Foreground="#F5F7FA" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="La app se cerró con una sesión realista abierta. Podés finalizarla (con resultados y desgaste según la ETA del OFP), descartarla (queda en el historial sin desgaste) o decidirlo después."
+                       FontSize="12" Foreground="#9BA3B0" TextWrapping="Wrap" Margin="0,0,0,14"/>
+
+            <ItemsControl ItemsSource="{Binding UnfinishedSessions}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="#F5F7FA"/>
+                                    <TextBlock Text="{Binding StartedDisplay}" FontSize="11" Foreground="#9BA3B0" Margin="0,2,0,0"/>
+                                    <TextBlock Text="{Binding FailureCountDisplay}" FontSize="11" Foreground="#9BA3B0"/>
+                                    <TextBlock Text="{Binding EtaDisplay}" FontSize="11" Foreground="#9BA3B0"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource RecoveryButtonStyle}" Background="#1F6FEB" BorderBrush="#1F6FEB"
+                                            Command="{Binding FinalizeCommand}">
+                                        <TextBlock Text="Finalizar y ver resultados"/>
+                                    </Button>
+                                    <Button Style="{StaticResource RecoveryButtonStyle}" Background="Transparent" BorderBrush="#B33A3A"
+                                            Foreground="#E8C9C9"
+                                            Command="{Binding DiscardCommand}">
+                                        <TextBlock Text="Descartar"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button Style="{StaticResource RecoveryButtonStyle}" HorizontalAlignment="Right" Background="Transparent" BorderBrush="#2A2F3A"
+                    Click="LeaveForLater_Click">
+                <TextBlock Text="Dejar para después" Foreground="#9BA3B0"/>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

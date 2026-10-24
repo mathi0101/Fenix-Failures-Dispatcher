@@ -16,9 +16,11 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
     private readonly IOptionsMonitor<FenixApiOptions> _optionsMonitor;
     private readonly ILogger<FenixApiFailureService> _logger;
     private readonly SemaphoreSlim _healthLock = new(1, 1);
+    private readonly object _stateLock = new();
 
     private DateTimeOffset _lastHealthCheckAtUtc = DateTimeOffset.MinValue;
     private bool _lastHealthCheckResult;
+    private bool _hasEverConnected;
 
     public FenixApiFailureService(IFenixApiClient apiClient, IFenixStreamFailuresReaderService jsonReader, IOptionsMonitor<FenixApiOptions> optionsMonitor, ILogger<FenixApiFailureService> logger) {
         _apiClient = apiClient;
@@ -35,7 +37,7 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
         FenixSaveManualRequest rq = def.ToFenixSaveManualRequest();
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
         using var stream = await _apiClient.SendFailureAsync(rq, cts.Token);
-        _logger.LogDebug("ArmFailure Response: {@stream}", stream);
+        _logger.LogDebug("ArmFailure Response: {Content}", ReadResponseContent(stream));
         bool httpOk = stream is not null;
         UpdateHealthState(httpOk);
         return httpOk;
@@ -47,21 +49,32 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
         FenixSaveManualRequest rq = def.ToFenixSaveManualRequest();
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
         using var stream = await _apiClient.SendFailureAsync(rq, cts.Token);
-        _logger.LogDebug("DisarmFailure Response: {@stream}", stream);
+        _logger.LogDebug("DisarmFailure Response: {Content}", ReadResponseContent(stream));
         bool httpOk = stream is not null;
         UpdateHealthState(httpOk);
         return httpOk;
     }
 
+    private static string ReadResponseContent(Stream? stream) {
+        if (stream is null) return "<null>";
+        try {
+            stream.Position = 0;
+            using var reader = new StreamReader(stream, leaveOpen: true);
+            return reader.ReadToEnd();
+        } catch (Exception ex) {
+            return $"<unreadable: {ex.Message}>";
+        }
+    }
+
     #endregion
 
-    public async Task<AllFenixFailuresResponseDto> GetAllFailuresAsync(CancellationToken ct) {
+    public async Task<AllFenixFailuresResponseDto?> GetAllFailuresAsync(CancellationToken ct) {
         try {
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
             using (var stream = await _apiClient.GetManualFailuresAsync(cts.Token)) {
                 if (stream is null) {
                     UpdateHealthState(false);
-                    return new AllFenixFailuresResponseDto();
+                    return null;
                 }
                 var result = await _jsonReader.ReadAsync(stream, ct);
 
@@ -77,6 +90,10 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
     public async Task<bool> ResetAllFailuresAsync(CancellationToken ct) {
         var failures = await GetAllFailuresAsync(ct);
+        if (failures is null) {
+            _logger.LogWarning("Reset skipped: Fenix failure stream not readable");
+            return false;
+        }
         var activeFailures = failures.GetFailuresList().Where(f => f.Failed || f.FailureCondition is not null).ToList();
         if (activeFailures.Count > 0) {
             _logger.LogInformation("Resetting {Count} active Fenix failures.", activeFailures.Count);
@@ -88,7 +105,7 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
 
 
         failures = await GetAllFailuresAsync(ct);
-        return failures.GetFailuresList().All(f => !f.Failed);
+        return failures is not null && failures.GetFailuresList().All(f => !f.Failed);
     }
 
     public async Task<bool> IsApiAvailableAsync(CancellationToken ct) {
@@ -115,8 +132,20 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
     }
 
     private void UpdateHealthState(bool isAvailable) {
-        _lastHealthCheckResult = isAvailable;
-        _lastHealthCheckAtUtc = DateTimeOffset.UtcNow;
+        lock (_stateLock) {
+            var previous = _lastHealthCheckResult;
+            _lastHealthCheckResult = isAvailable;
+            _lastHealthCheckAtUtc = DateTimeOffset.UtcNow;
+
+            if (isAvailable == previous) return;
+
+            if (isAvailable) {
+                _hasEverConnected = true;
+                _logger.LogInformation("API Fenix conectada");
+            } else if (_hasEverConnected) {
+                _logger.LogInformation("API Fenix desconectada");
+            }
+        }
     }
 
 

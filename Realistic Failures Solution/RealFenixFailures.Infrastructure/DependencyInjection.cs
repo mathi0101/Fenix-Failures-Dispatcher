@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,13 +15,18 @@ namespace RealFenixFailures.Infrastructure;
 
 public static class DependencyInjection {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration) {
-        var connectionString = configuration.GetConnectionString("Sqlite") ?? "Data Source=realfenixfailures.db";
+        // La BD vive en %AppData%\RealFenixFailures (datos del usuario), no en la
+        // carpeta del ejecutable: sobrevive reinstalaciones y escribe en carpetas
+        // protegidas/sincronizadas. No es configurable por appsettings.
+        AppPaths.EnsureCreated();
+        var connectionString = AppPaths.DatabaseConnectionString;
 
         services.AddDbContext<RealFenixDbContext>((sp, options) => {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             options.UseSqlite(connectionString)
                 .UseLoggerFactory(loggerFactory)
-                .EnableDetailedErrors();
+                .EnableDetailedErrors()
+                .ConfigureWarnings(w => w.Log((RelationalEventId.CommandExecuted, LogLevel.Debug)));
 #if DEBUG
             options.EnableSensitiveDataLogging();
 #endif
@@ -31,10 +37,21 @@ public static class DependencyInjection {
         services.AddScoped<IPresetRepository, PresetRepository>();
         services.AddScoped<IFlightSessionRepository, FlightSessionRepository>();
         services.AddScoped<ITriggeredFailureRepository, TriggeredFailureRepository>();
+        services.AddScoped<IFlightPlanRepository, FlightPlanRepository>();
+        services.AddScoped<IAircraftSystemWearRepository, AircraftSystemWearRepository>();
 
         services.AddScoped<IFailuresPersistenceService, FailuresPersistenceService>();
         services.AddScoped<IPresetsLoader, PresetsLoader>();
         services.AddScoped<IUserAircraftService, UserAircraftService>();
+
+#if DEBUG
+        // Seed temporal SOLO de DEBUG: aeronave de ejemplo (LV-DBG) con sesiones,
+        // fallas y desgaste acumulado. Se registra también como IInitializerService
+        // para que corra tras DatabaseSeeder (catálogo + presets) en el pipeline
+        // del arranque; en Release no existe ni se resuelve.
+        services.AddScoped<IDebugSampleDataSeeder, DebugSampleDataSeeder>();
+        services.AddScoped<IInitializerService, DebugSampleDataSeeder>();
+#endif
 
         return services;
     }

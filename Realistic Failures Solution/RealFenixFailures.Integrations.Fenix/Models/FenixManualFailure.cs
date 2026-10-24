@@ -4,5 +4,7 @@ public sealed record FenixManualFailure(
     string Id,
     string Title,
     FenixFailureCondition? FailureCondition,
-    bool Failed
+    bool Failed,
+    int Severity = 1,
+    bool Repairable = false
 );

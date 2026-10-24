@@ -1,0 +1,235 @@
+<Window x:Class="RealFenixFailures.UI.Views.SessionResultWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:RealFenixFailures.UI.Converters"
+        Title="Resultados de la sesión" Width="900" Height="720" MinWidth="720" MinHeight="480"
+        WindowStartupLocation="CenterOwner" WindowStyle="None" ResizeMode="CanResizeWithGrip"
+        Background="#0D0F14" ShowInTaskbar="False" Foreground="#F1F5F9" FontFamily="Segoe UI">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Background" Value="#13161E"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="{TemplateBinding Background}" Padding="2">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/></Track.DecreaseRepeatButton>
+                                <Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="#334155" CornerRadius="3"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                                <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/></Track.IncreaseRepeatButton>
+                            </Track>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+        </Style>
+        <Style x:Key="Meta" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="Margin" Value="0,0,18,5"/>
+        </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#F59E0B"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,18,0,8"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="Subtitle" TargetType="TextBlock" BasedOn="{StaticResource Meta}">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style x:Key="Tile" TargetType="Border">
+            <Setter Property="Background" Value="#0D0F14"/>
+            <Setter Property="BorderBrush" Value="#1E2433"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+        <Style x:Key="Count" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource Subtitle}">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style x:Key="FooterButton" TargetType="Button">
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.8"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="#F1F5F9"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="FailureTemplate">
+            <Border Background="#0D0F14" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="#1E2433"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsUnresolved}" Value="True"><Setter Property="BorderBrush" Value="#EF4444"/></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"/>
+                    <WrapPanel Grid.Row="1" Margin="0,5,0,3">
+                        <TextBlock TextWrapping="Wrap" Text="{Binding SystemDisplay}" Style="{StaticResource Meta}" FontSize="11"/>
+                        <Border BorderBrush="{Binding SeverityColor}" BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,8,4">
+                            <TextBlock TextWrapping="Wrap" Text="{Binding SeverityDisplay}" Foreground="{Binding SeverityColor}" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                        <Border Background="#1A1E28" CornerRadius="4" Padding="7,2" Margin="0,0,0,4">
+                            <TextBlock TextWrapping="Wrap" Text="{Binding StateDisplay}" Foreground="{Binding StateColor}" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap" Grid.Row="2" Text="{Binding Detail}" FontFamily="Consolas" FontSize="11" Foreground="#94A3B8"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+    <Border BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="8" Background="#13161E">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Border Background="#0A0C10" BorderBrush="#1E2433" BorderThickness="0,0,0,1" Padding="16,10" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="✕" Click="Close_Click" Style="{StaticResource FooterButton}" Padding="8,2" AutomationProperties.Name="Cerrar resultados"/>
+                    <TextBlock TextWrapping="Wrap" Text="Resultados de la sesión" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+            <ScrollViewer x:Name="ContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="16,14,16,8">
+                <StackPanel>
+                    <WrapPanel Margin="0,0,0,8">
+                        <TextBlock TextWrapping="Wrap" Text="{Binding RouteDisplay}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="0,0,12,6"/>
+                        <Border BorderBrush="{Binding RiskColor}" BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,0,6" VerticalAlignment="Center">
+                            <TextBlock TextWrapping="Wrap" Text="{Binding RiskLevelDisplay}" Foreground="{Binding RiskColor}" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                    </WrapPanel>
+                    <WrapPanel>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding RegistrationDisplay}" Style="{StaticResource Meta}"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding OfpDisplay}" Style="{StaticResource Meta}"/>
+                    </WrapPanel>
+                    <WrapPanel>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding StartedDisplay}" Style="{StaticResource Meta}"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding FinishedDisplay}" Style="{StaticResource Meta}"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding DurationDisplay}" Style="{StaticResource Meta}"/>
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding WearSummaryDisplay}" Foreground="#22C55E" FontSize="12"
+                               ToolTip="Promedio aritmético del aumento de los sistemas con desgaste registrado en esta sesión."/>
+                    <TextBlock TextWrapping="Wrap" Text="RESUMEN" Style="{StaticResource SectionTitle}"/>
+                    <UniformGrid Columns="6">
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding TotalFailures}" Style="{StaticResource Count}"/><TextBlock TextWrapping="Wrap" Text="Fallas lanzadas" Style="{StaticResource Caption}"/></StackPanel></Border>
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding ResolvedByPilot}" Style="{StaticResource Count}" Foreground="#22C55E"/><TextBlock TextWrapping="Wrap" Text="Resueltas por el piloto" Style="{StaticResource Caption}"/></StackPanel></Border>
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding AutoResolved}" Style="{StaticResource Count}" Foreground="#22C55E"/><TextBlock TextWrapping="Wrap" Text="Auto-resueltas (engine)" Style="{StaticResource Caption}"/></StackPanel></Border>
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding NotResolvedCount}" Style="{StaticResource Count}" Foreground="#EF4444"/><TextBlock TextWrapping="Wrap" Text="No resueltas (cierre)" Style="{StaticResource Caption}"/></StackPanel></Border>
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding Rejected}" Style="{StaticResource Count}" Foreground="#F59E0B"/><TextBlock TextWrapping="Wrap" Text="Rechazadas (no evento)" Style="{StaticResource Caption}"/></StackPanel></Border>
+                        <Border Style="{StaticResource Tile}"><StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding ActiveAtEnd}" Style="{StaticResource Count}" Foreground="#3B82F6"/><TextBlock TextWrapping="Wrap" Text="Activas al cierre" Style="{StaticResource Caption}"/></StackPanel></Border>
+                    </UniformGrid>
+                    <WrapPanel Margin="0,8,0,0">
+                        <TextBlock TextWrapping="Wrap" Text="Severidad:" Style="{StaticResource Subtitle}" Margin="0,0,10,0"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding MinorCount, StringFormat={}{0} Minor}" Foreground="#F59E0B" Margin="0,0,16,0"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding MajorCount, StringFormat={}{0} Major}" Foreground="#F97316" Margin="0,0,16,0"/>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding CriticalCount, StringFormat={}{0} Critical}" Foreground="#EF4444"/>
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap" Text="CRONOLOGÍA DE LA SESIÓN" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock TextWrapping="Wrap" Text="Eventos registrados de vuelo y fallas, en orden UTC. La fecha completa está disponible sobre cada hora." Style="{StaticResource Subtitle}"/>
+                    <Border Background="#0D0F14" BorderBrush="#1E2433" BorderThickness="1" CornerRadius="8" Padding="0,6"
+                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Timeline}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="12,5">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="105"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock TextWrapping="Wrap" Text="{Binding TimeDisplay}" ToolTip="{Binding DateDisplay}" FontFamily="Consolas" FontSize="11" Foreground="#94A3B8"/>
+                                        <Ellipse Grid.Column="1" Fill="{Binding Color}" Width="7" Height="7" VerticalAlignment="Top" Margin="0,5,6,0"/>
+                                        <StackPanel Grid.Column="2">
+                                            <WrapPanel><TextBlock TextWrapping="Wrap" Text="{Binding EventCode}" Foreground="{Binding Color}" FontFamily="Consolas" FontSize="10" Margin="0,0,10,2"/><TextBlock TextWrapping="Wrap" Text="{Binding PhaseDisplay}" Foreground="#94A3B8" FontSize="11"/></WrapPanel>
+                                            <TextBlock TextWrapping="Wrap" Text="{Binding Description}" FontSize="12"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                    <TextBlock TextWrapping="Wrap" Text="No hay eventos registrados para esta sesión." Style="{StaticResource Subtitle}" Visibility="{Binding HasTimeline, Converter={StaticResource InverseBoolToVis}}"/>
+                    <TextBlock TextWrapping="Wrap" Text="FALLAS LANZADAS" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock TextWrapping="Wrap" Text="Momento, fase, resolución y fuente observada. Las no resueltas se consolidan al cierre." Style="{StaticResource Subtitle}"/>
+                    <ItemsControl ItemsSource="{Binding Failures}" ItemTemplate="{StaticResource FailureTemplate}"/>
+                    <TextBlock TextWrapping="Wrap" Text="No se lanzaron fallas en esta sesión." Style="{StaticResource Subtitle}" Visibility="{Binding HasFailures, Converter={StaticResource InverseBoolToVis}}"/>
+                    <StackPanel Visibility="{Binding HasRejected, Converter={StaticResource BoolToVis}}">
+                        <TextBlock TextWrapping="Wrap" Text="RECHAZADAS — NO EVENTO" Style="{StaticResource SectionTitle}"/>
+                        <ItemsControl ItemsSource="{Binding RejectedFailures}" ItemTemplate="{StaticResource FailureTemplate}"/>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Text="DESGASTE POR COMPONENTE — AUMENTO DE ESTA SESIÓN" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock TextWrapping="Wrap" Text="Tasa por sistema × horas de la sesión. El total corresponde al cierre de este vuelo." Style="{StaticResource Subtitle}"/>
+                    <Border Background="#0D0F14" BorderBrush="#1E2433" BorderThickness="1" CornerRadius="8" Padding="10,8" Visibility="{Binding HasWearRows, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <Grid Margin="4,0,4,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                <TextBlock TextWrapping="Wrap" Text="SISTEMA" Style="{StaticResource Caption}"/>
+                                <TextBlock TextWrapping="Wrap" Grid.Column="1" Text="Δ SESIÓN" Style="{StaticResource Caption}" TextAlignment="Right"/>
+                                <TextBlock TextWrapping="Wrap" Grid.Column="2" Text="TOTAL" Style="{StaticResource Caption}" TextAlignment="Right"/>
+                                <TextBlock TextWrapping="Wrap" Grid.Column="3" Text="ACUMULADO (0–100 %)" Style="{StaticResource Caption}" Margin="14,4,0,0"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding WearRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="4,8" Margin="0,0,0,2" CornerRadius="4">
+                                            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding RequiresMaintenance}" Value="True"><Setter Property="Background" Value="#2A1C0A"/></DataTrigger></Style.Triggers></Style></Border.Style>
+                                            <Grid>
+                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                                                <StackPanel><TextBlock TextWrapping="Wrap" Text="{Binding SystemName}" FontSize="12" FontWeight="SemiBold"/><TextBlock TextWrapping="Wrap" Text="{Binding AtaDisplay}" FontFamily="Consolas" FontSize="10" Foreground="#94A3B8"/></StackPanel>
+                                                <TextBlock TextWrapping="Wrap" Grid.Column="1" Text="{Binding DeltaDisplay}" Foreground="#22C55E" FontFamily="Consolas" FontSize="12" TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock TextWrapping="Wrap" Grid.Column="2" Text="{Binding TotalDisplay}" FontFamily="Consolas" FontSize="12" TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <ProgressBar Grid.Column="3" Minimum="0" Maximum="100" Value="{Binding TotalPercentage, Mode=OneWay}" Height="6" Margin="14,0,0,0" VerticalAlignment="Center" Background="#1E2433" AutomationProperties.Name="Desgaste acumulado">
+                                                    <ProgressBar.Style><Style TargetType="ProgressBar"><Setter Property="Foreground" Value="#3B82F6"/><Style.Triggers><DataTrigger Binding="{Binding RequiresMaintenance}" Value="True"><Setter Property="Foreground" Value="#F59E0B"/></DataTrigger></Style.Triggers></Style></ProgressBar.Style>
+                                                    <ProgressBar.Template><ControlTemplate TargetType="ProgressBar"><Border Background="{TemplateBinding Background}" CornerRadius="3"><Grid x:Name="PART_Track"><Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="3"/></Grid></Border></ControlTemplate></ProgressBar.Template>
+                                                </ProgressBar>
+                                                <TextBlock TextWrapping="Wrap" Grid.Row="1" Grid.ColumnSpan="4" Text="⚠ REQUIERE MANTENIMIENTO" Foreground="#F59E0B" FontSize="10" FontWeight="Bold" Margin="0,5,0,0" Visibility="{Binding RequiresMaintenance, Converter={StaticResource BoolToVis}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock TextWrapping="Wrap" Text="Al alcanzar el 80 % se señala que el sistema requiere mantenimiento." Style="{StaticResource Caption}" Margin="4,10,0,2"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding WearEmptyMessage}" Style="{StaticResource Subtitle}" Visibility="{Binding HasWearRows, Converter={StaticResource InverseBoolToVis}}"/>
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Row="2" BorderBrush="#1E2433" BorderThickness="0,1,0,0" Background="#0A0C10" Padding="16,12">
+                <WrapPanel HorizontalAlignment="Right">
+                    <Button Content="VER HISTORIAL COMPLETO" Click="History_Click" Style="{StaticResource FooterButton}" Margin="0,0,10,0"/>
+                    <Button Content="CERRAR" Click="Close_Click" Style="{StaticResource FooterButton}" Background="#3B82F6" BorderBrush="#3B82F6" IsCancel="True"/>
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

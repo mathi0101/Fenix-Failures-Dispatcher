@@ -22,21 +22,29 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private readonly IEngineOrchestrator _orchestrator;
     private readonly IPresetService _presetService;
     private readonly IFlightHistoryService _flightHistoryService;
+    private readonly IFlightSessionService _flightSessionService;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly ILogger<MainWindowViewModel> _logger;
 
     // ViewModel del flujo de 4 pasos del Modo Realista (Paso 1..4).
     public RealisticModeViewModel Realistic { get; }
 
+    // ViewModel del panel de configuración (overlay centrado sobre el contenido).
+    public SettingsWindowViewModel Settings { get; }
+
     // Connection state
     private ComplexFlightPhaseEnum currentComplexFlightPhase = ComplexFlightPhaseEnum.Unknown;
     private bool isSimConnected = false;
+    private bool hasAircraftData = false;
     private bool isFenixConnected = false;
 
     // Panel selection (qué panel muestra la UI para configurar)
     private bool _isRealisticModeSelected;
     private bool _isTrainingModeSelected = true;
     private bool _isCustomModeSelected;
+
+    // Overlay de configuración
+    private bool _isSettingsOpen;
 
     // Training
     private TrainingScenarioViewModel? _selectedTrainingScenario;
@@ -52,14 +60,18 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         IEngineOrchestrator orchestrator,
         IPresetService presetService,
         IFlightHistoryService flightHistoryService,
+        IFlightSessionService flightSessionService,
         RealisticModeViewModel realisticModeViewModel,
         IFlightEventDetector flightEventDetector,
+        SettingsWindowViewModel settings,
         ILogger<MainWindowViewModel> logger) {
         _orchestrator = orchestrator;
         _presetService = presetService;
         _flightHistoryService = flightHistoryService;
+        _flightSessionService = flightSessionService;
         _flightEventDetector = flightEventDetector;
         Realistic = realisticModeViewModel;
+        Settings = settings;
         _logger = logger;
 
         // Suscribirse a los eventos del orquestador
@@ -71,9 +83,10 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         LogEntries = new ObservableCollection<string>();
 
         // Commands with canExecute where it makes sense
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
-
         ApplySettingsCommand = new RelayCommand(ApplySettings);
+
+        OpenSettingsCommand = new RelayCommand(() => IsSettingsOpen = true);
+        CloseSettingsCommand = new RelayCommand(() => IsSettingsOpen = false);
 
         SelectTrainingScenarioCommand = new RelayCommand<TrainingScenarioViewModel>(SelectTrainingScenario);
         StartTrainingScenarioCommand = new RelayCommand(async () => await StartOrStopTrainingScenarioAsync(), () => CanStartTraining);
@@ -94,8 +107,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     #region Commands
 
     // Commands
-    public RelayCommand RefreshCommand { get; }
     public RelayCommand ApplySettingsCommand { get; }
+    public RelayCommand OpenSettingsCommand { get; }
+    public RelayCommand CloseSettingsCommand { get; }
     public RelayCommand<TrainingScenarioViewModel> SelectTrainingScenarioCommand { get; }
     public RelayCommand StartTrainingScenarioCommand { get; }
     public RelayCommand CreateCustomPresetCommand { get; }
@@ -111,6 +125,19 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public ObservableCollection<CustomPresetViewModel> CustomPresets { get; }
     public ObservableCollection<string> LogEntries { get; }
 
+    // Settings overlay (centrado sobre el contenido; el fondo queda opaco y bloqueado)
+    public bool IsSettingsOpen {
+        get => _isSettingsOpen;
+        set {
+            if (SetProperty(ref _isSettingsOpen, value)) {
+                if (!value) {
+                    // Al cerrar el overlay se persisten las preferencias pendientes.
+                    Settings.SaveNow();
+                }
+            }
+        }
+    }
+
     // Connection status
 
     public bool IsSimConnected {
@@ -121,7 +148,26 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsSimConnected));
                 OnPropertyChanged(nameof(SimConnectDotColor));
                 OnPropertyChanged(nameof(SimConnectStatus));
-                OnPropertyChanged(nameof(CurrentComplexFlightPhase));
+                OnPropertyChanged(nameof(SimConnectStatusBrush));
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
+            }
+        }
+    }
+
+    public bool HasAircraftData {
+        get => hasAircraftData;
+        private set {
+            if (hasAircraftData != value) {
+                hasAircraftData = value;
+                OnPropertyChanged(nameof(HasAircraftData));
+                OnPropertyChanged(nameof(SimConnectDotColor));
+                OnPropertyChanged(nameof(SimConnectStatus));
+                OnPropertyChanged(nameof(SimConnectStatusBrush));
+                OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
             }
         }
     }
@@ -134,11 +180,18 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
                 OnPropertyChanged(nameof(IsFenixConnected));
                 OnPropertyChanged(nameof(FenixDotColor));
                 OnPropertyChanged(nameof(FenixStatus));
+                OnPropertyChanged(nameof(CanStartEngine));
+                OnPropertyChanged(nameof(ShowConnectionWarning));
             }
         }
     }
 
-    public string SimConnectStatus => isSimConnected ? "Connected" : "Disconnected";
+    public string SimConnectStatus {
+        get {
+            if (!isSimConnected) return "Disconnected";
+            return hasAircraftData ? "Connected · Aircraft data" : "Connected · No aircraft data";
+        }
+    }
     public string FenixStatus => isFenixConnected ? "Connected" : "Disconnected";
 
 
@@ -152,6 +205,8 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     public string CurrentFlightPhaseDisplay {
         get {
+            if (!isSimConnected) return "Disconnected";
+            if (!hasAircraftData) return "No aircraft data";
             return CurrentComplexFlightPhase switch {
                 ComplexFlightPhaseEnum.OnGate => "Cold and Dark",
                 ComplexFlightPhaseEnum.Taxi => "Taxing",
@@ -168,20 +223,30 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     }
 
     // Dot colors (binding antiguo en XAML)
-    public Color SimConnectDotColor => isSimConnected ? Color.FromRgb(34, 197, 94) : Color.FromRgb(100, 116, 139);
+    public Color SimConnectDotColor {
+        get {
+            if (!isSimConnected) return Color.FromRgb(100, 116, 139);
+            return hasAircraftData ? Color.FromRgb(34, 197, 94) : Color.FromRgb(245, 158, 11);
+        }
+    }
     public Color FenixDotColor => isFenixConnected ? Color.FromRgb(34, 197, 94) : Color.FromRgb(100, 116, 139);
 
     // Status brushes (puede usarse directamente en XAML)
-    public Brush SimConnectStatusBrush => isSimConnected
-        ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
-        : new SolidColorBrush(Color.FromRgb(100, 116, 139));
+    public Brush SimConnectStatusBrush {
+        get {
+            if (!isSimConnected) return new SolidColorBrush(Color.FromRgb(100, 116, 139));
+            return hasAircraftData
+                ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
+                : new SolidColorBrush(Color.FromRgb(245, 158, 11));
+        }
+    }
 
     public Brush FenixStatusBrush => isFenixConnected
         ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
         : new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
     // Si el orchestrator indica que hay conexión en ambos servicios (puede arrancar "engine" realista)
-    public bool CanStartEngine => isSimConnected && isFenixConnected;
+    public bool CanStartEngine => isSimConnected && hasAircraftData && isFenixConnected;
 
     public bool ShowConnectionWarning => !CanStartEngine && ActiveMode == UserAppMode.Realistic;
 
@@ -276,8 +341,78 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public async Task InitializeAsync() {
         await LoadTrainingScenarios();
         await Realistic.InitializeAsync();
-        await RefreshAsync();
+        // Estado inicial de conexión; el timer automático del orquestador
+        // se encarga del autorefresco en todo momento.
+        await _orchestrator.UpdateConnection(CancellationToken.None);
+        await LoadCustomPresetsAsync();
         await _orchestrator.StartAutomaticTimerAsync(CancellationToken.None);
+    }
+
+    #endregion
+
+    #region Recuperación de sesiones sin finalizar (diseño objetivo §6/§13)
+
+    /// <summary>Sesiones sin finalizar detectadas al arrancar (sesión huérfana: la app se cerró con el modo activo).</summary>
+    public ObservableCollection<UnfinishedSessionItemViewModel> UnfinishedSessions { get; } = new();
+
+    /// <summary>Resultado de la última sesión huérfana finalizada desde el diálogo de recuperación (para el modal de resultados).</summary>
+    public SessionResultDto? LastFinalizedResult { get; private set; }
+
+    /// <summary>El diálogo de recuperación se cierra cuando ya no queda nada por resolver.</summary>
+    public event EventHandler? UnfinishedSessionsResolved;
+
+    private bool _isRecoveryBusy;
+
+    public async Task LoadUnfinishedSessionsAsync() {
+        try {
+            var sessions = await _flightSessionService.GetUnfinishedSessionsAsync(CancellationToken.None);
+            UnfinishedSessions.Clear();
+            foreach (var session in sessions)
+                UnfinishedSessions.Add(new UnfinishedSessionItemViewModel(this, session));
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "No se pudieron cargar las sesiones sin finalizar para la recuperación");
+        }
+    }
+
+    public async Task FinalizeUnfinishedSessionAsync(int sessionId) {
+        if (_isRecoveryBusy) return;
+        _isRecoveryBusy = true;
+        try {
+            LastFinalizedResult = await _flightSessionService.FinalizeUnfinishedSessionAsync(sessionId, CancellationToken.None);
+            RemoveUnfinishedSession(sessionId);
+            _logger.LogInformation("Sesión huérfana {SessionId} finalizada desde la recuperación", sessionId);
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo finalizar la sesión huérfana {SessionId}", sessionId);
+        } finally {
+            _isRecoveryBusy = false;
+        }
+    }
+
+    public async Task DiscardUnfinishedSessionAsync(int sessionId) {
+        if (_isRecoveryBusy) return;
+        _isRecoveryBusy = true;
+        try {
+            await _flightSessionService.DiscardSessionAsync(sessionId, DateTime.UtcNow, CancellationToken.None);
+            RemoveUnfinishedSession(sessionId);
+            _logger.LogInformation("Sesión huérfana {SessionId} descartada desde la recuperación", sessionId);
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo descartar la sesión huérfana {SessionId}", sessionId);
+        } finally {
+            _isRecoveryBusy = false;
+        }
+    }
+
+    /// <summary>Refresca el panel Realista después del diálogo de recuperación y abre el modal de resultados si se finalizó una huérfana.</summary>
+    public async Task RefreshAfterRecoveryAsync() {
+        await Realistic.InitializeAsync();
+        if (LastFinalizedResult is not null)
+            await Realistic.ShowSessionResultByIdAsync(LastFinalizedResult.SessionId);
+    }
+
+    private void RemoveUnfinishedSession(int sessionId) {
+        var item = UnfinishedSessions.FirstOrDefault(s => s.SessionId == sessionId);
+        if (item is not null) UnfinishedSessions.Remove(item);
+        if (UnfinishedSessions.Count == 0) UnfinishedSessionsResolved?.Invoke(this, EventArgs.Empty);
     }
 
     #endregion
@@ -301,6 +436,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
             var status = _orchestrator.ConnectionStatus;
             IsSimConnected = status.IsSimConnectConnected;
             IsFenixConnected = status.IsFenixConnected;
+            HasAircraftData = status.HasAircraftData;
 
             OnPropertyChanged(nameof(SimConnectDotColor));
             OnPropertyChanged(nameof(FenixDotColor));
@@ -316,7 +452,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
-            LogEntries.Add($"{e.TimestampUtc.ToLocalTime():HH:mm:ss}  {e.Message}");
+            LogEntries.Add($"{e.TimestampUtc.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} UTC  {e.Message}");
             while (LogEntries.Count > MaxLogEntries) {
                 LogEntries.RemoveAt(0);
             }
@@ -416,9 +552,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         });
     }
 
-    private async Task RefreshAsync() {
-        // Load custom presets
-        await _orchestrator.UpdateConnection(CancellationToken.None);
+    private async Task LoadCustomPresetsAsync() {
         var presets = await _presetService.GetCustomPresetsAsync(CancellationToken.None);
         CustomPresets.Clear();
         foreach (var p in presets) {
@@ -433,7 +567,6 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     // ----- Helpers -----
     private void UpdateCommandStates() {
         // Asumo que tu RelayCommand tiene RaiseCanExecuteChanged(); si tu implementación tiene otro nombre, ajustalo.
-        RefreshCommand?.RaiseCanExecuteChanged();
         StartTrainingScenarioCommand?.RaiseCanExecuteChanged();
         ActivateCustomPresetCommand?.RaiseCanExecuteChanged();
         CreateCustomPresetCommand?.RaiseCanExecuteChanged();

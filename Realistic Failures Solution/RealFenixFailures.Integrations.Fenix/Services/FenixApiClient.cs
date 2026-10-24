@@ -25,10 +25,10 @@ public class FenixApiClient : IFenixApiClient {
 
             return response.IsSuccessStatusCode;
         } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
+            _logger.LogDebug(ex, "Unable to connect to Fenix API GET manual failures endpoint: {Message}", ex.Message);
             return false;
-        } catch (TaskCanceledException) {
-            _logger.LogDebug("Timeout while requesting if Fenix API is alive");
+        } catch (TaskCanceledException ex) {
+            _logger.LogDebug(ex, "Timeout while requesting if Fenix API is alive: {Message}", ex.Message);
             return false;
         }
     }
@@ -45,10 +45,10 @@ public class FenixApiClient : IFenixApiClient {
             var stream = await response.Content.ReadAsStreamAsync(ct);
             return stream;
         } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API GET manual failures endpoint.");
+            _logger.LogDebug(ex, "Unable to connect to Fenix API GET manual failures endpoint: {Message}", ex.Message);
             return null;
-        } catch (TaskCanceledException) {
-            _logger.LogDebug("Timeout while requesting Fenix API GET manual failures endpoint.");
+        } catch (TaskCanceledException ex) {
+            _logger.LogDebug(ex, "Timeout while requesting Fenix API GET manual failures endpoint: {Message}", ex.Message);
             return null;
         }
     }
@@ -64,10 +64,10 @@ public class FenixApiClient : IFenixApiClient {
             }
             return await response.Content.ReadAsStreamAsync(ct);
         } catch (HttpRequestException ex) {
-            _logger.LogWarning(ex, "Unable to connect to Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
+            _logger.LogDebug(ex, "Unable to connect to Fenix API POST saveManual endpoint for {FailureId}: {Message}", rq.Id, ex.Message);
             return null;
         } catch (TaskCanceledException ex) {
-            _logger.LogWarning(ex, "Timeout while calling Fenix API POST saveManual endpoint for {FailureId}", rq.Id);
+            _logger.LogDebug(ex, "Timeout while calling Fenix API POST saveManual endpoint for {FailureId}: {Message}", rq.Id, ex.Message);
             return null;
         }
     }

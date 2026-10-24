@@ -1,6 +1,4 @@
-using Microsoft.Extensions.Options;
 using RealFenixFailures.Domain.Enums;
-using RealFenixFailures.Domain.Services;
 using RealFenixFailures.Infrastructure.Services;
 
 namespace RealFenixFailures.TestUnits.Services;
@@ -8,10 +6,7 @@ namespace RealFenixFailures.TestUnits.Services;
 public class PresetsLoaderTests {
     [Fact]
     public async Task GetRealisticPresetsAsync_LoadsCatalog_AllRealisticMode_WithFailuresAndFullPhaseCoverage() {
-        var settings = Options.Create(new FailureEngineSettings {
-            RealisticPresetsJson = "realistic_presets.json"
-        });
-        var loader = new PresetsLoader(settings);
+        var loader = new PresetsLoader();
 
         var presets = await loader.GetRealisticPresetsAsync(CancellationToken.None);
 

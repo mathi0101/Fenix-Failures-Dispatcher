@@ -48,25 +48,45 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - Nunca afirmar una prueba que no se haya ejecutado: si no se corrió, se dice "no verificado". Cualquier cambio de integración real (MSFS/Fenix) debe probarse manualmente antes de declararse funcionando.
 - No repetir documentación extensa en respuestas o commits: citar el doc y el cambio puntual.
 
-## Migraciones EF
+## Migraciones EF (pre-release y producción)
 
-- No editar migraciones ya aplicadas.
-- Para cada cambio de esquema: modificar entidades → ajustar `RealFenixDbContext`/seed si corresponde → crear **migración nueva** → revisar `Up` y `Down` antes de aplicarla.
+- Desde la preparación de la primera pre-release, `App.xaml.cs` arranca con `MigrateAsync()`. `InitialRelease` crea el esquema vigente con sus seeds; los siguientes cambios de esquema requieren migraciones incrementales en Infrastructure.
+- No editar migraciones aplicadas en entornos compartidos ni borrar bases para actualizar el esquema. Revisar `Up`/`Down` antes de aplicar. Las bases antiguas creadas con `EnsureCreated` requieren la transición única documentada en `docs/desarrollo.md`; nunca se borran automáticamente.
+
+## Datos y logs de la PC de testing (`\\PC-MATHIAS\RealFenixFailures`)
+
+- La PC de testing (la que corre la app en sesión real con MSFS/Fenix) comparte su carpeta de datos en la red: **`\\PC-MATHIAS\RealFenixFailures`**. Accesible desde esta máquina; es el **estado real en vivo**, no el entorno de desarrollo local.
+- Contenido:
+  - `realfenixfailures.db` — base SQLite de la sesión real (mismo esquema que la local de `%AppData%\RealFenixFailures\`).
+  - `logs/` — logs diarios con fecha: `realfenix-<AAAAMMDD>.log` (app) y `simconnect-diagnostic-<AAAAMMDD>.log` (diagnóstico SimConnect).
+  - `userprefs.json` — preferencias del usuario en esa PC.
+- Para **validar errores reales** o ver **logs en tiempo real**: leer y hacer `tail` de los archivos de `logs/` directamente desde el share y consultar la `.db` con un cliente SQLite. No escribir ni reemplazar esos archivos (ni los de la carpeta) salvo pedido expreso del usuario: son el entorno de testing vivo.
+
+## Trabajo multi-agente (misma PC, misma rama)
+
+Este proyecto se desarrolla con **varios agentes de IA y el usuario editando y debuggeando al mismo tiempo, en la misma PC y sobre la misma rama**. El árbol de trabajo es el estado compartido y cambia sin aviso; siempre esperar y contemplar desarrollos o ediciones de otra tarea (o del usuario):
+
+- **Nunca asumir que un archivo sigue como se lo leyó**: si pasó el tiempo o trabajó otra tarea, releer el archivo justo antes de editarlo y aplicar los cambios sobre la versión vigente.
+- **No pisar trabajo ajeno**: ediciones, formato, contenido o archivos que no son de la tarea actual se dejan tal cual; no "arreglar" líneas de otros ni reformatear archivos que otra tarea está tocando.
+- **Antes de operar sobre el índice o compilar**: otro agente puede estar commiteando o builddeando al mismo tiempo; verificar siempre `git status` y `git diff` antes de cualquier operación de staging. Si un comando falla por estado cambiante, releer y reintentar en vez de asumir que fue culpa del código propio.
+- **Commits selectivos obligatorios**: cada tarea commitea **solamente sus cambios relacionados**. Nunca usar `git add -A` ni `git add .`; preparar solo los archivos de la tarea (`git add <archivos>` explícito) y revisar `git status` + `git diff --cached` antes del commit para confirmar que no entró trabajo ajeno (de otros agentes o del usuario). Los archivos no relacionados quedan sin preparar, tal como estaban.
+- **No deshacer ni revertir cambios ajenos** (checkout, stash, clean, reset, amend) sin pedido expreso del usuario: el árbol puede contener WIP de otra tarea o ediciones del propio usuario.
 
 ## Git
 
 - `master` estable; `dev` es la rama de integración; trabajar en ramas `feature/*`, `fix/*`, `docs/*`, `refactor/*`, `test/*` o `chore/*` creadas desde `dev`.
 - No hacer commits salvo pedido expreso del usuario.
 - Commits con **Conventional Commits** (`feat/fix/docs/refactor/test/chore`, opcional scope) y cuerpo de viñetas según [docs/desarrollo.md](docs/desarrollo.md).
+- **Cada tarea commitea solo sus cambios relacionados** (regla de commits selectivos en la sección *Trabajo multi-agente*).
 
 ## Gotchas verificadas
 
 - Solo Windows: WPF y SimConnect.
 - Arquitectura objetivo **x64**: `PlatformTarget=x64` fijado en UI, TestUnits e Integrations.SimConnect; resuelve **MSB3270**. Al tocar esos csproj, no volver a MSIL ni desalinear la arquitectura.
 - Fenix corre en la máquina local; la API es configurable por claves y el puerto predeterminado es **8083**.
-- `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos) y ya están **trackeados/versionados** (el `.gitignore` los excluye del ignore): no borrarlos ni renombrarlos.
-- Preservar el EOL y la codificación de los archivos que se editen.
-- El WIP del modo **Realistic** ya está committeado como base en `031a9e7` (branch `dev`); la **estabilización** (validación previa, null safety, scope por sesión, compensación, x64, paquetes actualizados) está aplicada en el árbol de trabajo pero **pendiente de commit**: lo commiteará el agente principal, no lo adelantes.
+- `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos) y están **versionados**: durante la edición de severidad/repairable `failures.json` estuvo desversionado temporalmente (commit `867998d`, dev), y desde **2026-10-17** vuelve a versionarse como catálogo curado (severity + repairable). No borrarlos ni renombrarlos.
+- Aplicar la política EOL de `.gitattributes`/`.editorconfig` (LF en textos, CRLF solo en `.bat`/`.cmd`; ver [docs/desarrollo.md](docs/desarrollo.md#fines-de-línea-eol-política-y-autoridad)) y preservar el encoding/formato de lo que se edite. Los avisos de EOL no son tarea independiente salvo incumplimiento real de esa política.
+- El WIP del modo **Realistic** (base `031a9e7` branch `dev`) y la estabilización quedaron commiteados; el **motor v2 y la UI §8** también están committeados en `dev` (2026-10-23, ver `docs/CHANGELOG.md`). No queda WIP del modo pendiente de commit: cualquier cambio nuevo sobre el modo es tarea nueva con su commit propio.
 
 ## Afirmaciones sobre modos
 

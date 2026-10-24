@@ -1,0 +1,464 @@
+﻿<Window x:Class="RealFenixFailures.UI.Views.RealisticRiskProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Perfil de riesgo"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        Background="#13161E"
+        Loaded="OnLoaded">
+
+    <Window.Resources>
+        <Style x:Key="RiskExpanderStyle" TargetType="Expander">
+            <Setter Property="Background" Value="#0A0C10"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="8">
+                            <StackPanel>
+                                <ToggleButton x:Name="HeaderSite"
+                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Cursor="Hand" Background="Transparent" BorderThickness="0"
+                                              HorizontalContentAlignment="Stretch" Padding="12,10">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <ContentPresenter/>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse Grid.Column="0" Width="12" Height="12"
+                                                 Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                        <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="▸"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsChecked, ElementName=HeaderSite}" Value="True">
+                                                            <Setter Property="Text" Value="▾"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="ContentSite" ContentSource="Content" Visibility="Collapsed" Margin="12,0,12,12"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger SourceName="HeaderSite" Property="IsChecked" Value="True">
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RiskRadioStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Border x:Name="Circle" Width="16" Height="16" CornerRadius="8"
+                                    BorderThickness="2" BorderBrush="{StaticResource Brush.Text.Secondary}" Background="Transparent"/>
+                            <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource Brush.Accent.Blue.Primary}"
+                                     Visibility="Hidden" IsHitTestVisible="False"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Circle" Property="BorderBrush" Value="{StaticResource Brush.Accent.Blue.Primary}"/>
+                                <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Amber.Primary}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="DetailRowStyle" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#0D1017" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,0,0,1"
+                Padding="16,10" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <TextBlock Text="Perfil de riesgo" FontSize="13" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                <Button Content="✕" Width="30" Height="30" Click="Close_Click" HorizontalAlignment="Right"
+                        Style="{StaticResource GhostButtonStyle}" FontSize="12" Padding="0"/>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" MaxHeight="560">
+            <StackPanel Margin="16,14,16,0">
+
+                <TextBlock Text="Diseño objetivo: el perfil completo del modo Realistic. Comportamiento actual: lo que el motor implementado de hoy soporta (topes y cadencias por perfil; temporales y calibración de cadencias aún pendientes). Elegí un perfil y confirmalo; la elección queda fija al iniciar la sesión."
+                           FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                <Expander Style="{StaticResource RiskExpanderStyle}" Tag="#4CAF50">
+                    <Expander.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Perfil Bajo" FontSize="13" FontWeight="Bold" Height="20px"
+                                       Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Green.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM seguro" FontSize="10"
+                                           Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioLow" Style="{StaticResource RiskRadioStyle}"
+                                         GroupName="Profiles" Tag="1" Checked="Profile_Checked"
+                                         ToolTip="Seleccionar perfil Bajo"/>
+                        </Grid>
+                    </Expander.Header>
+                    <StackPanel>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Severidades" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Critical nunca; Major muy rara" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Cadencia orientativa" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Minor/Major inofensivas frecuentes" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Tope simultáneas" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Minor 5 · Major 2 · Critical 0" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Temporales" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Mayoría" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Escala duración temporal" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="×0.5" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Público" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Ideal para pilotos que quieren inmersión segura · VATSIM apto" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
+                        <TextBlock Text="Minor y Major con cadencia baja · simultáneas: Minor 5 · Major 2 · Critical 0."
+                                   FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Expander>
+
+                <Expander Style="{StaticResource RiskExpanderStyle}" Tag="#F59E0B">
+                    <Expander.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Perfil Moderado" FontSize="13" FontWeight="Bold" Height="20px"
+                                       Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Green.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM ideal" FontSize="10"
+                                        Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioModerate" Style="{StaticResource RiskRadioStyle}"
+                                         GroupName="Profiles" Tag="2" Checked="Profile_Checked"
+                                         ToolTip="Seleccionar perfil Moderado"/>
+                        </Grid>
+                    </Expander.Header>
+                    <StackPanel>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Severidades" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Major normal; Critical muy rara" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Cadencia orientativa" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Minor 2 de cada 7 vuelos aprox, con simultáneas" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Tope simultáneas" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Minor 7 · Major 4 · Critical 1" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Temporales" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Mitad" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Escala duración temporal" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="×1" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Público" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Ideal para pilotos con sistemas sólidos · VATSIM apto" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
+                        <TextBlock Text="Minor, Major y Critical con cadencia media · simultáneas: Minor 7 · Major 4 · Critical 1."
+                                   FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Expander>
+
+                <Expander Style="{StaticResource RiskExpanderStyle}" Tag="#EF4444">
+                    <Expander.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Perfil Alto" FontSize="13" FontWeight="Bold" Height="20px"
+                                       Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Background="#2A1C0A" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM no recomendado" FontSize="10"
+                                Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioHigh" Style="{StaticResource RiskRadioStyle}"
+                                         GroupName="Profiles" Tag="3" Checked="Profile_Checked"
+                                         ToolTip="Seleccionar perfil Alto"/>
+                        </Grid>
+                    </Expander.Header>
+                    <StackPanel>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Severidades" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Todas (crítica baja-media)" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Cadencia orientativa" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Major y Minor a menudo" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Tope simultáneas" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Minor 10 · Major 5 · Critical 2" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Temporales" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Solo algunas" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Escala duración temporal" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="×1.5 · respiro tras crítica 10-15 min" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Público" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Ideal para pilotos expertos con manejo de emergencias · VATSIM apto" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
+                        <TextBlock Text="Todas las severidades con cadencia alta · simultáneas: Minor 10 · Major 5 · Critical 2 · respiro tras crítica 10 min."
+                                   FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Expander>
+
+                <Expander Style="{StaticResource RiskExpanderStyle}" Tag="#8B5CF6">
+                    <Expander.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Perfil 7700" FontSize="13" FontWeight="Bold" Height="20px"
+                                       Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Background="{StaticResource Brush.Accent.Red.Dark}" CornerRadius="4" Padding="8,2" Margin="0,0,10,0">
+                                <TextBlock Text="VATSIM no apto" FontSize="10"
+                                           Foreground="{StaticResource Brush.Accent.Red.Primary}"/>
+                            </Border>
+                            <RadioButton Grid.Column="2" x:Name="RadioSquawk7700" Style="{StaticResource RiskRadioStyle}"
+                                         GroupName="Profiles" Tag="4" Checked="Profile_Checked"
+                                         ToolTip="Seleccionar perfil 7700"/>
+                        </Grid>
+                    </Expander.Header>
+                    <StackPanel>
+                        <TextBlock Text="DISEÑO OBJETIVO" Style="{StaticResource SectionTitleStyle}" Padding="0,3"/>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Severidades" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Todas (crítica media-alta)" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Cadencia orientativa" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Hasta +5 de cada tipo a la vez" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Tope simultáneas" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Sin límites" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Temporales" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="Casi ninguna, más largas" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Escala duración temporal" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="×2.5 · respiro tras crítica 5 min" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid Style="{StaticResource DetailRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Público" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                            <TextBlock Grid.Column="1" Text="&quot;Documentales de accidentes&quot; · VATSIM prohibido" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <TextBlock Text="COMPORTAMIENTO ACTUAL" Style="{StaticResource SectionTitleStyle}" Margin="0,6,0,6"/>
+                        <TextBlock Text="Sin límites de simultáneas · cadencia alta · respiro tras crítica 5 min."
+                                   FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="#0D1017" BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="0,1,0,0"
+                Padding="16,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Height="34" Padding="18,0" Margin="0,0,8,0" Click="Close_Click"
+                        Style="{StaticResource GhostButtonStyle}"/>
+                <Button x:Name="ConfirmButton" Content="Confirmar perfil" Height="34" Padding="18,0"
+                        IsEnabled="False" Click="ConfirmProfile_Click"
+                        Style="{StaticResource PrimaryButtonStyle}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

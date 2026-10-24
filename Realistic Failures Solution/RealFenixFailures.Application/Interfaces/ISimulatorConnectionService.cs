@@ -10,6 +10,6 @@ public interface ISimulatorConnectionService {
     Task<bool> DisarmFailureAsync(string fenixFailureId, CancellationToken ct);
     Task<ServiceResult<IReadOnlyList<PresetFailureDefinition>>> ExecutePresetAsync(FailurePreset preset, CancellationToken ct);
     Task<bool> ResetAllFailuresAsync(CancellationToken ct);
-    Task<ServiceResult<AllFenixFailuresResponseDto>> GetCurrentFenixFailures(CancellationToken ct);
+    Task<ServiceResult<AllFenixFailuresResponseDto?>> GetCurrentFenixFailures(CancellationToken ct);
     Task<ServiceResult<SimulatorAircraftStateSnapshot>> GetSimulatorData(CancellationToken ct);
 }

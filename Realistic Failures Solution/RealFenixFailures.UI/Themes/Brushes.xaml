@@ -25,6 +25,7 @@
     <SolidColorBrush x:Key="Brush.Accent.Green.Primary" Color="{StaticResource Color.Accent.Green.Primary}"/>
     <SolidColorBrush x:Key="Brush.Accent.Green.Dark" Color="{StaticResource Color.Accent.Green.Dark}"/>
     <SolidColorBrush x:Key="Brush.Accent.Amber.Primary" Color="{StaticResource Color.Accent.Amber.Primary}"/>
+    <SolidColorBrush x:Key="Brush.Accent.Orange.Primary" Color="{StaticResource Color.Accent.Orange.Primary}"/>
     <SolidColorBrush x:Key="Brush.Accent.Red.Primary" Color="{StaticResource Color.Accent.Red.Primary}"/>
     <SolidColorBrush x:Key="Brush.Accent.Red.Dark" Color="{StaticResource Color.Accent.Red.Dark}"/>
 

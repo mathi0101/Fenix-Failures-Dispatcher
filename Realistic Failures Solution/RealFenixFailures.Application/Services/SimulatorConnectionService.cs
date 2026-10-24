@@ -28,11 +28,14 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
         var fenixConnected = await _fenixFailureApiDispatcher.IsApiAvailableAsync(ct);
         var rawData = await _simFlightDataProvider.GetAircraftRawData(ct);
 
-        var phase = simConnected
+        var hasAircraftData = simConnected && rawData.HasSimulatorData;
+        var phase = hasAircraftData
             ? (rawData.IsOnGround ? SimpleFlightPhaseEnum.OnGround : SimpleFlightPhaseEnum.Flying)
             : SimpleFlightPhaseEnum.Disconnected;
 
-        return new ConnectionStatusDto(simConnected, fenixConnected, phase);
+        return new ConnectionStatusDto(simConnected, fenixConnected, phase) {
+            HasAircraftData = hasAircraftData
+        };
     }
     #endregion
 
@@ -41,7 +44,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
         try {
             return ServiceResult<SimulatorAircraftStateSnapshot>.Ok(await _simFlightDataProvider.GetAircraftRawData(ct));
         } catch (Exception ex) {
-            _logger.LogError("GetSimulatorData Error: {a}", ex.Message);
+            _logger.LogError(ex, "GetSimulatorData Error: {a}", ex.Message);
             return ServiceResult<SimulatorAircraftStateSnapshot>.Fail(ex);
         }
     }
@@ -49,12 +52,17 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
 
     #region Failures Handler
 
-    public async Task<ServiceResult<AllFenixFailuresResponseDto>> GetCurrentFenixFailures(CancellationToken ct) {
+    public async Task<ServiceResult<AllFenixFailuresResponseDto?>> GetCurrentFenixFailures(CancellationToken ct) {
         try {
-            return ServiceResult<AllFenixFailuresResponseDto>.Ok(await _fenixFailureApiDispatcher.GetAllFailuresAsync(ct));
+            var dto = await _fenixFailureApiDispatcher.GetAllFailuresAsync(ct);
+            if (dto is null) {
+                _logger.LogWarning("GetCurrentFenixFailures: la lectura del listado de fallas no devolvió stream (Fenix no disponible).");
+                return ServiceResult<AllFenixFailuresResponseDto?>.Fail(new InvalidOperationException("Fenix failure stream not read"));
+            }
+            return ServiceResult<AllFenixFailuresResponseDto?>.Ok(dto);
         } catch (Exception ex) {
-            _logger.LogError("GetCurrentFenixFailures Error: {a}", ex.Message);
-            return ServiceResult<AllFenixFailuresResponseDto>.Fail(ex);
+            _logger.LogError(ex, "GetCurrentFenixFailures Error: {a}", ex.Message);
+            return ServiceResult<AllFenixFailuresResponseDto?>.Fail(ex);
         }
     }
 
@@ -90,7 +98,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
             return false;
         }
 
-        var def = new FenixArmFailureRequest(fd.FenixFailureId, false, GetFailureConditionRequest(fd));
+        var def = new FenixArmFailureRequest(fd.FenixFailureId, true, GetFailureConditionRequest(fd));
 
 
 

@@ -51,6 +51,11 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AtaId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("INTEGER");
 
@@ -64,6 +69,9 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<double>("WearPerFlightHour")
+                        .HasColumnType("REAL");
+
                     b.HasKey("Id");
 
                     b.ToTable("AircraftWearableSystems");
@@ -72,58 +80,173 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
+                            AtaId = 21,
                             DisplayOrder = 1,
-                            Name = "Engine 1",
-                            ShortName = "ENG1"
+                            Name = "Air Conditioning",
+                            ShortName = "Air",
+                            WearPerFlightHour = 0.20000000000000001
                         },
                         new
                         {
                             Id = 2,
+                            AtaId = 22,
                             DisplayOrder = 2,
-                            Name = "Engine 2",
-                            ShortName = "ENG2"
+                            Name = "AutoFlight",
+                            ShortName = "AutoFlight",
+                            WearPerFlightHour = 0.10000000000000001
                         },
                         new
                         {
                             Id = 3,
+                            AtaId = 23,
                             DisplayOrder = 3,
-                            Name = "Hydraulic System",
-                            ShortName = "HYD"
+                            Name = "Communications",
+                            ShortName = "Communications",
+                            WearPerFlightHour = 0.29999999999999999
                         },
                         new
                         {
                             Id = 4,
+                            AtaId = 24,
                             DisplayOrder = 4,
-                            Name = "Landing Gear",
-                            ShortName = "GEAR"
+                            Name = "Electrical power",
+                            ShortName = "Elec",
+                            WearPerFlightHour = 0.29999999999999999
                         },
                         new
                         {
                             Id = 5,
+                            AtaId = 26,
                             DisplayOrder = 5,
-                            Name = "Navigation Systems",
-                            ShortName = "NAV"
+                            Name = "Fire protection",
+                            ShortName = "Fire",
+                            WearPerFlightHour = 0.20000000000000001
                         },
                         new
                         {
                             Id = 6,
+                            AtaId = 27,
                             DisplayOrder = 6,
-                            Name = "Pneumatic System",
-                            ShortName = "PNEU"
+                            Name = "Flight controls",
+                            ShortName = "Flight controls",
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
                             Id = 7,
+                            AtaId = 28,
                             DisplayOrder = 7,
-                            Name = "APU",
-                            ShortName = "APU"
+                            Name = "Fuel",
+                            ShortName = "Fuel",
+                            WearPerFlightHour = 0.59999999999999998
                         },
                         new
                         {
                             Id = 8,
+                            AtaId = 29,
                             DisplayOrder = 8,
+                            Name = "Hydraulic power",
+                            ShortName = "Hydraulic",
+                            WearPerFlightHour = 0.59999999999999998
+                        },
+                        new
+                        {
+                            Id = 9,
+                            AtaId = 30,
+                            DisplayOrder = 9,
+                            Name = "Ice and rain protection",
+                            ShortName = "Ice/Rain",
+                            WearPerFlightHour = 0.10000000000000001
+                        },
+                        new
+                        {
+                            Id = 10,
+                            AtaId = 31,
+                            DisplayOrder = 10,
+                            Name = "Indicating/Recording system",
+                            ShortName = "Indicating/Recording",
+                            WearPerFlightHour = 0.29999999999999999
+                        },
+                        new
+                        {
+                            Id = 11,
+                            AtaId = 32,
+                            DisplayOrder = 11,
+                            Name = "Landing gear",
+                            ShortName = "Gear",
+                            WearPerFlightHour = 0.20000000000000001
+                        },
+                        new
+                        {
+                            Id = 12,
+                            AtaId = 34,
+                            DisplayOrder = 12,
+                            Name = "Navigation",
+                            ShortName = "Navigation",
+                            WearPerFlightHour = 0.29999999999999999
+                        },
+                        new
+                        {
+                            Id = 13,
+                            AtaId = 35,
+                            DisplayOrder = 13,
+                            Name = "Oxygen",
+                            ShortName = "Oxygen",
+                            WearPerFlightHour = 0.10000000000000001
+                        },
+                        new
+                        {
+                            Id = 14,
+                            AtaId = 36,
+                            DisplayOrder = 14,
+                            Name = "Pneumatic",
+                            ShortName = "Pneumatic",
+                            WearPerFlightHour = 0.59999999999999998
+                        },
+                        new
+                        {
+                            Id = 15,
+                            AtaId = 46,
+                            DisplayOrder = 15,
+                            Name = "Information systems",
+                            ShortName = "Information",
+                            WearPerFlightHour = 0.29999999999999999
+                        },
+                        new
+                        {
+                            Id = 16,
+                            AtaId = 49,
+                            DisplayOrder = 16,
+                            Name = "APU",
+                            ShortName = "APU",
+                            WearPerFlightHour = 0.40000000000000002
+                        },
+                        new
+                        {
+                            Id = 17,
+                            AtaId = 52,
+                            DisplayOrder = 17,
                             Name = "Doors",
-                            ShortName = "DOOR"
+                            ShortName = "Doors",
+                            WearPerFlightHour = 0.10000000000000001
+                        },
+                        new
+                        {
+                            Id = 18,
+                            AtaId = 70,
+                            DisplayOrder = 18,
+                            Name = "Power plant",
+                            ShortName = "Engines",
+                            WearPerFlightHour = 0.5
+                        },
+                        new
+                        {
+                            Id = 19,
+                            AtaId = 80,
+                            DisplayOrder = 19,
+                            Name = "Start faults",
+                            ShortName = "Start Faults",
+                            WearPerFlightHour = 0.80000000000000004
                         });
                 });
 
@@ -171,6 +294,16 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasMaxLength(180)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("CanBeRepaired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("CanBeTemporary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("GroupId")
                         .HasColumnType("INTEGER");
 
@@ -216,6 +349,11 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AtaId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -231,14 +369,94 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.ToTable("FenixFailureSystems");
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AircraftIcaoType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Callsign")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DestinationIcao")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DownloadedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EstimatedArrivalUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EstimatedDurationMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FlightNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OffBlockUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginIcao")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RawData")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RouteDistanceNM")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RouteText")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ValidFromUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ValidUntilUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValidationMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ValidationState")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FlightPlans");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightSession", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("DiscardedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("FinishedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("FlightPlanId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RiskLevel")
                         .HasColumnType("INTEGER");
@@ -250,6 +468,8 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FlightPlanId");
 
                     b.HasIndex("UserAircraftId");
 
@@ -380,6 +600,35 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.ToTable("SessionEventLogs");
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.SessionSystemWearDelta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AtaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("DeltaPercentage")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("FlightSessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SystemName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("TotalPercentage")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlightSessionId");
+
+                    b.ToTable("SessionSystemWearDeltas");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.TriggeredFailure", b =>
                 {
                     b.Property<int>("Id")
@@ -402,8 +651,16 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("CanBeTemporary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("FailureName")
                         .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("FenixConfirmedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FenixFailureId")
@@ -420,6 +677,9 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("PreparedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("PresetId")
                         .HasColumnType("INTEGER");
 
@@ -433,8 +693,22 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.Property<int?>("ProbabilityGroup")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ResolutionSource")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ResolvedPhase")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("Severity")
                         .HasColumnType("INTEGER");
+
+                    b.Property<int>("State")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(2);
 
                     b.Property<string>("Time")
                         .HasMaxLength(10)
@@ -531,11 +805,19 @@ namespace RealFenixFailures.Infrastructure.Migrations
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightSession", b =>
                 {
+                    b.HasOne("RealFenixFailures.Domain.Entities.FlightPlan", "FlightPlan")
+                        .WithMany("Sessions")
+                        .HasForeignKey("FlightPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("RealFenixFailures.Domain.Entities.UserAircraft", "UserAircraft")
                         .WithMany("FlightSessions")
                         .HasForeignKey("UserAircraftId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("FlightPlan");
 
                     b.Navigation("UserAircraft");
                 });
@@ -575,6 +857,17 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.Navigation("FlightSession");
 
                     b.Navigation("TriggeredFailure");
+                });
+
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.SessionSystemWearDelta", b =>
+                {
+                    b.HasOne("RealFenixFailures.Domain.Entities.FlightSession", "FlightSession")
+                        .WithMany()
+                        .HasForeignKey("FlightSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FlightSession");
                 });
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.TriggeredFailure", b =>
@@ -619,6 +912,11 @@ namespace RealFenixFailures.Infrastructure.Migrations
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FenixFailureSystem", b =>
                 {
                     b.Navigation("FailureGroups");
+                });
+
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightPlan", b =>
+                {
+                    b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FlightSession", b =>

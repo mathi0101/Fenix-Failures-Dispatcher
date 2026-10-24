@@ -3,6 +3,7 @@ using Microsoft.FlightSimulator.SimConnect;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Interfaces;
 using RealFenixFailures.Integrations.SimConnect.Models;
+using System.Runtime.InteropServices;
 
 namespace RealFenixFailures.Integrations.SimConnect.Services;
 
@@ -66,7 +67,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 RegisterDataDefinitions();
 
                 _isConnected = true;
-                _logger.LogInformation("Successfully connected to SimConnect");
+                _logger.LogDebug("Successfully connected to SimConnect");
 
                 ClearLastKnownState();
                 StartMessagePump();
@@ -75,7 +76,9 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 OnConnectionStateChanged?.Invoke(true);
                 return true;
             } catch (Exception ex) {
-                _logger.LogError(ex, "Error connecting to SimConnect");
+                if (ex is not COMException { HResult: unchecked((int)0x80004005) }) {
+                    _logger.LogError(ex, "Error connecting to SimConnect");
+                }
                 Disconnect();
                 return false;
             }
@@ -89,7 +92,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
         var timeSinceLastData = DateTime.UtcNow - _lastDataReceivedUtc;
         if (timeSinceLastData > TimeSpan.FromSeconds(10)) {
-            _logger.LogWarning("Timeout: Reconnecting SimConnect");
+            _logger.LogDebug("Timeout: Reconnecting SimConnect");
             Disconnect();
             return await ConnectAsync(ct);
         }
@@ -120,7 +123,10 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 _messagePumpTask ?? Task.CompletedTask,
                 _dataRequestTask ?? Task.CompletedTask
             }, TimeSpan.FromSeconds(2));
-        } catch { /* Ignorar errores de cancelación */ }
+        } catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException)) {
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "Error inesperado esperando el cierre de los loops SimConnect");
+        }
 
         _messagePumpCts?.Dispose();
         _dataRequestCts?.Dispose();
@@ -130,7 +136,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         _simConnect?.Dispose();
         _simConnect = null;
 
-        _logger.LogInformation("Disconnected from SimConnect");
+        _logger.LogDebug("Disconnected from SimConnect");
         OnConnectionStateChanged?.Invoke(false);
     }
 
@@ -189,7 +195,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                     0,
                     SIMCONNECT_SIMOBJECT_TYPE.USER);
             } catch (Exception ex) {
-                _logger.LogDebug(ex, "Error requesting data");
+                _logger.LogWarning(ex, "Error requesting data");
             }
             await Task.Delay(DATA_REQUEST_INTERVAL_MS, ct);
         }
@@ -201,12 +207,12 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
     private void RegisterSimConnectHandlers() {
         if (_simConnect == null) return;
-        _simConnect.OnRecvOpen += (s, d) => _logger.LogInformation("SimConnect Open");
+        _simConnect.OnRecvOpen += (s, d) => _logger.LogDebug("SimConnect Open");
         _simConnect.OnRecvQuit += (s, d) => {
             _isConnected = false;
             ClearLastKnownState();
         };
-        _simConnect.OnRecvException += (s, d) => _logger.LogWarning("SimConnect Exception: {Id}", d.dwException);
+        _simConnect.OnRecvException += (s, d) => _logger.LogWarning("SimConnect Exception: {Id} (SendID: {SendId}, Index: {Index})", d.dwException, d.dwSendID, d.dwIndex);
         _simConnect.OnRecvSimobjectDataBytype += SimConnect_OnRecvSimobjectDataBytype;
     }
 
@@ -215,7 +221,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
 
         try {
             var aircraftData = (AircraftStateData)data.dwData[0];
-            var newState = MapToAircraftState(aircraftData);
+            var newState = MapToAircraftState(aircraftData, AircraftStateDataValidator.IsValid(aircraftData));
 
             _stateReadWriteLock.EnterWriteLock();
             try {
@@ -239,31 +245,32 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
         if (_simConnect == null) return;
 
         // El ORDEN debe ser IDÉNTICO al AircraftStateData struct
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "INDICATED ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "FLAPS HANDLE INDEX", "number", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:1", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:2", "bool", SIMCONNECT_DATATYPE.INT32, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
-        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALT ABOVE GROUND", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, 0);
+        uint datumId = 0;
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "INDICATED ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "FLAPS HANDLE INDEX", "number", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:1", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG COMBUSTION:2", "bool", SIMCONNECT_DATATYPE.INT32, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "TURB ENG N1:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:1", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "GENERAL ENG THROTTLE LEVER POSITION:2", "percent", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
+        _simConnect.AddToDataDefinition(DATA_DEFINITION.AircraftState, "PLANE ALT ABOVE GROUND", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0, datumId++);
 
         _simConnect.RegisterDataDefineStruct<AircraftStateData>(DATA_DEFINITION.AircraftState);
     }
 
-    private SimConnectAircraftState MapToAircraftState(AircraftStateData data) {
+    private SimConnectAircraftState MapToAircraftState(AircraftStateData data, bool isValid) {
         return new SimConnectAircraftState {
-            IsConnected = true,
+            IsConnected = isValid,
             Latitude = data.Latitude,
             Longitude = data.Longitude,
 

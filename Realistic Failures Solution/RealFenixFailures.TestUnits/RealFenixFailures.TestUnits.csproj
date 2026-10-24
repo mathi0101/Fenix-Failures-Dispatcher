@@ -20,11 +20,17 @@
     <ProjectReference Include="..\RealFenixFailures.Application\RealFenixFailures.Application.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Domain\RealFenixFailures.Domain.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Infrastructure\RealFenixFailures.Infrastructure.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.Fenix\RealFenixFailures.Integrations.Fenix.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.SimBrief\RealFenixFailures.Integrations.SimBrief.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\RealFenixFailures.UI\ViewModels\Realistic\SessionResultWindowViewModel.cs" Link="Presentation\SessionResultWindowViewModel.cs" />
+    <Compile Include="..\RealFenixFailures.UI\Diagnostics\CrashReportCoordinator.cs" Link="Diagnostics\CrashReportCoordinator.cs" />
+    <Compile Include="..\RealFenixFailures.UI\Diagnostics\UnexpectedErrorSink.cs" Link="Diagnostics\UnexpectedErrorSink.cs" />
+    <Compile Include="..\RealFenixFailures.UI\Diagnostics\CrashLogWriter.cs" Link="Diagnostics\CrashLogWriter.cs" />
   </ItemGroup>
 
 </Project>

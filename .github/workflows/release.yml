@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish (single-file, self-contained win-x64)
+        run: >
+          dotnet publish "Realistic Failures Solution/RealFenixFailures.UI/RealFenixFailures.UI.csproj"
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          --output "${{ runner.temp }}/RealFenixFailures-publish"
+
+      - name: Arm ZIP portable (exe + SimConnect + appsettings, sin BD ni logs)
+        shell: pwsh
+        run: |
+          $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
+          $stage = "$env:RUNNER_TEMP/RealFenixFailures"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "appsettings.json")) {
+            Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
+          }
+          $tag = if ($env:GITHUB_REF_NAME -like 'v*') { $env:GITHUB_REF_NAME } else { 'v0.0.0-test' }
+          Compress-Archive -Path "$stage/*" -DestinationPath "$env:RUNNER_TEMP/RealFenixFailures-$tag-win-x64.zip"
+
+      - name: Subir ZIP como artefacto (solo ejecución manual de prueba)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zip-test
+          path: ${{ runner.temp }}/RealFenixFailures-*-win-x64.zip
+
+      - name: Crear GitHub Release con el ZIP
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $prerelease = if ($tag -match '-') { '--prerelease' } else { @() }
+          gh release create $tag "$env:RUNNER_TEMP/RealFenixFailures-$tag-win-x64.zip" `
+            --target master --generate-notes --title $tag @prerelease

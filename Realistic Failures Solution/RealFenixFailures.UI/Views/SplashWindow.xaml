@@ -1,0 +1,26 @@
+<Window x:Class="RealFenixFailures.UI.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Realistic A320 Fenix Failures"
+        Width="560"
+        Height="340"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Background="#0D0F14"
+        Cursor="Arrow"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
+    <!-- Splash autocontenido (antes de crear la Application): la pieza gráfica es
+         el PNG original de la marca, y la barra de progreso se anima intercambiando
+         6 frames (splash-frame-0..5.png) con un DispatcherTimer
+         (ver code-behind). Los PNG se copian al output (None + CopyToOutputDirectory
+         en el .csproj) y se cargan desde AppContext.BaseDirectory. -->
+    <Image x:Name="SplashImage"
+           Width="560"
+           Height="340"
+           Stretch="None"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"/>
+</Window>

@@ -258,37 +258,5 @@
         "Ias": "[90,180]"
       }
     ]
-  },
-  {
-    "Name": "Test",
-    "Description": "Test",
-    "TriggerDescription": "test",
-    "Phase": 0,
-    "Difficulty": 1,
-    "Failures": [
-      {
-        "FenixFailureId": "F_GEAR_LOCKED_UP",
-        "Probability": 1,
-        "Ias": "[90,200]"
-      },
-      {
-        "FenixFailureId": "F_GEAR_LOCK_LEFT",
-        "ProbabilityGroup": 2,
-        "Probability": 0.25,
-        "Ias": "[90,180]"
-      },
-      {
-        "FenixFailureId": "F_GEAR_LOCK_NOSE",
-        "ProbabilityGroup": 2,
-        "Probability": 0.25,
-        "Ias": "[90,180]"
-      },
-      {
-        "FenixFailureId": "F_GEAR_LOCK_RIGHT",
-        "ProbabilityGroup": 2,
-        "Probability": 0.25,
-        "Ias": "[90,180]"
-      }
-    ]
   }
 ]

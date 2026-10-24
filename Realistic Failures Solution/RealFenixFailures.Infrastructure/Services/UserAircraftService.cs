@@ -2,11 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Infrastructure.Persistence;
 
 namespace RealFenixFailures.Infrastructure.Services;
 
 public class UserAircraftService : IUserAircraftService {
+    private const int MaxRegistrationLength = 10;
+
+    private static readonly string[] AllowedIcaoTypes = ["A319", "A320", "A321"];
+
     private readonly RealFenixDbContext _dbContext;
 
     public UserAircraftService(RealFenixDbContext dbContext) {
@@ -18,8 +23,16 @@ public class UserAircraftService : IUserAircraftService {
     // -------------------------------------------------------------------------
 
     public async Task<UserAircraftDto> CreateAsync(CreateUserAircraftRequest request, CancellationToken ct) {
+        var registration = request.Registration.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(registration) || registration.Length > MaxRegistrationLength) {
+            throw new ArgumentException($"La matrícula debe tener entre 1 y {MaxRegistrationLength} caracteres.", nameof(request));
+        }
+        if (!AllowedIcaoTypes.Contains(request.IcaoTypeCode)) {
+            throw new ArgumentException("El tipo ICAO debe ser uno de: A319, A320, A321.", nameof(request));
+        }
+
         var aircraft = new UserAircraft {
-            Registration = request.Registration,
+            Registration = registration,
             IcaoTypeCode = request.IcaoTypeCode,
             CreatedAt = DateTime.UtcNow
         };
@@ -51,6 +64,8 @@ public class UserAircraftService : IUserAircraftService {
         var aircrafts = await _dbContext.UserAircrafts
             .AsNoTracking()
             .Include(x => x.FlightSessions)
+            .Include(x => x.SystemWears)
+                .ThenInclude(x => x.WearableSystem)
             .ToListAsync(ct);
 
         return aircrafts.Select(ToDto).ToArray();
@@ -59,6 +74,7 @@ public class UserAircraftService : IUserAircraftService {
     public async Task<UserAircraftDto?> GetByIdAsync(int id, CancellationToken ct) {
         var aircraft = await _dbContext.UserAircrafts
             .Include(x => x.SystemWears)
+                .ThenInclude(x=>x.WearableSystem)
             .Include(x => x.FlightSessions)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
@@ -67,6 +83,7 @@ public class UserAircraftService : IUserAircraftService {
 
     public async Task<AircraftDashboardDto> GetDashboardAsync(int userAircraftId, CancellationToken ct) {
         var aircraft = await _dbContext.UserAircrafts
+            .AsNoTracking()
             .Include(x => x.SystemWears)
                 .ThenInclude(x => x.WearableSystem)
             .Include(x => x.FlightSessions)
@@ -100,6 +117,7 @@ public class UserAircraftService : IUserAircraftService {
             .Include(s => s.TriggeredFailures)
             .ThenInclude(s => s.FenixFailure)
             .Include(s => s.EventLogs)
+            .Include(s => s.FlightPlan)
             .ToListAsync(ct);
 
         return sessions.Select(ToSessionDto).ToArray();
@@ -141,7 +159,8 @@ public class UserAircraftService : IUserAircraftService {
             Id = w.WearableSystemId,
             Name = w.WearableSystem!.Name,
             ShortName = w.WearableSystem!.ShortName,
-            DisplayOrder = w.WearableSystem!.DisplayOrder
+            DisplayOrder = w.WearableSystem!.DisplayOrder,
+            AtaId = w.WearableSystem!.AtaId
         },
     };
 
@@ -150,6 +169,9 @@ public class UserAircraftService : IUserAircraftService {
         StartedAt = f.StartedAt,
         RiskLevel = f.RiskLevel,
         FinishedAt = f.FinishedAt,
+        OriginIcao = f.FlightPlan?.OriginIcao,
+        DestinationIcao = f.FlightPlan?.DestinationIcao,
+        OffBlockUtc = f.FlightPlan?.OffBlockUtc,
         TriggeredFailures = f.TriggeredFailures.Select(f => new TriggeredFailureDto {
             Id = f.Id,
             FenixFailureId = f.FenixFailureId,
@@ -169,6 +191,16 @@ public class UserAircraftService : IUserAircraftService {
             AfterEventSeconds = f.AfterEventSeconds
         }).ToArray(),
         EventLogs = f.EventLogs.Select(ToEventLogDto).ToArray(),
+        Result = f.FinishedAt is null || f.TriggeredFailures.Count == 0 ? null : new ResultSummaryDto {
+            TotalFailures = f.TriggeredFailures.Count,
+            ActiveAtEnd = f.TriggeredFailures.Count(x => x.State is FailureLifecycleState.Sent or FailureLifecycleState.Queued or FailureLifecycleState.Active or FailureLifecycleState.Preparing),
+            ResolvedByPilot = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.ResolvedByPilot),
+            AutoResolved = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.AutoResolved),
+            Rejected = f.TriggeredFailures.Count(x => x.State == FailureLifecycleState.Rejected),
+            Minor = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Minor),
+            Major = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Major),
+            Critical = f.TriggeredFailures.Count(x => x.Severity == FailureSeverity.Critical)
+        }
     };
 
     private static SessionEventLogDto ToEventLogDto(SessionEventLog e) => new() {

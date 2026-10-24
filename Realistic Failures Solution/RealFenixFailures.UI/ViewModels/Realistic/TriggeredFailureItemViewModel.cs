@@ -15,5 +15,5 @@ public sealed class TriggeredFailureItemViewModel : ObservableObject {
     public string FlightPhaseName { get; }
     public DateTime TriggeredAt { get; }
 
-    public string TimeDisplay => TriggeredAt.ToLocalTime().ToString("HH:mm:ss");
+    public string TimeDisplay => TriggeredAt.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " UTC";
 }

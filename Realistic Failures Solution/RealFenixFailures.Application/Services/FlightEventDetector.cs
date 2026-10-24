@@ -51,9 +51,8 @@ public class FlightEventDetector : IFlightEventDetector {
         lock (_sync) {
             generation = _generation;
             if (!snapshot.HasSimulatorData) {
-                _pendingDebouncePhase = null;
-                _pendingDebounceSince = null;
-                return _currentPhase;
+                ClearObservationState();
+                return ComplexFlightPhaseEnum.Unknown;
             }
 
             DetectEngineTransition(snapshot, events);
@@ -83,14 +82,18 @@ public class FlightEventDetector : IFlightEventDetector {
     public void Reset() {
         lock (_sync) {
             _generation++;
-            _previousPhase = ComplexFlightPhaseEnum.Unknown;
-            _enginesWereRunning = false;
-            _hasLandedThisFlight = false;
-            _lastAltitudeMSL = null;
-            _currentPhase = ComplexFlightPhaseEnum.Unknown;
-            _pendingDebouncePhase = null;
-            _pendingDebounceSince = null;
+            ClearObservationState();
         }
+    }
+
+    private void ClearObservationState() {
+        _previousPhase = ComplexFlightPhaseEnum.Unknown;
+        _enginesWereRunning = false;
+        _hasLandedThisFlight = false;
+        _lastAltitudeMSL = null;
+        _currentPhase = ComplexFlightPhaseEnum.Unknown;
+        _pendingDebouncePhase = null;
+        _pendingDebounceSince = null;
     }
 
     #region Private

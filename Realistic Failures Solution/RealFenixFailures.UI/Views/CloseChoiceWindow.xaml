@@ -1,0 +1,87 @@
+<Window x:Class="RealFenixFailures.UI.Views.CloseChoiceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cerrar Realistic Failures"
+        Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        Background="#13161E"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <Style x:Key="ChoiceButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#F5F7FA"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="10" Padding="20" Background="#13161E">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock Text="&#xEA8A;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                           Foreground="#F5B741" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Text="¿Qué querés hacer al cerrar la ventana?"
+                           FontSize="16" FontWeight="SemiBold" Foreground="#F5F7FA" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="La app puede seguir corriendo en la bandeja del sistema mientras el vuelo continúa, o cerrarse por completo."
+                       FontSize="12" Foreground="#9BA3B0" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+            <Button Style="{StaticResource ChoiceButtonStyle}" Background="#1F6FEB" BorderBrush="#1F6FEB" Click="Background_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0"/>
+                    <StackPanel>
+                        <TextBlock Text="Seguir en segundo plano" FontWeight="SemiBold"/>
+                        <TextBlock Text="La app queda en la bandeja y el modo Realistic sigue activo." FontSize="11" Foreground="#C7CDD6"/>
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource ChoiceButtonStyle}" Background="#B33A3A" BorderBrush="#B33A3A" Click="Shutdown_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0"/>
+                    <StackPanel>
+                        <TextBlock Text="Cerrar la app por completo" FontWeight="SemiBold"/>
+                        <TextBlock Text="Se detiene el motor de fallas y sale de la bandeja." FontSize="11" Foreground="#E8C9C9"/>
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource ChoiceButtonStyle}" Margin="0" Background="Transparent" BorderBrush="#2A2F3A" Click="Cancel_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" Foreground="#9BA3B0"/>
+                    <StackPanel>
+                        <TextBlock Text="Cancelar" FontWeight="SemiBold"/>
+                        <TextBlock Text="Volver a la ventana sin cambiar nada." FontSize="11" Foreground="#9BA3B0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

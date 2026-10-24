@@ -6,7 +6,21 @@
     <ProjectReference Include="..\RealFenixFailures.Infrastructure\RealFenixFailures.Infrastructure.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.Fenix\RealFenixFailures.Integrations.Fenix.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.Integrations.SimBrief\RealFenixFailures.Integrations.SimBrief.csproj" />
   </ItemGroup>
+
+  <!-- El wrapper managed de SimConnect viaja a salida y publish como archivo
+       suelto (None en Integrations.SimConnect). RAR también lo detecta como
+       dependencia del proyecto SimConnect y lo agregaría a
+       ReferenceCopyLocalPaths: esa segunda vía lo duplica en el publish
+       (NETSDK1152) y con PublishSingleFile lo empaquetaría dentro del exe.
+       Se quita de esa lista para que quede solo la copia suelta. -->
+  <Target Name="QuitarSimConnectWrapperDeCopyLocal" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="'%(Filename)%(Extension)' == 'Microsoft.FlightSimulator.SimConnect.dll'" />
+    </ItemGroup>
+  </Target>
+
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
@@ -21,11 +35,14 @@
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Controls\" />
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory Condition="'$(Configuration)' == 'Debug'">PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory Condition="'$(Configuration)' != 'Debug'">Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
   <!-- UseWindowsForms agrega por defecto "global using System.Drawing;" y
@@ -41,6 +58,15 @@
   <ItemGroup>
     <Resource Include="Assets\Branding\app-icon.ico" />
     <Resource Include="Assets\Branding\background.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Frames del splash: embebidos en el ensamblado (splash-frame-N.png →
+         recurso RealFenixFailures.UI.Assets.Branding.splash-frame-N.png) para
+         que no viajen sueltos a la carpeta de publish. SplashWindow (mostrada
+         antes de crear la Application) los carga por
+         Assembly.GetManifestResourceStream, que no necesita pack URIs. -->
+    <EmbeddedResource Include="Assets\Branding\splash-frame-*.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -61,6 +87,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon>Assets\Branding\app-icon.ico</ApplicationIcon>
+    <StartupObject>RealFenixFailures.UI.Program</StartupObject>
   </PropertyGroup>
 
 </Project>

@@ -10,6 +10,8 @@ public class FenixFailureDefinition {
     public int GroupId { get; set; }
     public required FenixFailureGroup Group { get; set; }
     public FailureSeverity Severity { get; set; }
+    public bool CanBeTemporary { get; set; }
+    public bool CanBeRepaired { get; set; }
 
     public ICollection<PresetFailureDefinition> PresetFailureDefinitions { get; set; } = new List<PresetFailureDefinition>();
 }

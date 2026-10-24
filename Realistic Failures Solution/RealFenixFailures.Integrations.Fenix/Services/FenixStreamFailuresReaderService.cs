@@ -29,7 +29,7 @@ public class FenixStreamFailuresReaderService : IFenixStreamFailuresReaderServic
 
             return FenixMappers.FenixJsonFailuresToDto(payload);
         } catch (JsonException ex) {
-            _logger.LogCritical(ex.Message, ex);
+            _logger.LogError(ex, "La respuesta de fallas de Fenix no contiene JSON válido.");
             throw;
         }
 

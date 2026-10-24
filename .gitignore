@@ -10,7 +10,6 @@
 *.userosscache
 *.sln.docstates
 *.env
-.abacusai/
 Agent Prompts/
 
 # DB Files
@@ -440,3 +439,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Abacus.ai — artefactos temporales de la herramienta (no se versionan)
+**/.abacusai/tmp/
+
+# Modo desarrollo: presets regenerables no se versionan; failures.json sí (catálogo curado desde 2026-10-17)
+Realistic Failures Solution/RealFenixFailures.Domain/Resources/training_presets.json
+Realistic Failures Solution/RealFenixFailures.Domain/Resources/realistic_presets.json

@@ -15,9 +15,25 @@ public class FlightSessionRepository : IFlightSessionRepository {
 
     public async Task<FlightSession?> GetByIdAsync(int id, CancellationToken ct) {
         return await _dbContext.FlightSessions
+            .Include(x => x.UserAircraft)
+            .Include(x => x.TriggeredFailures)
+                .ThenInclude(x=>x.FenixFailure)
+                .ThenInclude(x=>x!.Group)
+                .ThenInclude(x=>x.System)
+            .Include(x => x.EventLogs)
+            .Include(x => x.FlightPlan)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public async Task<IReadOnlyList<FlightSession>> GetUnfinishedAsync(CancellationToken ct) {
+        return await _dbContext.FlightSessions
+            .AsNoTracking()
             .Include(x => x.TriggeredFailures)
             .Include(x => x.EventLogs)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
+            .Include(x => x.FlightPlan)
+            .Where(x => x.FinishedAt == null)
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync(ct);
     }
 
     public async Task<FlightSession> AddAsync(FlightSession session, CancellationToken ct) {
@@ -40,6 +56,19 @@ public class FlightSessionRepository : IFlightSessionRepository {
 
         _dbContext.FlightSessions.Remove(session);
         await _dbContext.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<SessionSystemWearDelta>> GetWearDeltasAsync(int sessionId, CancellationToken ct) {
+        var deltas = await _dbContext.SessionSystemWearDeltas
+            .AsNoTracking()
+            .Where(x => x.FlightSessionId == sessionId)
+            .OrderBy(x => x.AtaId)
+            .ToListAsync(ct);
+        return deltas;
+    }
+
+    public void AddWearDelta(SessionSystemWearDelta delta) {
+        _dbContext.SessionSystemWearDeltas.Add(delta);
     }
 
     public Task SaveChangesAsync(CancellationToken ct) {

@@ -18,12 +18,13 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
 
     private DateTime _lastHealthCheckAtUtc = DateTime.MinValue;
     private bool _lastHealthCheckResult;
+    private bool _hasEverConnected;
 
     public SimulatorFlightDataProvider(ISimConnectClient client, ILogger<SimulatorFlightDataProvider> logger, ILoggerFactory loggerFactory) {
         _client = client;
         _logger = logger;
         _diagnosticsLogger = loggerFactory.CreateLogger(DiagnosticsSourceContext);
-        _logger.LogInformation("SimulatorFlightDataProvider initialized");
+        _logger.LogDebug("SimulatorFlightDataProvider initialized");
     }
 
     public async Task<bool> IsConnectedAsync(CancellationToken ct) {
@@ -46,13 +47,8 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
             var isAlive = await _client.IsConnectedAsync(cts.Token);
             UpdateHealthState(isAlive);
 
-            if (isAlive != _lastHealthCheckResult) {
-                _logger.LogInformation("Connection status changed: {IsConnected}", isAlive);
-            }
-
             return _lastHealthCheckResult;
         } catch (OperationCanceledException) {
-            _logger.LogWarning("Health check timed out");
             UpdateHealthState(false);
             return false;
         } catch (Exception ex) {
@@ -102,8 +98,18 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
 
 
     private void UpdateHealthState(bool isAvailable) {
+        var previous = _lastHealthCheckResult;
         _lastHealthCheckResult = isAvailable;
         _lastHealthCheckAtUtc = DateTime.UtcNow;
+
+        if (isAvailable) {
+            if (!previous) {
+                _hasEverConnected = true;
+                _logger.LogInformation("SimConnect conectado");
+            }
+        } else if (previous && _hasEverConnected) {
+            _logger.LogInformation("SimConnect desconectado");
+        }
     }
 
 

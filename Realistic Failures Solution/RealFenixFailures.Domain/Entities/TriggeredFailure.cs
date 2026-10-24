@@ -20,6 +20,13 @@ public class TriggeredFailure {
     public string? Time { get; set; }
     public string? AfterEvent { get; set; }
     public string? AfterEventSeconds { get; set; }
+    public FailureLifecycleState State { get; set; } = FailureLifecycleState.Sent;
+    public DateTime? FenixConfirmedAtUtc { get; set; }
+    public DateTime? ResolvedAtUtc { get; set; }
+    public ComplexFlightPhaseEnum? ResolvedPhase { get; set; }
+    public ResolutionSource? ResolutionSource { get; set; }
+    public bool CanBeTemporary { get; set; }
+    public DateTime? PreparedAtUtc { get; set; }
 
     public FlightSession? FlightSession { get; set; }
     public FenixFailureDefinition? FenixFailure { get; set; }

@@ -8,5 +8,11 @@ public enum SessionEventCategory {
     FailureTriggered = 5,
     SessionStarted = 6,
     SessionStopped = 7,
-    SessionError = 8
+    SessionError = 8,
+    Pause = 9,
+    ResumeOrReconnect = 10,
+    FailureStateChanged = 11,
+    WearUpdated = 12,
+    OfpLoaded = 13,
+    SessionRecovered = 14
 }

@@ -1,126 +1,16 @@
-﻿<UserControl x:Class="RealFenixFailures.UI.Views.Panels.CustomModePanel"
+<UserControl x:Class="RealFenixFailures.UI.Views.Panels.CustomModePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:vm="clr-namespace:RealFenixFailures.UI.ViewModels" d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
-             mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
-
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-    </UserControl.Resources>
-
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24">
             <TextBlock Text="MODO PERSONALIZADO" FontSize="10" FontWeight="Bold"
-                       Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
-            <TextBlock Text="Configur\u00e1 y dispar\u00e1s fallas manualmente durante el vuelo."
-                       FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
-                       TextWrapping="Wrap" Margin="0,6,0,0"/>
-        </StackPanel>
-
-        <Border Grid.Row="1" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,0,16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <TextBlock Text="Probabilidad" FontSize="11"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"/>
-                        <TextBlock Text="{Binding GlobalProbability, StringFormat=' {0:P0}'}"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Text.Primary}" Margin="4,0,0,0"/>
-                    </StackPanel>
-                    <Slider Style="{StaticResource DarkSliderStyle}"
-                            Minimum="0" Maximum="1" TickFrequency="0.05"
-                            Value="{Binding GlobalProbability, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <TextBlock Text="Intervalo" FontSize="11"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"/>
-                        <TextBlock Text="{Binding CheckIntervalSeconds, StringFormat=' {0}s'}"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Text.Primary}" Margin="4,0,0,0"/>
-                    </StackPanel>
-                    <Slider Style="{StaticResource DarkSliderStyle}"
-                            Minimum="60" Maximum="600" TickFrequency="30"
-                            Value="{Binding CheckIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="PRESETS PERSONALIZADOS" FontSize="10" FontWeight="Bold"
-                               Foreground="{StaticResource Brush.Text.Secondary}"
-                               VerticalAlignment="Center"/>
-                    <Button Content="+ Nuevo" Command="{Binding CreateCustomPresetCommand}"
-                            Style="{StaticResource GhostButtonStyle}"
-                            Margin="12,0,0,0" FontSize="10" Padding="8,4"/>
-                </StackPanel>
-                <ItemsControl ItemsSource="{Binding CustomPresets}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource Brush.Background.Glass.Inner}" BorderBrush="{StaticResource Brush.Border.Default}"
-                                    BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,8">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Text.Primary}"/>
-                                        <TextBlock Text="{Binding FailureCount, StringFormat='{}{0} fallas configuradas'}"
-                                                   FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
-                                                   Margin="0,3,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <Button Content="\u25b6" Width="32" Height="32"
-                                                Command="{Binding DataContext.ActivateCustomPresetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource PrimaryButtonStyle}"
-                                                Padding="0" FontSize="12"/>
-                                        <Button Content="✕" Width="32" Height="32"
-                                                Command="{Binding DataContext.DeleteCustomPresetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource GhostButtonStyle}"
-                                                Padding="0" FontSize="12" Margin="6,0,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
-
-        <StackPanel Grid.Row="3" Margin="0,16,0,0">
-            <Button Command="{Binding ToggleEngineCommand}"
-                    Height="40" IsEnabled="{Binding CanStartEngine}">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsEngineActive}" Value="True">
-                                <Setter Property="Background" Value="#7F1D1D"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-                <TextBlock Text="{Binding CustomModeButtonText}" FontWeight="SemiBold"/>
-            </Button>
+                       TextAlignment="Center" Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
+            <TextBlock Text="Próximamente" FontSize="24" FontWeight="SemiBold"
+                       TextAlignment="Center" Margin="0,16,0,12"
+                       Foreground="{StaticResource Brush.Text.Primary}"/>
+            <TextBlock Text="El modo Personalizado todavía no está implementado. Esta funcionalidad estará disponible en una futura versión."
+                       FontSize="14" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Text.Secondary}"/>
         </StackPanel>
     </Grid>
 </UserControl>

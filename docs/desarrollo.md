@@ -22,29 +22,102 @@ dotnet run --project RealFenixFailures.UI/RealFenixFailures.UI.csproj
 
 ## Configuración (por nombres de claves)
 
-La configuración vive en `RealFenixFailures.UI/appsettings.json`. Acá se listan las claves; los valores son locales de cada máquina y no se copian a la documentación:
+La configuración distribuida vive en `RealFenixFailures.UI/appsettings.json`, listo para ajustar manualmente antes del release. Usa Fenix local y logging Information como punto de partida. La configuración anterior se conserva en `appsettings.Development.json` (incluye IP de testing, mocks y logging Debug).
 
-- `ConnectionStrings:Sqlite` — cadena de conexión SQLite.
-- `FailureEngine` — `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds`, `FailuresJson`, `TrainingPresetsJson` (los dos últimos nombran los EmbeddedResource del Domain).
-- `FenixApi` — `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
-- `Serilog` — nivel mínimo y `WriteTo:File` (`logs/realfenix-.log`, rolling diario).
+- **Debug**: carga appsettings.json y superpone appsettings.Development.json (opcional).
+- **Release**: carga solo appsettings.json; Development no se copia al output Release ni al publish. La selección depende de la compilación, igual que las integraciones/seeds, no de DOTNET_ENVIRONMENT.
+- Ambos se resuelven desde `AppContext.BaseDirectory`, junto al ejecutable, independientemente del directorio de trabajo. Las variables de entorno se aplican al final (claves anidadas con `__`).
+- Los defaults de las opciones y `RealisticProfileCatalog` reflejan la configuración actual del motor y SimBrief. La URL por defecto de Fenix sigue siendo localhost: la IP de una PC concreta solo vive en Development. Una sección/perfil omitido usa sus defaults; cada entrada explícita de Profiles configura ese perfil. No se rellenan automáticamente campos parciales de un perfil con los defaults específicos de otro riesgo.
+- Las modificaciones requieren reiniciar para garantizar su aplicación: los consumidores pueden capturar las opciones al construirse.
 
-## Migraciones EF
+Claves disponibles:
 
-Rutas desde `Realistic Failures Solution` (`--project` es Infrastructure y `--startup-project` es UI):
+- `FailureEngine` — `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds` y la sección `RealisticMode` (parámetros del motor Realistic). Los nombres de los catálogos embebidos (`failures.json`, `training_presets.json`, `realistic_presets.json`) **no son configurables**: son constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs` (quedaron fuera de appsettings).
+- `FenixApi` — `UseMock` (solo Debug), `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
+- `SimBriefApi` — `BaseUrl`, `DownloadTimeoutSeconds`.
+- `SimConnectDiagnostics` — `Enabled` (flag del log de diagnóstico).
+- `Serilog` — nivel mínimo y overrides. El sink de archivo **no** se configura acá: las rutas viven en el código (ver `AppPaths`).
+
+## Datos del usuario (BD, preferencias, logs)
+
+Todo lo persistente del usuario vive en una sola carpeta base (**%AppData%\RealFenixFailures**), centralizada en `RealFenixFailures.Infrastructure/AppPaths.cs`:
+
+- BD SQLite: `%AppData%\RealFenixFailures\realfenixfailures.db` (connection string calculado en código; **no** es configurable por appsettings).
+- Preferencias: `%AppData%\RealFenixFailures\userprefs.json` (panel de Ajustes).
+- Logs Serilog (rolling diario): `%AppData%\RealFenixFailures\logs\realfenix-.log` y `logs\realfenix-*.log` / `simconnect-diagnostic-.log` (flag de diagnóstico).
+
+La carpeta del ejecutable es solo "programa": así los datos sobreviven a reinstalaciones y funcionan aun si la app vive en una carpeta protegida (Program Files) o sincronizada (OneDrive).
+
+## Migraciones EF (vigente desde la primera pre-release)
+
+El arranque usa `Database.MigrateAsync()` antes de los initializers: una base nueva recibe `InitialRelease` y `__EFMigrationsHistory`; una existente con historial recibe solo las migraciones pendientes. La inicial incluye el modelo actual completo y los seeds estáticos (tipos de preset y sistemas de desgaste). Catálogos/presets embebidos siguen cargándose en los initializers; la aeronave de ejemplo sigue siendo exclusiva de Debug.
+
+**Transición única de bases anteriores a la pre-release:** las bases creadas con EnsureCreated, y las que tengan un historial anterior a esta nueva inicial, no son compatibles automáticamente con InitialRelease. Con la app cerrada, respaldar la carpeta de datos y retirar la base de desarrollo del path activo para que el siguiente arranque cree una nueva con migraciones. Retirar también los sidecars SQLite si existen después de cerrar todos los procesos. Esto reinicia aeronaves, sesiones y desgaste del entorno; las preferencias y logs se conservan. No se implementa importación ni baseline automático. **Esta tarea no borra ni modifica las bases locales o del share de testing**; la transición se hace manualmente y con backup. No aplicar database update directamente sobre esas bases antiguas.
+
+De ahora en adelante: cambiar entidad/modelo/seed → generar una migración con nombre descriptivo → revisar Up/Down → probar en una base aislada → versionar migración + Designer + snapshot. Nunca borrar la base para aplicar cambios futuros ni modificar migraciones ya compartidas. Los tests de reglas pueden seguir con EnsureCreated en memoria; las pruebas de migración ejercitan Migrate, reinicio y rollback/reaplicación.
+
+Desde `Realistic Failures Solution`, con dotnet-ef de la misma versión que los paquetes EF (10.0.13):
 
 ```sh
-dotnet ef migrations add NombreDeLaMigracion --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef database update --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef migrations list --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
-dotnet ef migrations remove --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext
+dotnet ef migrations add NombreDeLaMigracion --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+
+dotnet ef database update --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+
+dotnet ef migrations list --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
+
+dotnet ef migrations remove --project RealFenixFailures.Infrastructure/RealFenixFailures.Infrastructure.csproj --startup-project RealFenixFailures.UI/RealFenixFailures.UI.csproj --context RealFenixDbContext --configuration Release
 ```
 
-Reglas:
+La factory de diseño usa la misma ruta local de AppData: `migrations add` no aplica cambios a la base, pero `database update` sí. Para probar fuera de AppData usar `--connection "Data Source=ruta-a-base-de-prueba.db"` con database update. No apuntar al share vivo. Si el build interno de EF falla sin diagnóstico, compilar explícitamente y reintentar el comando EF con `--no-build`.
 
-- No editar migraciones ya aplicadas en entornos compartidos: siempre crear migración nueva (en `RealFenixFailures.Infrastructure/Migrations`).
-- Revisar el código generado antes de aplicarlo: validar `Up` y `Down`, que no haya drop/create involuntario y que los `UpdateData` del seed sean correctos.
-- Al cambiar entidades: entidad en Domain → ajuste en `RealFenixDbContext` → seed si corresponde → migración nueva → aplicar → build Debug y Release.
+## Checklist: publicar una versión (v1 en adelante)
+
+**Antes de publicar v1.0.0 (releases de GitHub):**
+
+1. **Migración inicial**: InitialRelease ya está generada y el arranque usa MigrateAsync. Mantener sus tres archivos versionados y verificar una base nueva con historial; completar la transición manual de bases de desarrollo anteriores antes de usar el nuevo arranque.
+2. **Versión**: actualizar `<Version>` en `Realistic Failures Solution/Directory.Build.props` (p. ej. `1.0.0`) y crear el tag `v1.0.0` en GitHub coincidiendo con ese valor.
+3. **Datos del usuario**: verificar que `%AppData%\RealFenixFailures\` contenga BD, preferencias y logs (ya centralizado en `AppPaths`; la carpeta del exe no debe quedar con `realfenixfailures.db` ni `logs/`).
+4. **Distribución**: compilar `dotnet publish` y publicar ZIP portable en GitHub Releases (pre-releases para testers: marca "Set as a pre-release"). La pestaña Actualizaciones de Ajustes las detecta.
+5. **AppSettings de producción**: ajustar manualmente appsettings.json, comprobar endpoints/parámetros/logging y verificar que Development no viaje en el publish/ZIP.
+
+**De v1.1 en adelante:** cada cambio de esquema → migración nueva incremental (nunca editar las aplicadas), versión `X.Y.0` + tag en el mismo commit del release.
+
+### Runbook de release (dev → master → tag → GitHub Release)
+
+Ciclo completo para publicar una versión. La fuente de verdad del número es `<Version>` en `Realistic Failures Solution/Directory.Build.props` (el tag `vX.Y.Z` debe coincidir con ese valor); la pestaña Actualizaciones de la app detecta releases de GitHub y distingue estables de pre-releases.
+
+1. **Precondiciones de calidad** (en `dev`, con las features del release mergeadas): build Debug y Release 0 errores / 0 advertencias, `dotnet test` en verde, auditoría de paquetes sin vulnerables, smoke test manual si el release toca integración real (MSFS/Fenix) y CHANGELOG al día.
+
+2. **Elegir versión (SemVer)**: feature nueva → `0.Y.0`; fix → `0.Y.Z`; ruptura de esquema/datos pre-1.0 → `0.Y.0` (antes de 1.0 la API interna puede cambiar en minor). Para canal de testers: `X.Y.Z-beta.N` marcado como pre-release.
+
+3. **Cerrar la versión en `dev`**: actualizar `<Version>` en `Directory.Build.props` quitando el sufijo `-dev` (p. ej. `0.2.0`), commit `chore(release): v0.2.0` (solo ese archivo) y push a `dev`.
+
+4. **`dev` → `master`**: PR `gh pr create --base master --head dev --title "Release v0.2.0"` y merge, o merge directo mientras el ruleset de protección tenga bypass para admin. Si activás "Require a pull request" en el ruleset, este paso es siempre PR.
+
+5. **Tag anotado** (en `master` actualizado, el commit del merge):
+
+   ```sh
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin master --follow-tags
+   ```
+
+6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, publica en una carpeta explícita (`${{ runner.temp }}/RealFenixFailures-publish`), arma el ZIP desde esa misma carpeta (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `appsettings.json`, sin BD/logs) y crea el release. No busca ejecutables recursivamente en bin/Release; si falta un archivo requerido, el empaquetado falla. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos tres archivos.
+
+7. **GitHub Release** (desde `master`): automático con el workflow `Release` al pushear el tag (crea el release en `master` con `--generate-notes` y adjunta el ZIP; los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales). A mano:
+
+   ```sh
+   gh release create v0.2.0 --target master --generate-notes --title "v0.2.0" ruta/al/zip.zip
+   ```
+
+   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md).
+
+8. **Post-release**: subir `<Version>` en `Directory.Build.props` de `dev` a la próxima de desarrollo (p. ej. `0.3.0-dev.0`) y push. Verificar manualmente que la pestaña Actualizaciones detecta el release publicado.
+
+9. **Hotfix**: rama `fix/*` desde `master` → PR/merge a `master` → release `v0.Y.(Z+1)` (pasos 3, 5, 6, 7 pero con `<Version>` y tag patch, sin pasar por `dev`) → back-merge del fix a `dev` para no perderlo.
+
+10. **CI/CD (GitHub Actions)**: `ci.yml` compila y corre la suite en cada push a `dev`/`master` y en cada PR (runner windows-latest limpio: si algo solo anda por dependencias locales de la PC, el CI lo delata). `release.yml` automatiza los pasos 6-7 con el push del tag `v*` (y admite ejecución manual `workflow_dispatch` que solo arma y sube el ZIP como artefacto de prueba, sin crear release). El workflow de release asume publish **self-contained** (no exige .NET Desktop Runtime en las PCs de los usuarios).
+
+10. **Protección y PRs (reglas vigentes)**: el ruleset `Protección dev/master` (Settings → Rules → Rulesets) bloquea borrado y force-push de ambas ramas con bypass "Always" para el rol admin. Forzar PR en `master` es recomendable **recién cuando haya colaboradores con write** (mismo ruleset: activar "Require a pull request before merging"); trabajando solo, el bypass ya deja el push directo y un PR por release solo agrega fricción. Opcional: segundo ruleset sobre tags `v*` (target tags, mismas reglas de borrado/force-push).
 
 ## Validación
 
@@ -68,6 +141,15 @@ Históricas: se registran para evitar regresión y no como avisos presentes. Los
 - No reescribir historia existente (sin rebase/amend sobre commits ya compartidos).
 - Todo cambio significativo actualiza el doc de estado afectado y agrega entrada a [CHANGELOG.md](CHANGELOG.md) en el mismo trabajo (refactors triviales y typos no necesitan entrada).
 
+### Trabajo multi-agente (misma PC, misma rama)
+
+Varios agentes de IA y el usuario editan y debuggean a la vez, en la misma PC y sobre la misma rama; el árbol de trabajo es el estado compartido y cambia sin aviso. Antes de editar, compilar o tocar el índice, contemplar que otra tarea puede estar trabajando o haber committeado en el medio:
+
+- Releer los archivos justo antes de editarlos y aplicar los cambios sobre la versión vigente; no pisar ediciones, formato ni archivos de otras tareas.
+- Verificar siempre `git status` y `git diff` antes de operar sobre el índice (staging, stash, checkout): otro agente puede estar commiteando en paralelo.
+- **Cada tarea commitea solo sus cambios relacionados**: preparar explícitamente los archivos propios (`git add <archivos>`), nunca `git add -A`/`git add .`; revisar `git status` + `git diff --cached` antes del commit y dejar fuera (sin preparar) todo lo que no es de la tarea.
+- No deshacer ni revertir cambios ajenos (checkout, stash, clean, reset, amend) sin pedido expreso del usuario; el árbol puede contener WIP de otra tarea.
+
 ### Formato obligatorio de commits
 
 Asunto con Conventional Commits `tipo(scope): descripción`, tipos permitidos `feat`, `fix`, `docs`, `refactor`, `test`, `chore`; asunto claro y breve en imperativo. Línea en blanco y cuerpo detallado donde cada implementación va en una línea que empieza con un guion `- ...`. Nunca afirmar en el cuerpo una prueba que no se haya ejecutado.
@@ -83,3 +165,10 @@ feat(campaigns): exponer reglas y sincronizar sus parámetros
 - SNBD-268: valida la creación y persistencia de RuleParameters para valores manuales y vigencia de campaña.
 - Agrega pruebas de integración para creación, consulta y actualización de reglas.
 ```
+
+## Fines de línea (EOL): política y autoridad
+
+- **Autoridad**: `.gitattributes` (Git) y `.editorconfig` (editores) en la raíz del repositorio. Objetivo: **LF** para los textos en el árbol de trabajo y en el índice; excepción: **CRLF** solo en `.bat`/`.cmd`. Binarios declarados `-text` en `.gitattributes`: `dll`, `exe`, `png`, `jpg`, `jpeg`, `gif`, `ico`, `pdf`, `zip`.
+- **Configuración local requerida**: `git config --local core.autocrlf false` y `git config --local core.eol lf`. Con `.gitattributes` no usar `core.autocrlf=true` (conversiones dobles y warnings). No se toca la configuración global ni `core.safecrlf`.
+- **Archivos nuevos**: respetan la política (LF salvo `.bat`/`.cmd` CRLF). La política no impone indentación, trim de espacios, BOM, encoding ni nueva línea final: conservar el formato existente de los archivos que se editen.
+- **Mantenimiento**: respetar esta política al editar; los avisos informativos de conversión no generan tareas ni reportes separados. Una renormalización masiva es excepcional. `git add --renormalize .` prepara también cambios funcionales existentes: usarlo solo cuando corresponda incluirlos en el commit, nunca como corrección automática de rutina.

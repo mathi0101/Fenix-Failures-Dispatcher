@@ -8,7 +8,7 @@ public class RealFenixDbContextFactory : IDesignTimeDbContextFactory<RealFenixDb
     public RealFenixDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<RealFenixDbContext>();
-        optionsBuilder.UseSqlite("Data Source=realfenixfailures.db");
+        optionsBuilder.UseSqlite(AppPaths.DatabaseConnectionString);
 
         return new RealFenixDbContext(optionsBuilder.Options);
     }
