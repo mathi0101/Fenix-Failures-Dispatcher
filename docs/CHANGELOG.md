@@ -37,6 +37,12 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-24 — Incluir el SimConnect.dll nativo en el publish y el ZIP del release
+
+- **Causa (reproducida)**: el artefacto de la release corría sin el `SimConnect.dll` nativo. El `None` de la integración solo tenía `CopyToOutputDirectory` (llega a bin, no a la carpeta de publish) y el armado del ZIP copiaba solo exe + wrapper managed + appsettings. El wrapper managed es un ensamblado mixto (C++/CLI) cuya tabla de imports referencia `SimConnect.dll`: sin la nativa al lado del exe, el propio wrapper no puede cargarse. La falla estalla al JIT del state machine de `SimConnectClient.ConnectAsync` —antes de cualquier try/catch interno—, escapa por `IsConnectedAsync` y llega al catch del health check de `SimulatorFlightDataProvider`, que en 0.1.7-beta.1 lo registraba con `LogError`: el sink lo convertía en el reporte «REGISTRO DE ERROR INESPERADO» (`System.IO.FileNotFoundException` con mensaje vacío). No ocurría en dev porque DEBUG usa el mock (`#if DEBUG`) y los runs de Release salen de bin, donde la nativa sí está.
+- **Corrección**: `RealFenixFailures.Integrations.SimConnect.csproj` agrega `CopyToPublishDirectory=PreserveNewest` y `ExcludeFromSingleFile=true` al `None Update="SimConnect.dll"`, y el paso de armado del ZIP en `release.yml` incluye `SimConnect.dll` en la lista de archivos requeridos (faltar uno sigue fallando explícitamente).
+- **Validación**: sonda aislada publicada single-file igual que el workflow: con un stage fiel al ZIP viejo (sin nativa) se reproduce exactamente la excepción del reporte (tipo idéntico, mensaje vacío y mismo stack); agregando la nativa, `ConnectAsync` devuelve `false` sin excepción con MSFS cerrado. Publish corregido deja exe + wrapper + `SimConnect.dll` + appsettings.json, y la app real corre desde ese stage sin errores `[ERR]` en el log ni crash reports nuevos. Suite: 228/228. PC de testing inalcanzable durante el diagnóstico: nuevo artefacto de prueba y sesión real MSFS/Fenix pendientes.
+
 ### 2026-10-24 — Empaquetar el release desde una salida de publish explícita
 
 - El workflow Release usa `--output` hacia `${{ runner.temp }}/RealFenixFailures-publish` y copia los tres archivos del ZIP desde esa misma carpeta. Se elimina la búsqueda recursiva del primer ejecutable en bin/Release, que podía seleccionar el apphost de compilación en lugar del ejecutable self-contained publicado. Copy-Item falla explícitamente si falta un archivo requerido.
