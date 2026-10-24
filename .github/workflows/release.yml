@@ -53,6 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:GITHUB_REF_NAME
-          $prerelease = if ($tag -match '-') { '--prerelease' } else { @() }
-          gh release create $tag "$env:RUNNER_TEMP/RealFenixFailures-$tag-win-x64.zip" `
-            --target master --generate-notes --title $tag @prerelease
+          $zip = Join-Path $env:RUNNER_TEMP "RealFenixFailures-$tag-win-x64.zip"
+          $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--generate-notes', '--title', $tag)
+          if ($tag -match '-') { $ghArgs += '--prerelease' }
+          gh @ghArgs

@@ -37,6 +37,11 @@ Bitácora técnica del proyecto. No es un changelog de release: registra **qué*
 
 ## [Sin publicar]
 
+### 2026-10-24 — Corregir el paso de creación del release en el workflow
+
+- **Causa (reproducida localmente)**: el splatting de PowerShell `@prerelease` sobre un **string** no pasa `--prerelease` como un argumento: lo explota carácter por carácter (`-`, `-`, `p`, `r`...), `gh release create` recibía esa basura como assets y el paso fallaba con exit 1 (dos intentos, sin release creado; publish y ZIP sí salieron bien).
+- **Corrección**: se arma un array `$ghArgs` con todos los argumentos y se hace splat del array (`gh @ghArgs`), que pasa cada elemento como un argumento separado; `--prerelease` se agrega solo si el tag tiene sufijo (verificado con `gh` simulado que imprime los args recibidos, antes y después).
+
 ### 2026-10-24 — Incluir el SimConnect.dll nativo en el publish y el ZIP del release
 
 - **Causa (reproducida)**: el artefacto de la release corría sin el `SimConnect.dll` nativo. El `None` de la integración solo tenía `CopyToOutputDirectory` (llega a bin, no a la carpeta de publish) y el armado del ZIP copiaba solo exe + wrapper managed + appsettings. El wrapper managed es un ensamblado mixto (C++/CLI) cuya tabla de imports referencia `SimConnect.dll`: sin la nativa al lado del exe, el propio wrapper no puede cargarse. La falla estalla al JIT del state machine de `SimConnectClient.ConnectAsync` —antes de cualquier try/catch interno—, escapa por `IsConnectedAsync` y llega al catch del health check de `SimulatorFlightDataProvider`, que en 0.1.7-beta.1 lo registraba con `LogError`: el sink lo convertía en el reporte «REGISTRO DE ERROR INESPERADO» (`System.IO.FileNotFoundException` con mensaje vacío). No ocurría en dev porque DEBUG usa el mock (`#if DEBUG`) y los runs de Release salen de bin, donde la nativa sí está.
