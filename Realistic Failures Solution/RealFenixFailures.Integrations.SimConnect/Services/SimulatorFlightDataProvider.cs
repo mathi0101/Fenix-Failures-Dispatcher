@@ -8,7 +8,7 @@ namespace RealFenixFailures.Integrations.SimConnect.Services;
 
 public class SimulatorFlightDataProvider : ISimFlightDataProvider {
     // Debe coincidir con SerilogExtensions.SimConnectDiagnosticsSourceContext (Infrastructure),
-    // que rutea esta categoría al log de diagnóstico cuando "SimConnectDiagnostics:Enabled" es true.
+    // que rutea esta categoría al log de diagnóstico cuando "FailureEngine:Debug" es true.
     private const string DiagnosticsSourceContext = "SimConnect.Diagnostics";
 
     private readonly ISimConnectClient _client;

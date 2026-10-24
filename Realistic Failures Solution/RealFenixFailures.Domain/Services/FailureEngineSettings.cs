@@ -5,14 +5,25 @@ namespace RealFenixFailures.Domain.Services;
 public class FailureEngineSettings {
     public const string SectionName = "FailureEngine";
 
-    public int CheckConnectionIntervalSeconds { get; set; } = 5;
+    /// <summary>
+    /// Flag de debug del motor: activa herramientas de desarrollo desde appsettings en instalaciones de
+    /// testing sin recompilar. Hoy gobierna: la visibilidad del bloque «Reloj de simulación» del panel
+    /// Realistic y el log de diagnóstico de SimConnect (ex flag <c>SimConnectDiagnostics:Enabled</c>).
+    /// Código = false; en producción el appsettings puede omitirlo o dejarlo en false.
+    /// </summary>
+    public bool Debug { get; set; } = false;
+
+    /// <summary>Límite de entradas del log de eventos en vivo de la UI (recorte por la cola).</summary>
+    public int MaxLogEntries { get; set; } = 50;
+
+    public int CheckConnectionIntervalSeconds { get; set; } = 30;
     public int CheckIntervalSeconds { get; set; } = 10;
 
     public RealisticModeSettings RealisticMode { get; set; } = new();
 }
 
 public class RealisticModeSettings {
-    public int EvaluationIntervalSeconds { get; set; } = 5;
+    public int EvaluationIntervalSeconds { get; set; } = 60;
     public int PreparedQueueLimit { get; set; } = 5;
     public bool GroundFailureEnabled { get; set; } = true;
     public int ThinkingLinesCap { get; set; } = 50;

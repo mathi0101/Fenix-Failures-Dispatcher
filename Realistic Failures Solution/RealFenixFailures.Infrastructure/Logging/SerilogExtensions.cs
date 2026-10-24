@@ -10,6 +10,7 @@ public static class SerilogExtensions {
     /// Categoría de logger que deben usar los emisores de diagnóstico de SimConnect
     /// (datos crudos recibidos y estados de vuelo calculados) para ser ruteados al
     /// archivo de diagnóstico en lugar del log principal.
+    /// Se activa con el flag global <c>FailureEngine:Debug</c>.
     /// </summary>
     public const string SimConnectDiagnosticsSourceContext = "SimConnect.Diagnostics";
 
@@ -23,6 +24,12 @@ public static class SerilogExtensions {
 
         ApplyMinimumLevel(loggerConfiguration, serilogSection.GetSection("MinimumLevel"));
 
+        // FailureEngine:Debug activa los logs Debug propios de la app a nivel raíz
+        // (gana sobre Serilog:MinimumLevel:Default; los Override explícitos se respetan).
+        var debugFlag = configuration.GetValue<bool>("FailureEngine:Debug");
+        if (debugFlag)
+            loggerConfiguration.MinimumLevel.Debug();
+
         loggerConfiguration
             .Enrich.FromLogContext()
             .Enrich.With(new UtcTimestampEnricher())
@@ -33,7 +40,7 @@ public static class SerilogExtensions {
                     rollingInterval: Enum.TryParse<RollingInterval>(serilogSection["WriteTo:0:Args:rollingInterval"], ignoreCase: true, out var rollingInterval) ? rollingInterval : RollingInterval.Day,
                     outputTemplate: serilogSection["WriteTo:0:Args:outputTemplate"] ?? "{UtcTimestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] <s:{SourceContext}> {Message:lj} {NewLine}{Exception}"));
 
-        if (configuration.GetValue<bool>("SimConnectDiagnostics:Enabled")) {
+        if (debugFlag) {
             loggerConfiguration.MinimumLevel.Override(SimConnectDiagnosticsSourceContext, LogEventLevel.Debug);
             loggerConfiguration.WriteTo.Logger(diagnosticLogger => diagnosticLogger
                 .Filter.ByIncludingOnly(Matching.FromSource(SimConnectDiagnosticsSourceContext))
