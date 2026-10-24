@@ -6,7 +6,7 @@
         xmlns:panels="clr-namespace:RealFenixFailures.UI.Views.Panels" 
         xmlns:vm="clr-namespace:RealFenixFailures.UI.ViewModels" d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
         mc:Ignorable="d"
-        Title="Realistic A320 Fenix Failures"
+        Title="Real Fenix Failures"
         Icon="pack://application:,,,/Assets/Branding/app-icon.ico"
         Height="820" Width="1100"
         MinHeight="720" MinWidth="900"
@@ -53,9 +53,9 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
                         </Border>
-                        <TextBlock Text="REALISTIC A320" FontSize="12" FontWeight="Bold"
+                        <TextBlock Text="Real Fenix" FontSize="12" FontWeight="Bold"
                                    Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
-                        <TextBlock Text=" · FENIX FAILURES" FontSize="12"
+                        <TextBlock Text=" Failures" FontSize="12"
                                    Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
