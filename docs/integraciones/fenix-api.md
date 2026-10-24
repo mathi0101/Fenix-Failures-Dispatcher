@@ -115,7 +115,7 @@ Sección `FenixApi` (los valores concretos son locales; no se copian acá):
 
 - **`FenixApiClient`** (Release): `HttpClient` configurado por DI; implementa `IFenixApiClient` (`IsApiAlive`, `GetManualFailuresAsync`, `SendFailureAsync`); maneja `HttpRequestException`/timeouts devolviendo `false`/`null` y logueando en `Debug` sin stacktrace (son fallos de conectividad esperables ya reportados como cambio de estado).
 - **`MockFenixApiClient`** (DEBUG): mock v2. Sirve el **catálogo real embebido** `RealFenixFailures.Domain/Resources/failures.json` (mismos IDs, títulos, severidad, repairable y estructura ATA que consume el motor) con estado `failed` mutable en memoria persistente entre lecturas, y admite IDs desconocidos registrándolos con warning. Así, una inyección del motor con cualquier ID del catálogo se refleja en la re-lectura del estado, igual que con la API real (antes eran 10 fallas hardcodeadas que casi no coincidían con el catálogo).
-- **Selección mock/real por config**: `FenixApi:UseMock` en `appsettings.json` (default `true` en el repo para desarrollo sin Fenix; solo aplica en build DEBUG — en Release siempre va contra la API real).
+- **Selección mock/real por config**: `FenixApi:UseMock`: true en appsettings.Development.json para desarrollo sin Fenix; false en appsettings.json de producción. Solo aplica en build DEBUG; Release siempre usa la API real.
 - **`FenixApiFailureService`** (`Services/FenixApiFailureService.cs`) implementa `IFenixFailureApiDispatcher`: `ArmFailureAsync`, `GetAllFailuresAsync`, `ResetAllFailuresAsync`, `IsApiAvailableAsync` (health check cacheado con `SemaphoreSlim`).
 
 ## Logs y transiciones (niveles)

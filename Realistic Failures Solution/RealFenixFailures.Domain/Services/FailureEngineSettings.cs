@@ -5,14 +5,14 @@ namespace RealFenixFailures.Domain.Services;
 public class FailureEngineSettings {
     public const string SectionName = "FailureEngine";
 
-    public int CheckConnectionIntervalSeconds { get; set; }
-    public int CheckIntervalSeconds { get; set; }
+    public int CheckConnectionIntervalSeconds { get; set; } = 5;
+    public int CheckIntervalSeconds { get; set; } = 10;
 
     public RealisticModeSettings RealisticMode { get; set; } = new();
 }
 
 public class RealisticModeSettings {
-    public int EvaluationIntervalSeconds { get; set; } = 30;
+    public int EvaluationIntervalSeconds { get; set; } = 5;
     public int PreparedQueueLimit { get; set; } = 5;
     public bool GroundFailureEnabled { get; set; } = true;
     public int ThinkingLinesCap { get; set; } = 50;
@@ -68,7 +68,7 @@ public class PhysicsAggravationWeights {
 
 public class OfpWindowSettings {
     public double PreStartWindowHours { get; set; } = 2;
-    public double PostArrivalWindowHours { get; set; } = 2;
+    public double PostArrivalWindowHours { get; set; } = 0.5;
 }
 
 public class WearSettings {

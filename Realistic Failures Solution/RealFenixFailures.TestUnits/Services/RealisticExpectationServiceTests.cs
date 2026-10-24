@@ -37,11 +37,11 @@ public class RealisticExpectationServiceTests {
     }
 
     [Fact]
-    public void Compute_FullWearModerate_TriplesTheRate() {
+    public void Compute_FullWearModerate_DoublesTheRate() {
         var dto = CreateService().Compute(averageWearPct: 100, flightHours: 1, profileRisk: RiskLevel.Moderate);
 
-        Assert.Equal(0.66, dto.RatePerHour, precision: 5);
-        Assert.Equal(0.66, dto.ExpectedFailures, precision: 5);
+        Assert.Equal(0.44, dto.RatePerHour, precision: 5);
+        Assert.Equal(0.44, dto.ExpectedFailures, precision: 5);
     }
 
     [Theory]

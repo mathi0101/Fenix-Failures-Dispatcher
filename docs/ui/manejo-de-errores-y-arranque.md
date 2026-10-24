@@ -53,14 +53,14 @@ Caso raro pero verificado en la práctica: si el constructor de `App` falla (p. 
 - **Cursor durante el arranque**: el `SplashScreen` clásico mostraba el cursor de "aplicación iniciando" (`IDC_APPSTARTING`) sobre el splash, lo que daba sensación de app trancada (y encima la barra era una imagen fija). La ventana custom lleva `Cursor="Arrow"` y no usa `SplashScreen`, así que el cursor se ve normal durante todo el arranque.
 - **`App.OnStartup`** quedó con tres zonas de manejo:
   1. `AttachGlobalHandlers` + guard de instancia única (segunda instancia → cierra splash y sale en silencio: comportamiento normal, **no** es un crash y no genera log).
-  2. try/catch alrededor de `_host.StartAsync()` + `EnsureCreatedAsync` + `InitializeAsync` → "no pudo iniciarse (servicios, conexión o base de datos)".
+  2. try/catch alrededor de `_host.StartAsync()` + `MigrateAsync` + `InitializeAsync` → "no pudo iniciarse (servicios, conexión o base de datos)".
   3. try/catch alrededor de la creación de `MainWindow` + tray → "no pudo iniciarse (ventana principal)".
   - Ambas ramas hacen `Program.CloseSplash()` + `CrashReporter.ReportFatal(…)` (cartel primero, cierre al confirmar) + `return`.
 
 ## Notas y decisiones
 
 - **Splash por frames**: el splash original (el `SplashScreen` de WPF + PNG con la barra dibujada) no podía animar la barra porque era una imagen estática, y la primera iteración XAML con `ProgressBar` cambió la estética que al usuario no le gustó. El diseño final conserva **la imagen de siempre** como frame con el 36 % y agrega 5 frames idénticos: uno con la **barra vacía** (`splash-frame-0.png`, el frame inicial) y cuatro con la barra más avanzada (52/68/84/100 %), generados con un script con la misma paleta: se intercambian en vivo y el ojo percibe la barra llenándose de 0 a full. Detalle: los frames se versionan y van **embebidos en el ensamblado** (`EmbeddedResource`), no como archivos sueltos en la carpeta de publish; no se generan en runtime.
-- El host sigue leyendo `appsettings.json` del **directorio de trabajo actual** (comportamiento preexistente de `Host.CreateDefaultBuilder`, no cambiado): si se lanza el exe desde otra carpeta sin ese archivo, el arranque ahora falla con cartel y log en vez de morir en silencio.
+- El host lee appsettings.json desde el directorio del ejecutable (AppContext.BaseDirectory). Debug superpone appsettings.Development.json; Release no lo carga. Si falta el archivo base requerido, el arranque falla con cartel y log. Ver [configuración por compilación](../desarrollo.md#configuración-por-nombres-de-claves).
 - El log de crash se acumula sin rotación (nombre con timestamp): conviene decidir algún día una política de retención.
 
 ## Crash al cerrar: Close() reentrante en MainWindow_Closing

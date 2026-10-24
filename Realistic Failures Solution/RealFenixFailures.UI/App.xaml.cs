@@ -19,7 +19,15 @@ public partial class App : System.Windows.Application {
     public App() {
         _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(configure => {
-                configure.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                // Resolver desde el ejecutable, incluso al abrir desde un acceso directo.
+                // Release nunca carga la configuración de desarrollo.
+                configure.Sources.Clear();
+                configure.SetBasePath(AppContext.BaseDirectory)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+#if DEBUG
+                configure.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+#endif
+                configure.AddEnvironmentVariables();
             })
             .ConfigureRealFenixFailures()
             .Build();
@@ -43,7 +51,7 @@ public partial class App : System.Windows.Application {
 
             using var scope = _host.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
-            await dbContext.Database.EnsureCreatedAsync();
+            await dbContext.Database.MigrateAsync();
 
             var initializers = scope.ServiceProvider.GetServices<IInitializerService>();
             foreach (var initializer in initializers)

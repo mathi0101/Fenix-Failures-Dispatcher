@@ -20,6 +20,10 @@ El contenido de configuración es un **UserControl** (`RealFenixFailures.UI/View
   6. **Donación** — última pestaña, apoyo voluntario al desarrollo y botón de Ko-fi (`https://ko-fi.com/mathiasgonzalez0101`), reutilizando el enlace de MainWindow.
 - Los enlaces/carpetas se abren con `Process.Start` + `UseShellExecute`. `SupportLinks` centraliza repositorio y donación para que MainWindow y Ajustes usen los mismos destinos. El acceso a logs crea la carpeta si falta; si no puede abrirse, el error usa el [diálogo de diagnóstico común](manejo-de-errores-y-arranque.md).
 
+## Modo Personalizado (primera pre-release)
+
+El menú sigue disponible, pero CustomModePanel muestra únicamente «Próximamente» y aclara que el modo todavía no está implementado y llegará en una futura versión. No expone sliders, creación, borrado ni activación de presets. Los contratos y código provisional existentes se conservan para el desarrollo futuro; este aviso no supone que el modo esté implementado o validado.
+
 ## Preferencias de usuario
 
 `RealFenixFailures.UI/Services/UserPreferencesService.cs` (singleton en DI):

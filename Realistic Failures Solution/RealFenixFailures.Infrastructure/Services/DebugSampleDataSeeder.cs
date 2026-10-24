@@ -11,7 +11,7 @@ namespace RealFenixFailures.Infrastructure.Services;
 // finalizadas, una sin finalizar), fallas disparadas en distintos estados del
 // ciclo de vida y desgaste acumulado en varios sistemas. Evita cargar estos
 // datos a mano cada vez que se regenera la base (se borra la .db local y
-// EnsureCreated reconstruye el esquema). Corre solo si aún no existe la
+// Migrate aplica la migración inicial). Corre solo si aún no existe la
 // aeronave de ejemplo y debe ejecutarse DESPUÉS del catálogo de fallas
 // (FK TriggeredFailure.FenixFailureId → FenixFailureDefinition), lo que
 // garantiza el orden del pipeline IInitializerService (Application antes que

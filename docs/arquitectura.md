@@ -22,7 +22,7 @@ RealFenixFailures.TestUnits ── xUnit (Domain + Integrations.SimConnect)
 - Integrations.SimConnect: `SimConnectClient` (real, `IFlightSimulationController`), `MockSimConnectClient`, `SimulatorFlightDataProvider` (implementa `ISimFlightDataProvider`), `AircraftStateData`/`SimConnectAircraftState`.
 - UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre cada `IInitializerService.InitializeAsync()` resolviendo `IEnumerable<IInitializerService>` (en orden de registro: `DatabaseSeeder`, punto único de orquestación del catálogo de fallas y presets; y, **solo en DEBUG**, `DebugSampleDataSeeder`, que siembra la aeronave de ejemplo con sesiones, fallas y desgaste) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
 
-En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTypeId` como FK a `FailurePresetTypes`; EF ignora la propiedad enum de conveniencia `FailurePreset.PresetType`. La migración `FixFailurePresetDuplicateColumn` elimina `PresetType1` de bases existentes.
+En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTypeId` como FK a `FailurePresetTypes`; EF ignora la propiedad enum de conveniencia `FailurePreset.PresetType`. La migración inicial `InitialRelease` crea directamente este modelo sin columna duplicada.
 
 ## DI
 
@@ -42,7 +42,7 @@ Selección de integraciones por configuración de compilación (DEBUG/Release):
 
 ## Componentes y flujo vigente
 
-1. **Arranque**: `App.OnStartup` primero toma `SingleInstanceGuard` (Mutex con nombre fijo); si ya hay una instancia corriendo, señala a esa instancia (`EventWaitHandle`) y cierra el proceso nuevo sin tocar el host ni la base. Si es la primera instancia, recién ahí aplica migraciones de EF y corre el initializer; `MainWindowViewModel.InitializeAsync` carga escenarios Training, Realistic y Custom, y arranca `StartAutomaticTimerAsync`. Tras mostrar `MainWindow`, `App` crea `TrayIconService` (icono de bandeja) y registra el listener de la señal de instancia única para restaurar la ventana. Detalle completo: [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md).
+1. **Arranque**: `App.OnStartup` primero toma `SingleInstanceGuard` (Mutex con nombre fijo); si ya hay una instancia corriendo, señala a esa instancia (`EventWaitHandle`) y cierra el proceso nuevo sin tocar el host ni la base. Si es la primera instancia, recién ahí aplica migraciones de EF y corre el initializer; `MainWindowViewModel.InitializeAsync` carga escenarios Training, Realistic y los presets Custom heredados (sin controles expuestos; el panel Custom muestra Próximamente), y arranca `StartAutomaticTimerAsync`. Tras mostrar `MainWindow`, `App` crea `TrayIconService` (icono de bandeja) y registra el listener de la señal de instancia única para restaurar la ventana. Detalle completo: [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md).
 2. **Timer automático** (`EngineOrchestrator`): cada `FailureEngine:CheckConnectionIntervalSeconds` (5 s) actualiza `ConnectionStatus` y, fuera del modo Realistic, alimenta al detector de eventos para no perder transiciones.
 3. **Modo Realistic**:
    - `EngineOrchestrator.StartRealisticModeAsync(aircraftId, risk, ct)` valida conexión y arranca `RealisticSessionManager.StartNewSessionAsync`.
@@ -58,6 +58,6 @@ Selección de integraciones por configuración de compilación (DEBUG/Release):
 
 - `FlightEventDetector` recibe snapshots en el loop del modo activo (Realistic usa su loop de 30 s; el timer automático lo alimenta en el resto) y `Reset()` se llama al detener cualquier modo. Es **thread-safe**: el estado mutable (`_previousPhase`, `_enginesWereRunning`, `_hasLandedThisFlight`, `_lastAltitudeMSL`) está protegido con `lock` en `ProcessSnapshot`, `Reset` y propiedades.
 - El modo Realistic requiere avión en gate con motores apagados para iniciar (verificado en `TryStartSession`).
-- `UserAircraft` ya no persiste `TotalFlights`/`TotalFlightHours`: los totales son **agregados derivados** que los DTOs (`UserAircraftService.ToDto`) calculan al vuelo desde las `FlightSessions` **finalizadas** (`FinishedAt != null`) de cada aeronave; las sesiones abiertas no cuentan. La migración `AddSessionEventHistoryAndDerivedAircraftTotals` eliminó las columnas.
+- `UserAircraft` ya no persiste `TotalFlights`/`TotalFlightHours`: los totales son **agregados derivados** que los DTOs (`UserAircraftService.ToDto`) calculan al vuelo desde las `FlightSessions` **finalizadas** (`FinishedAt != null`) de cada aeronave; las sesiones abiertas no cuentan. La migración inicial `InitialRelease` crea el esquema sin esas columnas.
 - `SessionEventLog.EventCode` es un identificador **semántico** string (p. ej. `TAXI`, `LANDING`, `ENGINES_STARTED`), no único en la tabla: puede repetirse entre eventos y sesiones; la identidad de fila es `Id`.
 - Riesgos conocidos del modo Realistic y del flujo: [realistic-mode/estado-y-diseno.md](realistic-mode/estado-y-diseno.md).

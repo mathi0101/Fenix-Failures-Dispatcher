@@ -7,9 +7,9 @@ namespace RealFenixFailures.TestUnits.Session;
 
 public class RealisticProfileCatalogTests {
     [Theory]
-    [InlineData(RiskLevel.Low, 0.75, 2.5, 3)]
-    [InlineData(RiskLevel.Moderate, 1.0, 3.0, 5)]
-    [InlineData(RiskLevel.High, 1.5, 3.5, 7)]
+    [InlineData(RiskLevel.Low, 0.75, 1.5, 3)]
+    [InlineData(RiskLevel.Moderate, 1.0, 2.0, 5)]
+    [InlineData(RiskLevel.High, 1.5, 2.5, 7)]
     public void DefaultsFor_ConfiguredKnobsPerRisk(RiskLevel risk, double probabilityMultiplier, double wearMaxMultiplier, int aggravationCap) {
         var profile = RealisticProfileCatalog.DefaultsFor(risk);
         Assert.Equal(probabilityMultiplier, profile.ProbabilityMultiplier, precision: 5);
@@ -18,10 +18,11 @@ public class RealisticProfileCatalogTests {
     }
 
     [Fact]
-    public void DefaultsFor_Squawk7700_HasNoAggravationCap() {
+    public void DefaultsFor_Squawk7700_MatchesCurrentConfiguration() {
         var profile = RealisticProfileCatalog.DefaultsFor(RiskLevel.Squawk7700);
 
-        Assert.Null(profile.AggravationCap);
+        Assert.Equal(10, profile.AggravationCap);
+        Assert.Equal(600, profile.CriticalRespiteSeconds);
         Assert.Equal(2.5, profile.ProbabilityMultiplier, precision: 5);
         Assert.Equal(4.0, profile.WearMaxMultiplier, precision: 5);
     }

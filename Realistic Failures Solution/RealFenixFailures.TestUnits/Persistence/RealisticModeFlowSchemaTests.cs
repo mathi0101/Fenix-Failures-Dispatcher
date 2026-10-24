@@ -50,12 +50,12 @@ public class RealisticModeFlowSchemaTests {
     public void FailureEngineSettings_RealisticMode_HasObjectiveDefaults() {
         var settings = new FailureEngineSettings();
 
-        Assert.Equal(30, settings.RealisticMode.EvaluationIntervalSeconds);
+        Assert.Equal(5, settings.RealisticMode.EvaluationIntervalSeconds);
         Assert.Equal(5, settings.RealisticMode.PreparedQueueLimit);
         Assert.True(settings.RealisticMode.GroundFailureEnabled);
         Assert.Equal(50, settings.RealisticMode.ThinkingLinesCap);
         Assert.Equal(2, settings.RealisticMode.Ofp.PreStartWindowHours);
-        Assert.Equal(2, settings.RealisticMode.Ofp.PostArrivalWindowHours);
+        Assert.Equal(0.5, settings.RealisticMode.Ofp.PostArrivalWindowHours);
         Assert.Equal(0.5, settings.RealisticMode.Wear.AmplificationFactor);
         Assert.Equal(80, settings.RealisticMode.Wear.ThresholdNoticePct);
     }

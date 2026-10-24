@@ -48,10 +48,10 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - Nunca afirmar una prueba que no se haya ejecutado: si no se corrió, se dice "no verificado". Cualquier cambio de integración real (MSFS/Fenix) debe probarse manualmente antes de declararse funcionando.
 - No repetir documentación extensa en respuestas o commits: citar el doc y el cambio puntual.
 
-## Migraciones EF (modo desarrollo)
+## Migraciones EF (pre-release y producción)
 
-- **En desarrollo no se mantienen migraciones**: `App.xaml.cs` arranca con `EnsureCreatedAsync()`, que crea el esquema completo desde el modelo (con seeds) en una base nueva; al cambiar el esquema hay que **borrar `realfenixfailures.db` (en `%AppData%\RealFenixFailures\`)** para regenerarla. No generar migraciones nuevas en esta etapa (ver `docs/desarrollo.md`).
-- Cuando el esquema esté cerca de producción: generar **una única migración inicial** y volver al flujo clásico (no editar migraciones aplicadas en entornos compartidos; revisar `Up`/`Down` antes de aplicar).
+- Desde la preparación de la primera pre-release, `App.xaml.cs` arranca con `MigrateAsync()`. `InitialRelease` crea el esquema vigente con sus seeds; los siguientes cambios de esquema requieren migraciones incrementales en Infrastructure.
+- No editar migraciones aplicadas en entornos compartidos ni borrar bases para actualizar el esquema. Revisar `Up`/`Down` antes de aplicar. Las bases antiguas creadas con `EnsureCreated` requieren la transición única documentada en `docs/desarrollo.md`; nunca se borran automáticamente.
 
 ## Datos y logs de la PC de testing (`\\PC-MATHIAS\RealFenixFailures`)
 
