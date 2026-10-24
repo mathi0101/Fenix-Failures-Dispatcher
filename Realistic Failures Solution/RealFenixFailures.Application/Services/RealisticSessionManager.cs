@@ -365,7 +365,7 @@ public class RealisticSessionManager : IRealisticSessionManager {
         _sessionScope?.Dispose();
         _sessionScope = null;
         IsPaused = false;
-        _logger.LogWarning(fatalError, "Realistic session terminated after a fatal evaluation error");
+        _logger.LogCritical(fatalError, "Realistic session terminated after a fatal evaluation error");
         SessionError?.Invoke(this, new SessionErrorEventArgs {
             Message = "Error fatal durante la evaluación; la sesión realista se cerró",
             Exception = fatalError

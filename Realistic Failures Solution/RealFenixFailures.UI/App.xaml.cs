@@ -53,8 +53,7 @@ public partial class App : System.Windows.Application {
             Program.CloseSplash();
             CrashReporter.ReportFatal(
                 startupException,
-                "La aplicación no pudo iniciarse (error al inicializar servicios, conexión o base de datos). Se generó un registro de crash.",
-                shutdown: true);
+                "La aplicación no pudo iniciarse (error al inicializar servicios, conexión o base de datos). Se generó un registro de crash.");
             return;
         }
 
@@ -70,8 +69,7 @@ public partial class App : System.Windows.Application {
             Program.CloseSplash();
             CrashReporter.ReportFatal(
                 startupException,
-                "La aplicación no pudo iniciarse (error al crear la ventana principal). Se generó un registro de crash.",
-                shutdown: true);
+                "La aplicación no pudo iniciarse (error al crear la ventana principal). Se generó un registro de crash.");
             return;
         }
 
@@ -90,6 +88,13 @@ public partial class App : System.Windows.Application {
     protected override async void OnExit(System.Windows.ExitEventArgs e) {
         _trayIconService?.Dispose();
         _singleInstanceGuard.Dispose();
+        // El constructor del host pudo fallar antes de asignar _host. El reporte fatal
+        // también cierra esa Application parcial, sin provocar otro error durante OnExit.
+        if (Program.StartupFailed) {
+            _host?.Dispose();
+            base.OnExit(e);
+            return;
+        }
         await _host.StopAsync();
         _host.Dispose();
         base.OnExit(e);

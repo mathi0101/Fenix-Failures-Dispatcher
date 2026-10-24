@@ -26,6 +26,7 @@ public static class Program {
 
     [STAThread]
     public static void Main() {
+        CrashReporter.AttachProcessHandlers();
         // El splash corre en un hilo STA dedicado con su propio Dispatcher:
         // mientras el hilo principal construye el host y arranca los servicios,
         // el pump del hilo del splash sigue libre y la animación de frames no se

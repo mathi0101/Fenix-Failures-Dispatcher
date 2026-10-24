@@ -11,13 +11,21 @@ namespace RealFenixFailures.UI.Diagnostics;
 public partial class FatalErrorDialog : Window {
     private readonly string? _logPath;
 
-    private FatalErrorDialog(string message, string? logPath, string report) {
+    public FatalErrorDialog(CrashReport report) {
         InitializeComponent();
 
-        MessageText.Text = message;
+        MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 60);
+        MessageText.Text = report.Message;
+        BehaviorText.Text = report.IsFatal
+            ? "La aplicación se cerrará al confirmar o cerrar esta ventana."
+            : "Podés continuar usando la aplicación al aceptar. Revisá el estado de la operación que falló.";
+        ConfirmButton.Content = report.IsFatal ? "Cerrar aplicación" : "Aceptar";
+        SeverityBar.Fill = new System.Windows.Media.SolidColorBrush(report.IsFatal
+            ? System.Windows.Media.Color.FromRgb(239, 68, 68) : System.Windows.Media.Color.FromRgb(245, 158, 11));
+        var logPath = report.LogPath;
 
         if (string.IsNullOrEmpty(logPath)) {
-            LogInfoBorder.Visibility = Visibility.Collapsed;
+            LogInfoText.Text = "No se pudo guardar el archivo de diagnóstico. El detalle técnico sigue disponible abajo.";
             OpenLogButton.IsEnabled = false;
         }
         else {
@@ -26,7 +34,7 @@ public partial class FatalErrorDialog : Window {
             _logPath = logPath;
         }
 
-        DetailsBox.Text = report;
+        DetailsBox.Text = report.Details;
     }
 
     /// <summary>
@@ -35,19 +43,23 @@ public partial class FatalErrorDialog : Window {
     /// por ejemplo un crash de arranque previo al host WPF), lo muestra en un
     /// hilo STA dedicado para que el cartel aparezca igualmente.
     /// </summary>
-    public static void ShowGeneral(string message, string? logPath, Exception exception) {
-        var report = CrashLogWriter.BuildReport(exception, message);
-
+    public static void ShowGeneral(CrashReport report) {
         bool onUiThread = System.Windows.Application.Current is not null &&
                           System.Windows.Application.Current.Dispatcher.Thread == Thread.CurrentThread;
         if (onUiThread) {
-            new FatalErrorDialog(message, logPath, report).ShowDialog();
+            var dialog = new FatalErrorDialog(report);
+            if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner && owner != dialog) {
+                dialog.Owner = owner;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+            dialog.ShowDialog();
             return;
         }
 
+        Exception? dialogError = null;
         var thread = new Thread(() => {
-            var dialog = new FatalErrorDialog(message, logPath, report);
-            dialog.ShowDialog();
+            try { new FatalErrorDialog(report).ShowDialog(); }
+            catch (Exception ex) { dialogError = ex; }
         }) {
             IsBackground = false,
             Name = "FatalErrorDialog"
@@ -55,6 +67,7 @@ public partial class FatalErrorDialog : Window {
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         thread.Join();
+        if (dialogError is not null) throw new InvalidOperationException("No se pudo mostrar el diálogo de diagnóstico", dialogError);
     }
 
     private void OpenLog_Click(object sender, RoutedEventArgs e) {
@@ -65,11 +78,7 @@ public partial class FatalErrorDialog : Window {
             Process.Start(new ProcessStartInfo(_logPath) { UseShellExecute = true });
         }
         catch (Exception ex) {
-            MessageBox.Show(
-                $"No se pudo abrir el registro: {ex.Message}{Environment.NewLine}{_logPath}",
-                "Registro de crash",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            LogInfoText.Text = $"No se pudo abrir el registro: {ex.Message}{Environment.NewLine}{_logPath}";
         }
     }
 

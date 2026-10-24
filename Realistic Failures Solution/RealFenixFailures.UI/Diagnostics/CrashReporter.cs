@@ -1,109 +1,94 @@
 using System.Windows.Threading;
+using RealFenixFailures.UI.Views;
 
 namespace RealFenixFailures.UI.Diagnostics;
 
-/// <summary>
-/// Manejo global de excepciones no controladas a nivel de aplicación: registra
-/// un crash log en <c>logs/crash</c> y muestra un cartel de error general.
-/// </summary>
+/// <summary>Reporte único para errores inesperados: archivo individual, diálogo y cierre solo si es fatal.</summary>
 public static class CrashReporter {
-    private static bool _isHandlingFatal;
+    private static int _handlersAttached;
+    private static int _processHandlersAttached;
+    private static readonly CrashReportCoordinator Coordinator = new(CreateReport, ShowReport, TryShutdown, Schedule);
 
-    /// <summary>
-    /// Conecta los handlers globales de excepciones no controladas. Debe
-    /// llamarse lo antes posible en el arranque (primer paso de OnStartup).
-    /// </summary>
     public static void AttachGlobalHandlers(System.Windows.Application app) {
+        if (Interlocked.Exchange(ref _handlersAttached, 1) != 0) return;
         app.DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AttachProcessHandlers();
+    }
+
+    public static void AttachProcessHandlers() {
+        if (Interlocked.Exchange(ref _processHandlersAttached, 1) != 0) return;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
 
-    /// <summary>
-    /// Registra la excepción, muestra el cartel de error general y, si se pide,
-    /// cierra la aplicación después de que el usuario cierre el cartel.
-    /// No lanza: cualquier fallo interno queda acotado al propio reporte.
-    /// </summary>
-    public static void ReportFatal(Exception exception, string message, bool shutdown = false) {
-        try {
-            string? logPath = null;
-            try {
-                logPath = CrashLogWriter.Write(exception, message);
-            }
-            catch {
-                // El registro no debe enmascarar el manejo del error original.
-            }
+    /// <summary>Usado por el sink; encola el diálogo para permitir que el catch/finally termine primero.</summary>
+    public static void ReportUnexpected(Exception exception, string message, bool fatal = false) =>
+        Coordinator.Report(exception, message, fatal);
 
-            if (!_isHandlingFatal) {
-                _isHandlingFatal = true;
-                try {
-                    FatalErrorDialog.ShowGeneral(message, logPath, exception);
-                }
-                finally {
-                    _isHandlingFatal = false;
-                }
-            }
-            // Si ya hay un cartel en pantalla (reentrada desde el handler del
-            // dispatcher), no se encadenan diálogos: el log ya quedó escrito.
-        }
-        catch {
-            // El reporte nunca debe enmascarar el error original.
-        }
-
-        if (shutdown)
-            TryShutdown();
+    public static void ReportFatal(Exception exception, string message) {
+        Coordinator.Report(exception, message, true);
+        Coordinator.DrainPending();
     }
 
-    /// <summary>
-    /// Excepción no controlada en el hilo de interfaz (incluye errores en
-    /// handlers async void del dispatcher). Es fatal para el flujo de la app:
-    /// registra, muestra el cartel y cierra la aplicación de forma controlada.
-    /// </summary>
+    private static CrashReport CreateReport(Exception exception, string message, bool fatal) {
+        var details = CrashLogWriter.BuildReport(exception, message, fatal);
+        return new CrashReport(exception, message, fatal, CrashLogWriter.WriteReport(details, fatal), details);
+    }
+
+    private static void Schedule(Action action) {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+            dispatcher.BeginInvoke(action, DispatcherPriority.Normal);
+        else action();
+    }
+
+    private static void ShowReport(CrashReport report) {
+        try { FatalErrorDialog.ShowGeneral(report); }
+        catch {
+            // Último recurso: ni los recursos ni un fallo del propio diálogo pueden ocultar el incidente.
+            try {
+                System.Windows.MessageBox.Show(report.Message + Environment.NewLine +
+                    (report.IsFatal ? "La aplicación se cerrará." : "Podés continuar usando la aplicación.") +
+                    Environment.NewLine + (report.LogPath ?? report.Details),
+                    "Real Fenix Failures — Error inesperado", System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            } catch { }
+        }
+    }
+
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) {
         e.Handled = true;
-        ReportFatal(
-            e.Exception,
-            "Ocurrió un error inesperado y la aplicación debe cerrarse. Se generó un registro de crash.",
-            shutdown: true);
+        ReportFatal(e.Exception, "Ocurrió un error no controlado en la interfaz. La aplicación debe cerrarse.");
     }
 
-    /// <summary>
-    /// Excepción no controlada fatal en cualquier hilo (AppDomain). El proceso
-    /// termina igual al retornar el handler; se registra el crash y se intenta
-    /// mostrar el cartel aunque sea en un hilo STA dedicado.
-    /// </summary>
     private static void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e) {
-        if (e.ExceptionObject is not Exception exception)
-            return;
-
-        ReportFatal(
-            exception,
-            "Error fatal no controlado. La aplicación debe cerrarse. Se generó un registro de crash.",
-            shutdown: false);
+        if (e.ExceptionObject is Exception exception) {
+            // El CLR termina al retornar: no se puede depender de una cola del dispatcher
+            // ni bloquearlo esperando un diálogo que ya esté abierto. Presentación síncrona/STA.
+            const string context = "Error fatal no controlado. La aplicación debe cerrarse.";
+            CrashReport report;
+            try { report = CreateReport(exception, context, true); }
+            catch { report = new CrashReport(exception, context, true, null, exception.ToString()); }
+            ShowReport(report);
+            TryShutdown();
+        }
     }
 
-    /// <summary>
-    /// Excepción de tarea sin observador (fire-and-forget). NO es fatal: la app
-    /// sigue corriendo, por eso solo se registra en el crash log sin cartel.
-    /// </summary>
     private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e) {
         e.SetObserved();
-        try {
-            CrashLogWriter.Write(
-                e.Exception,
-                "Excepción de tarea sin observador (fire-and-forget). No fatal: la app continúa.");
-        }
-        catch {
-            // Ídem ReportFatal: un fallo de log no debe propagarse aquí.
-        }
+        ReportUnexpected(e.Exception, "Ocurrió un error inesperado en una tarea en segundo plano.");
     }
 
     private static void TryShutdown() {
         try {
-            System.Windows.Application.Current?.Shutdown();
-        }
-        catch {
-            // Si el shutdown falla el proceso se detendrá igual al salir de Main.
-        }
+            var app = System.Windows.Application.Current;
+            if (app is null) return;
+            void Exit() {
+                foreach (var window in app.Windows.OfType<MainWindow>().ToArray()) window.IsExitAllowed = true;
+                app.Shutdown(1);
+            }
+            if (app.Dispatcher.CheckAccess()) Exit();
+            else if (!app.Dispatcher.HasShutdownStarted) app.Dispatcher.BeginInvoke(Exit);
+        } catch { /* En errores AppDomain el runtime termina el proceso igualmente. */ }
     }
 }

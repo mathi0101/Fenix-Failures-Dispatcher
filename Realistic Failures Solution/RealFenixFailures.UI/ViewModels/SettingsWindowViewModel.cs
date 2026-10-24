@@ -5,13 +5,13 @@ using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Diagnostics;
 using System.Reflection;
+using RealFenixFailures.Infrastructure;
 
 namespace RealFenixFailures.UI.ViewModels;
 
 public class SettingsWindowViewModel : ObservableObject {
 
-    public const string DefaultRepositoryUrl = "https://github.com/mathi0101/Fenix-Failures-Dispatcher";
-    public const string SimbriefApiDocsUrl = "https://www.simbrief.com/api/";
+    public const string DefaultRepositoryUrl = SupportLinks.Repository;
 
     private readonly UserPreferencesService _preferences;
     private readonly IUpdateChecker _updateChecker;
@@ -41,7 +41,8 @@ public class SettingsWindowViewModel : ObservableObject {
         OpenRepositoryCommand = new RelayCommand(() => OpenUrl(RepositoryUrl));
         OpenIssuesCommand = new RelayCommand(() => OpenUrl(IssuesUrl));
         OpenReleasesCommand = new RelayCommand(() => OpenUrl(ReleasesUrl));
-        OpenSimbriefDocsCommand = new RelayCommand(() => OpenUrl(SimbriefApiDocsUrl));
+        OpenLogsCommand = new RelayCommand(OpenLogs);
+        OpenDonationCommand = new RelayCommand(() => OpenUrl(SupportLinks.Donation));
         CheckForUpdatesCommand = new RelayCommand(() => _ = CheckForUpdatesAsync(), () => !IsCheckingForUpdates);
     }
 
@@ -54,7 +55,10 @@ public class SettingsWindowViewModel : ObservableObject {
     public RelayCommand OpenRepositoryCommand { get; }
     public RelayCommand OpenIssuesCommand { get; }
     public RelayCommand OpenReleasesCommand { get; }
-    public RelayCommand OpenSimbriefDocsCommand { get; }
+    public RelayCommand OpenLogsCommand { get; }
+    public RelayCommand OpenDonationCommand { get; }
+    public string LogsDirectory => AppPaths.LogsDirectory;
+    public string DonationUrl => SupportLinks.Donation;
     public RelayCommand CheckForUpdatesCommand { get; }
 
     /// <summary>True mientras el chequeo de actualizaciones está consultando GitHub.</summary>
@@ -241,6 +245,15 @@ public class SettingsWindowViewModel : ObservableObject {
         var minor = parts.Length > 1 && int.TryParse(parts[1], out var m) ? m : 0;
         var patch = parts.Length > 2 && int.TryParse(parts[2], out var p) ? p : 0;
         return (major, minor, patch, pre);
+    }
+
+    private void OpenLogs() {
+        try {
+            AppPaths.EnsureCreated();
+            Process.Start(new ProcessStartInfo(AppPaths.LogsDirectory) { UseShellExecute = true });
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo abrir la carpeta de logs {Path}", AppPaths.LogsDirectory);
+        }
     }
 
     private void OpenUrl(string url) {

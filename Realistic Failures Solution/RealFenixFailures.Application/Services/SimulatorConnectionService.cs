@@ -44,7 +44,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
         try {
             return ServiceResult<SimulatorAircraftStateSnapshot>.Ok(await _simFlightDataProvider.GetAircraftRawData(ct));
         } catch (Exception ex) {
-            _logger.LogError("GetSimulatorData Error: {a}", ex.Message);
+            _logger.LogError(ex, "GetSimulatorData Error: {a}", ex.Message);
             return ServiceResult<SimulatorAircraftStateSnapshot>.Fail(ex);
         }
     }
@@ -61,7 +61,7 @@ public class SimulatorConnectionService : ISimulatorConnectionService {
             }
             return ServiceResult<AllFenixFailuresResponseDto?>.Ok(dto);
         } catch (Exception ex) {
-            _logger.LogError("GetCurrentFenixFailures Error: {a}", ex.Message);
+            _logger.LogError(ex, "GetCurrentFenixFailures Error: {a}", ex.Message);
             return ServiceResult<AllFenixFailuresResponseDto?>.Fail(ex);
         }
     }

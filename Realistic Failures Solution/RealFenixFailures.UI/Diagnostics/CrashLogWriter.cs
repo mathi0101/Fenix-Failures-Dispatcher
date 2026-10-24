@@ -2,28 +2,27 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using RealFenixFailures.Infrastructure;
 
 namespace RealFenixFailures.UI.Diagnostics;
 
 /// <summary>
-/// Escribe a disco, en <c>logs/crash</c>, un registro de crash fatal con toda
+/// Escribe a disco, en <c>%AppData%/RealFenixFailures/logs/crash</c>, un reporte fatal o recuperable con toda
 /// la información relevante del proceso y el trace completo de la excepción
 /// (incluidas excepciones internas anidadas y agregadas).
 /// </summary>
 public static class CrashLogWriter {
-    private const string LogsFolder = "logs";
-    private const string CrashSubfolder = "";
 
     /// <summary>
     /// Arma el texto completo del reporte de crash para una excepción.
     /// </summary>
-    public static string BuildReport(Exception exception, string context) {
+    public static string BuildReport(Exception exception, string context, bool fatal = true) {
         var sb = new StringBuilder(4096);
         sb.AppendLine("==============================================================");
-        sb.AppendLine(" REGISTRO DE CRASH — Real Fenix Failures");
+        sb.AppendLine(fatal ? " REGISTRO DE CRASH FATAL — Real Fenix Failures" : " REGISTRO DE ERROR INESPERADO — Real Fenix Failures");
         sb.AppendLine("==============================================================");
-        sb.AppendLine($"Fecha (local)     : {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
         sb.AppendLine($"Fecha (UTC)       : {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}");
+        sb.AppendLine($"Severidad         : {(fatal ? "FATAL — cierre de la aplicación" : "ERROR — permite continuar")}");
         sb.AppendLine($"Contexto          : {context}");
         sb.AppendLine($"Versión app       : {GetAppVersion()}");
         sb.AppendLine($"Runtime .NET      : {RuntimeInformation.FrameworkDescription}");
@@ -46,11 +45,16 @@ public static class CrashLogWriter {
     /// un fallo del propio registro no debe enmascarar el manejo del error original.
     /// </summary>
     public static string? Write(Exception exception, string context) {
+        try { return WriteReport(BuildReport(exception, context), true); }
+        catch { return null; }
+    }
+
+    public static string? WriteReport(string report, bool fatal, string? logsDirectory = null) {
         try {
-            var crashDirectory = Path.Combine(AppContext.BaseDirectory, LogsFolder, CrashSubfolder);
+            var crashDirectory = Path.Combine(logsDirectory ?? AppPaths.LogsDirectory, "crash");
             Directory.CreateDirectory(crashDirectory);
-            var path = Path.Combine(crashDirectory, $"crash-{DateTime.Now:yyyyMMdd-HHmmss-fff}.log");
-            File.WriteAllText(path, BuildReport(exception, context), Encoding.UTF8);
+            var path = Path.Combine(crashDirectory, $"{(fatal ? "crash" : "error")}-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.log");
+            File.WriteAllText(path, report, Encoding.UTF8);
             return path;
         }
         catch {

@@ -123,7 +123,10 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                 _messagePumpTask ?? Task.CompletedTask,
                 _dataRequestTask ?? Task.CompletedTask
             }, TimeSpan.FromSeconds(2));
-        } catch { /* Ignorar errores de cancelación */ }
+        } catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException)) {
+        } catch (Exception ex) {
+            _logger.LogWarning(ex, "Error inesperado esperando el cierre de los loops SimConnect");
+        }
 
         _messagePumpCts?.Dispose();
         _dataRequestCts?.Dispose();
@@ -192,7 +195,7 @@ public class SimConnectClient : ISimConnectClient, IFlightSimulationController, 
                     0,
                     SIMCONNECT_SIMOBJECT_TYPE.USER);
             } catch (Exception ex) {
-                _logger.LogDebug(ex, "Error requesting data");
+                _logger.LogWarning(ex, "Error requesting data");
             }
             await Task.Delay(DATA_REQUEST_INTERVAL_MS, ct);
         }

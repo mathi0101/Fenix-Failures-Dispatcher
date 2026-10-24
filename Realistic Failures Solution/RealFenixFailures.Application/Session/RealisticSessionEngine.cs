@@ -253,7 +253,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
             throw;
         } catch (Exception ex) {
-            _logger.LogCritical("Error fatal en EvaluateAsync. Finalizando sesion. Ex: {a}", ex.Message);
+            _logger.LogCritical(ex, "Error fatal en EvaluateAsync. Finalizando sesión.");
             await StopSession(CancellationToken.None);
             throw;
         }
@@ -465,7 +465,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                     _logger.LogWarning("Persistence canceled but disarm succeeded for {FenixFailureId}; failure not recorded",
                         chosen.FenixFailureId);
                 } else {
-                    _logger.LogCritical("Compensation failed: persistence canceled AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                    _logger.LogCritical(ex, "Compensation failed: persistence canceled AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
                         chosen.FenixFailureId);
                 }
             } catch (Exception disarmEx) {
@@ -474,14 +474,12 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             }
             throw;
         } catch (Exception ex) {
-            _logger.LogError(ex, "Failed to persist triggered failure {FenixFailureId} for session {SessionId}; attempting disarm",
-                chosen.FenixFailureId, session.Session.Id);
             var disarmed = await _simulator.DisarmFailureAsync(chosen.FenixFailureId, ct);
             if (disarmed) {
-                _logger.LogWarning("Persistence failed but disarm succeeded for {FenixFailureId}; failure not recorded",
+                _logger.LogError(ex, "Persistence failed but disarm succeeded for {FenixFailureId}; failure not recorded",
                     chosen.FenixFailureId);
             } else {
-                _logger.LogCritical("Compensation failed: persistence failed AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
+                _logger.LogCritical(ex, "Compensation failed: persistence failed AND disarm failed for {FenixFailureId}; failure remains armed but is not recorded",
                     chosen.FenixFailureId);
             }
             return EvaluationResult.NoAction();

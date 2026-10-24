@@ -3,6 +3,8 @@ using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace RealFenixFailures.Application.Services;
 
@@ -10,12 +12,14 @@ public class FlightSessionService : IFlightSessionService {
     private readonly IFlightSessionRepository _sessionRepository;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
     private readonly IAircraftSystemWearRepository? _aircraftSystemWearRepository;
+    private readonly ILogger<FlightSessionService> _logger;
 
     public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository,
-        IAircraftSystemWearRepository? aircraftSystemWearRepository = null) {
+        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null) {
         _sessionRepository = sessionRepository;
         _triggeredFailureRepository = triggeredFailureRepository;
         _aircraftSystemWearRepository = aircraftSystemWearRepository;
+        _logger = logger ?? NullLogger<FlightSessionService>.Instance;
     }
 
     public async Task<FlightSession> StartNewAsync(RealisticModeContext context, CancellationToken cancellationToken) {
@@ -141,7 +145,8 @@ public class FlightSessionService : IFlightSessionService {
                 await AddEventLogAsync(sessionId, SessionEventCategory.SessionStopped, "SESSION_FINALIZED_RECOVERY",
                     "Sesión sin finalizar finalizada desde la recuperación (desgaste según ETA del OFP)",
                     ComplexFlightPhaseEnum.Unknown, DateTime.UtcNow, ct);
-            } catch (Exception) {
+            } catch (Exception ex) {
+                _logger.LogError(ex, "No se pudo registrar la recuperación de la sesión {SessionId}", sessionId);
                 // El registro del evento no puede impedir la finalización.
             }
             return await FinalizeSessionAsync(sessionId, DateTime.UtcNow, etaDeltas, ct);
@@ -215,7 +220,8 @@ public class FlightSessionService : IFlightSessionService {
             }
             if (deltas.Count > 0) await _aircraftSystemWearRepository.SaveAsync(ct);
             return deltas;
-        } catch (Exception) {
+        } catch (Exception ex) {
+            _logger.LogError(ex, "No se pudo guardar el desgaste diferido de la sesión {SessionId}", session.Id);
             // El desgaste diferido no puede impedir la finalización de la sesión huérfana.
             return [];
         }

@@ -194,6 +194,14 @@
                             </StackPanel>
                         </Border>
 
+                        <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="Los logs diarios y los reportes individuales de errores están en esta carpeta (subcarpeta crash para los reportes)." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
+                                <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -256,75 +264,17 @@
             <TabItem Header="Documentación">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="ENLACES DE INTERÉS" Style="{StaticResource SettingsSectionTitleStyle}"/>
-
+                        <TextBlock Text="DOCUMENTACIÓN" Style="{StaticResource SettingsSectionTitleStyle}"/>
                         <Border Style="{StaticResource SettingsCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Repositorio en GitHub" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="{Binding RepositoryUrl}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource Brush.Text.Secondary}"
-                                               Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="Abrir"
-                                        Style="{StaticResource LinkButtonStyle}"
-                                        Command="{Binding OpenRepositoryCommand}"
-                                        VerticalAlignment="Center"/>
-                            </Grid>
+                            <StackPanel>
+                                <TextBlock Text="Repositorio en GitHub" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="{Binding RepositoryUrl}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,12"/>
+                                <Button Content="Abrir repositorio" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenRepositoryCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
                         </Border>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Documentación del proyecto" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="Diseño, arquitectura, integraciones y guía de desarrollo (carpeta docs/ del repo)."
-                                               FontSize="11"
-                                               Foreground="{StaticResource Brush.Text.Secondary}"
-                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="Abrir"
-                                        Style="{StaticResource LinkButtonStyle}"
-                                        Command="{Binding OpenRepositoryCommand}"
-                                        VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="API pública de SimBrief" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="Documentación oficial del endpoint xml.fetcher.php (perfil, plan de vuelo y parámetros)."
-                                               FontSize="11"
-                                               Foreground="{StaticResource Brush.Text.Secondary}"
-                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="Abrir"
-                                        Style="{StaticResource LinkButtonStyle}"
-                                        Command="{Binding OpenSimbriefDocsCommand}"
-                                        VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
-
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-
             <!-- ============ ACTUALIZACIONES ============ -->
             <TabItem Header="Actualizaciones">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
@@ -423,16 +373,40 @@
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Command="{Binding OpenIssuesCommand}"
                                 HorizontalAlignment="Left"/>
-                        <TextBlock Text="Consejo: adjuntá el log más reciente de la carpeta logs/ (realfenix-YYYY-MM-DD.log) y la versión que usás. Eso agiliza mucho el diagnóstico."
+                        <TextBlock Text="Consejo: adjuntá el log diario más reciente y el reporte individual de la subcarpeta crash, si existe, junto con la versión que usás."
                                    FontSize="11"
                                    Foreground="{StaticResource Brush.Text.Secondary}"
                                    TextWrapping="Wrap" Width="520"
                                    HorizontalAlignment="Left" Margin="0,8,0,0"/>
 
+                        <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="Los logs diarios y los reportes individuales de errores están en esta carpeta (subcarpeta crash para los reportes)." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
+                                <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
+            <!-- ============ DONACIÓN ============ -->
+            <TabItem Header="Donación">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Text="APOYAR EL DESARROLLO" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Ayudá a que el proyecto siga creciendo" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                                <TextBlock Text="Si disfrutás Real Fenix Failures, podés apoyar su desarrollo con una donación voluntaria. ¡Gracias por acompañar el proyecto!" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,10"/>
+                                <TextBlock Text="{Binding DonationUrl}" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                                <Button Content="Apoyar en Ko-fi" Style="{StaticResource DonationButtonStyle}" Command="{Binding OpenDonationCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>

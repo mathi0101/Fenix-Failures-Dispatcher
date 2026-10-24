@@ -14,6 +14,7 @@ using RealFenixFailures.UI.ViewModels;
 using RealFenixFailures.UI.ViewModels.Realistic;
 using RealFenixFailures.UI.Views;
 using Serilog;
+using RealFenixFailures.UI.Diagnostics;
 
 namespace RealFenixFailures.UI.DependencyInjection;
 
@@ -22,6 +23,7 @@ public static class HostBuilderExtensions {
         return hostBuilder
             .UseSerilog((context, services, loggerConfiguration) => {
                 loggerConfiguration.ApplyDefaultConfiguration(context.Configuration);
+                loggerConfiguration.WriteTo.Sink(new UnexpectedErrorSink(CrashReporter.ReportUnexpected));
             })
             .ConfigureServices((context, services) => {
                 services.AddDomain();

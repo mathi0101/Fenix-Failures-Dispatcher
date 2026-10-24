@@ -8,8 +8,6 @@ using System.Windows.Input;
 namespace RealFenixFailures.UI.Views;
 
 public partial class MainWindow : Window {
-    // Reemplazar por el link de donación real (ej. Ko-fi: https://ko-fi.com/tuusuario)
-    private const string DonationUrl = "https://ko-fi.com/mathiasgonzalez0101";
 
     private readonly MainWindowViewModel _viewModel;
     private bool _isCloseDialogOpen;
@@ -119,11 +117,10 @@ public partial class MainWindow : Window {
 
     private void OpenDonationPage(object sender, RoutedEventArgs e) {
         try {
-            Process.Start(new ProcessStartInfo(DonationUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(SupportLinks.Donation) { UseShellExecute = true });
         }
         catch (Exception ex) {
-            MessageBox.Show($"No se pudo abrir el navegador: {ex.Message}",
-                "Donar", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Diagnostics.CrashReporter.ReportUnexpected(ex, "No se pudo abrir el enlace de donación.");
         }
     }
 }

@@ -203,7 +203,7 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
         } catch (OperationCanceledException) {
             _logger.LogInformation("Automatic timer loop canceled.");
         } catch (Exception ex) {
-            _logger.LogError(ex, "Unexpected error in automatic timer loop.");
+            _logger.LogCritical(ex, "Unexpected error in automatic timer loop; connection monitoring stopped.");
         }
     }
 
@@ -267,7 +267,8 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
 
             var sessionResult = await _realisticSessionManager.StartNewSessionAsync(context, ct);
             if (!sessionResult.IsSuccess) {
-                _logger.LogWarning(sessionResult.Error, "Realistic mode could not start: {ErrorMessage}", sessionResult.ErrorMessage);
+                // Los fallos inesperados ya se reportan en el manager; rechazos de inicio son operativos.
+                _logger.LogWarning("Realistic mode could not start: {ErrorMessage}", sessionResult.ErrorMessage);
                 return;
             }
 
