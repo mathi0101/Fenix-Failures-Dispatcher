@@ -64,7 +64,7 @@ public class SimulatorFlightDataProviderLoggingTests {
     }
 
     [Fact]
-    public async Task UnexpectedException_KeepsErrorLog() {
+    public async Task FailedHealthProbe_LogsDiagnosticOnly() {
         var client = new Mock<ISimConnectClient>();
         client.Setup(c => c.IsConnectedAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("boom"));
         var provider = CreateProvider(client);
@@ -72,6 +72,37 @@ public class SimulatorFlightDataProviderLoggingTests {
         var result = await provider.IsConnectedAsync(CancellationToken.None);
 
         Assert.False(result);
-        Assert.Contains(_entries, e => e.Level == LogLevel.Error && e.Message.Contains("Error during health check"));
+        Assert.Contains(_entries, e => e.Level == LogLevel.Debug && e.Message.Contains("Error during health check"));
+        Assert.DoesNotContain(_entries, e => e.Level >= LogLevel.Warning);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedHealthProbe_NeverReportsCrash_AndOnlyLogsWhenDebugEnabled(bool debugEnabled) {
+        var reports = new List<Exception>();
+        var events = new List<Serilog.Events.LogEvent>();
+        using var logger = new Serilog.LoggerConfiguration()
+            .MinimumLevel.Is(debugEnabled ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Information)
+            .WriteTo.Sink(new RealFenixFailures.UI.Diagnostics.UnexpectedErrorSink((e, _, _) => reports.Add(e)))
+            .WriteTo.Sink(new CaptureSink(events)).CreateLogger();
+        using var factory = new Serilog.Extensions.Logging.SerilogLoggerFactory(logger, dispose: false);
+        var client = new Mock<ISimConnectClient>();
+        var error = new InvalidOperationException("Probe failed");
+        client.Setup(c => c.IsConnectedAsync(It.IsAny<CancellationToken>())).ThrowsAsync(error);
+        var provider = new SimulatorFlightDataProvider(client.Object,
+            factory.CreateLogger<SimulatorFlightDataProvider>(), factory);
+
+        Assert.False(await provider.IsConnectedAsync(CancellationToken.None));
+        Assert.False(await provider.IsConnectedAsync(CancellationToken.None));
+
+        Assert.Empty(reports);
+        Assert.Equal(debugEnabled ? 1 : 0, events.Count(e => e.Exception == error));
+        Assert.All(events.Where(e => e.Exception == error), e => Assert.Equal(Serilog.Events.LogEventLevel.Debug, e.Level));
+        client.Verify(c => c.IsConnectedAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private sealed class CaptureSink(List<Serilog.Events.LogEvent> events) : Serilog.Core.ILogEventSink {
+        public void Emit(Serilog.Events.LogEvent logEvent) => events.Add(logEvent);
     }
 }

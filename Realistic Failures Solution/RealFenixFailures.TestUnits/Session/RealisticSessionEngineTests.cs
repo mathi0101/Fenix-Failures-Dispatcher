@@ -1,5 +1,6 @@
 // RealFenixFailures.TestUnits/Session/RealisticSessionEngineTests.cs
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
@@ -45,11 +46,12 @@ public class RealisticSessionEngineTests {
         DownloadedAtUtc = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc)
     };
 
-    private RealisticSessionEngine CreateEngine(RealisticModeSettings? settings = null, IFenixFailureDefinitionRepository? fenixFailureDefinitions = null) {
+    private RealisticSessionEngine CreateEngine(RealisticModeSettings? settings = null, IFenixFailureDefinitionRepository? fenixFailureDefinitions = null,
+        ILogger<RealisticSessionEngine>? logger = null) {
         settings ??= DefaultSettings();
         return new RealisticSessionEngine(
             _simulator.Object,
-            NullLogger<RealisticSessionEngine>.Instance,
+            logger ?? NullLogger<RealisticSessionEngine>.Instance,
             _sessionService.Object,
             _presetService.Object,
             _flightEventDetector.Object,
@@ -58,6 +60,90 @@ public class RealisticSessionEngineTests {
             settings,
             new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
             fenixFailureDefinitions);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EvaluationDiagnostics_ExplainPositiveDecision_OnlyWhenDebugEnabled(bool debugEnabled) {
+        var events = new List<Serilog.Events.LogEvent>();
+        var crashes = new List<Exception>();
+        using var logger = new Serilog.LoggerConfiguration()
+            .MinimumLevel.Is(debugEnabled ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Information)
+            .WriteTo.Sink(new CaptureSink(events))
+            .WriteTo.Sink(new RealFenixFailures.UI.Diagnostics.UnexpectedErrorSink((e, _, _) => crashes.Add(e))).CreateLogger();
+        using var factory = new Serilog.Extensions.Logging.SerilogLoggerFactory(logger, dispose: false);
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence(definitions: [Def("F_DIAGNOSTIC", FailureSeverity.Major)]);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        var engine = CreateEngine(settings, logger: factory.CreateLogger<RealisticSessionEngine>());
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddSeconds(60);
+        _random.SetupNextDouble(0);
+        _random.SetupNextDouble(0);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Equal("F_DIAGNOSTIC", Assert.Single(result.TriggeredFailures).FenixFailureId);
+        Assert.Empty(crashes);
+        var debug = events.Where(e => e.Level == Serilog.Events.LogEventLevel.Debug).ToArray();
+        if (!debugEnabled) {
+            Assert.Empty(debug);
+            return;
+        }
+        var roll = Assert.Single(debug, e => e.MessageTemplate.Text.Contains("sorteo vuelo"));
+        Assert.Equal(true, ((Serilog.Events.ScalarValue)roll.Properties["Triggered"]).Value);
+        Assert.Equal(0d, ((Serilog.Events.ScalarValue)roll.Properties["Roll"]).Value);
+        Assert.Contains(debug, e => e.Properties.ContainsKey("WearFactor") && e.Properties.ContainsKey("Lambda"));
+        Assert.Contains(debug, e => e.MessageTemplate.Text.Contains("persistida como Sent"));
+        Assert.All(debug, e => Assert.True(e.Properties.ContainsKey("SessionId") || e.Properties.ContainsKey("AircraftId")));
+    }
+
+    private sealed class CaptureSink(List<Serilog.Events.LogEvent> events) : Serilog.Core.ILogEventSink {
+        public void Emit(Serilog.Events.LogEvent logEvent) => events.Add(logEvent);
+    }
+
+    [Theory]
+    [InlineData("roll")]
+    [InlineData("cap")]
+    [InlineData("empty")]
+    [InlineData("respite")]
+    [InlineData("full_queue")]
+    [InlineData("snapshot")]
+    public async Task NegativeDecisions_DoNotEmitLogsEvenWithDebugEnabled(string reason) {
+        var events = new List<Serilog.Events.LogEvent>();
+        using var logger = new Serilog.LoggerConfiguration().MinimumLevel.Debug()
+            .WriteTo.Sink(new CaptureSink(events)).CreateLogger();
+        using var factory = new Serilog.Extensions.Logging.SerilogLoggerFactory(logger, dispose: false);
+        SetupConnected(fenixConnected: reason != "full_queue");
+        SetupOnGateData();
+        SetupFenixFailuresOk();
+        SetupValidPersistence(definitions: reason == "empty" ? [] : [Def("F_NEGATIVE", FailureSeverity.Major)]);
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        if (reason == "cap") settings.Profiles.Single(p => p.RiskLevel == 2).AggravationCap = 0;
+        if (reason == "full_queue") settings.PreparedQueueLimit = 1;
+        var engine = CreateEngine(settings, logger: factory.CreateLogger<RealisticSessionEngine>());
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        if (reason == "respite") engine.Session!.CriticalRespiteUntilUtc = _now.AddHours(1);
+        if (reason == "full_queue")
+            engine.Queue.TryEnqueue(new PreparedFailureItem(Def("F_RESERVED", FailureSeverity.Minor), "F_RESERVED", "Reserved", "Preset", FailureSeverity.Minor, false, ComplexFlightPhaseEnum.Unknown, _now));
+        if (reason == "snapshot")
+            _simulator.Setup(s => s.GetSimulatorData(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult<SimulatorAircraftStateSnapshot>.Ok(new() { HasSimulatorData = false }));
+        _now = _now.AddSeconds(60);
+        _random.SetupNextDouble(0.999);
+        events.Clear();
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Empty(result.TriggeredFailures);
+        Assert.Empty(events);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

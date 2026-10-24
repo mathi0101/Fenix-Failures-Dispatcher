@@ -9,6 +9,12 @@ Cliente HTTP de la API local de Fenix Simulations en `RealFenixFailures.Integrat
 - Health check cacheado para la UI.
 - Reset de fallas activas al detener un modo.
 
+## Diagnóstico de disponibilidad (2026-10-24)
+
+Los errores de `IsApiAvailableAsync` se convierten en `false` cacheado y se registran solo en `Debug`; no terminan el timer de monitoreo ni generan modal/reporte de crash. La sonda combina el token del llamador con su timeout y dispone el token enlazado. Los rechazos HTTP de lectura/escritura, el reset sin stream y la lectura sin stream de `SimulatorConnectionService` también son diagnóstico `Debug`. Las transiciones conectado/desconectado conservan una línea `Information` por cambio de estado.
+
+Para ver el detalle esperado, habilitar `Serilog:MinimumLevel:Default` en `Debug` en appsettings (o un override de la categoría correspondiente). Esto habilita el log diario, nunca el modal. Los errores inesperados de procesamiento y los fatales conservan su reporte común.
+
 ## API cruda — contrato HTTP
 
 El URI final se construye desde configuración (`BaseUrl` + `Port` + path). Son dos endpoints:

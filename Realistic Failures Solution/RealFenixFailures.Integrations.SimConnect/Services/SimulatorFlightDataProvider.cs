@@ -43,16 +43,15 @@ public class SimulatorFlightDataProvider : ISimFlightDataProvider {
                 return _lastHealthCheckResult;
             }
 
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(2));
             var isAlive = await _client.IsConnectedAsync(cts.Token);
             UpdateHealthState(isAlive);
 
             return _lastHealthCheckResult;
-        } catch (OperationCanceledException) {
-            UpdateHealthState(false);
-            return false;
         } catch (Exception ex) {
-            _logger.LogError(ex, "Error during health check");
+            // Una sonda fallida es falta de disponibilidad: no interrumpe el flujo de la app.
+            _logger.LogDebug(ex, "Error during health check");
             UpdateHealthState(false);
             return false;
         } finally {

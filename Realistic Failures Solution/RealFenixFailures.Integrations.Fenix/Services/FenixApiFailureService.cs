@@ -91,7 +91,7 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
     public async Task<bool> ResetAllFailuresAsync(CancellationToken ct) {
         var failures = await GetAllFailuresAsync(ct);
         if (failures is null) {
-            _logger.LogWarning("Reset skipped: Fenix failure stream not readable");
+            _logger.LogDebug("Reset skipped: Fenix failure stream not readable");
             return false;
         }
         var activeFailures = failures.GetFailuresList().Where(f => f.Failed || f.FailureCondition is not null).ToList();
@@ -122,10 +122,16 @@ public class FenixApiFailureService : IFenixFailureApiDispatcher {
             if (now - _lastHealthCheckAtUtc < TimeSpan.FromSeconds(intervalSeconds)) {
                 return _lastHealthCheckResult;
             }
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(_optionsMonitor.CurrentValue.HealthCheckTimeout));
             var isAlive = await _apiClient.IsApiAlive(cts.Token);
             UpdateHealthState(isAlive);
             return _lastHealthCheckResult;
+        } catch (Exception ex) {
+            // Una sonda fallida no debe terminar el timer de monitoreo ni abrir un crash.
+            _logger.LogDebug(ex, "Error during Fenix API health check");
+            UpdateHealthState(false);
+            return false;
         } finally {
             _healthLock.Release();
         }

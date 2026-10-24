@@ -1,5 +1,28 @@
 # CHANGELOG
 
+### 2026-10-24 — Registrar únicamente decisiones positivas de Realistic
+
+- Se eliminan las trazas por candidata/tick y las decisiones rutinarias negativas: sin datos, sin elegibles, cap excedido, tregua activa, espera/cola llena, descartes y rechazos de armado. El detalle de probabilidad y desgaste se adjunta a la falla elegida tras un sorteo positivo. Tierra registra solo seleccionadas tras cap y encoladas, con el azar real; el resumen cuenta encolados efectivos.
+- Reconciliación y manager registran acciones/cambios efectivos; desgaste omite cálculos sin incremento. Se conservan los errores reales, las acciones del usuario y los cambios de estado. No cambian las fórmulas, sorteos, cola ni persistencia.
+- Regresión: seis escenarios negativos con logging Debug (sorteo fallido, cap, sin candidatas, tregua, cola llena y snapshot sin datos) exigen cero eventos de log; se mantiene la cobertura de decisiones positivas y secuencia aleatoria.
+- Validación: build Release sin errores ni advertencias; 223 pruebas aprobadas excluyendo las cinco SerilogDiagnosticsTests por permisos de AppData. `git diff --check` limpio. MSFS/Fenix real no verificado en este trabajo.
+
+### 2026-10-24 — Trazar decisiones del modo Realistic en Debug
+
+- **Evaluación**: contexto de sesión/fase/Fenix/tiempo, score y cap, candidatas, tasas lambda y todos sus factores (perfil, severidad, preset, desgaste), descartes por score y sorteo efectivo con probabilidad/azar/elegida. Seed de tierra con Bernoulli individual, selección posterior al cap y encolado. La política expone sus sorteos reales sin consumir azar extra ni cambiar las decisiones.
+- **Flujo**: decisiones positivas de reserva, armado aceptado y persistencia, confirmación Active y resolución por piloto, tregua crítica, cola, eventos, pausa/desarme/restauración, compensación y cierre. Los logs distinguen envío aceptado de confirmación activa y cálculo de desgaste de guardado exitoso.
+- **Desgaste**: horas/tasa por ATA, valor previo, delta calculado/efectivo y total tras clamp; incluye recuperación por ETA y consolidación de resultados. Se documentan categorías y configuración de Debug en el estado del modo. No cambia esquema ni fórmulas.
+- **Regresión**: pipeline Serilog/sink con Debug e Information verifica la decisión positiva y ausencia de crash; pruebas de política comparan selecciones y estado del generador aleatorio con/sin observación.
+- **Validación**: build Release de la solución con 0 errores/advertencias; 217 pruebas aprobadas excluyendo las cinco `SerilogDiagnosticsTests` por acceso a AppData restringido. `git diff --check` sin errores. Trazas con MSFS/Fenix real pendientes de verificación manual.
+
+### 2026-10-24 — Evitar reportes de crash por health checks fallidos
+
+- **Causa**: una sonda SimConnect fallida se convertía en `false` pero emitía `LogError` con excepción; el nuevo sink la interpretaba como error inesperado y abría el modal. Los intentos internos de conexión también podían emitir Error; una excepción escapada de la sonda Fenix podía terminar el timer de monitoreo.
+- **Corrección**: sondas SimConnect/Fenix e intentos de conexión registran sus fallos en Debug y conservan el estado desconectado cacheado. Se enlaza y dispone el token de timeout con el del llamador. Rechazos HTTP y lectura/reset sin stream de Fenix pasan de Warning a Debug. Solo aparecen en el log diario al habilitar ese nivel en appsettings; nunca abren un modal, incluso con Debug. Los errores inesperados fuera de las sondas y los fatales mantienen el reporte común.
+- **Regresión**: prueba del provider real con cliente simulado y pipeline Serilog/sink real, en Information y Debug: antes falla porque se invoca el reporter; después no genera reportes y solo registra detalle en Debug. Se cubre la caché tras excepción en ambas sondas. Verificación con MSFS/Fenix real pendiente.
+- **Desconexión esperada**: el COM E_FAIL de lectura/requests de SimConnect se registra solo en Debug; otros errores del procesamiento conservan Error/Warning y el reporte común.
+- **Validación**: build Release de la solución con 0 errores/advertencias; 213 pruebas aprobadas con filtro `FullyQualifiedName!~SerilogDiagnosticsTests` (se excluyen las cinco de acceso a AppData por las restricciones del entorno). `git diff --check` sin errores. No se verificó manualmente con MSFS/Fenix.
+
 ### 2026-10-24 — Preparar migraciones y configuración para la primera pre-release
 
 - **EF**: se genera una única migración InitialRelease con el esquema actual, Designer y snapshot; no había migraciones versionadas que eliminar. El arranque pasa de EnsureCreatedAsync a MigrateAsync antes de los initializers. La inicial contiene los seeds estáticos, sin aeronaves/sesiones de ejemplo; el pipeline de catálogos y el seed exclusivo de Debug se conservan. Up/Down revisados y probados en SQLite en memoria: creación, historial, seeds, preservación de datos al reiniciar y rollback/reaplicación; snapshot sin cambios pendientes.

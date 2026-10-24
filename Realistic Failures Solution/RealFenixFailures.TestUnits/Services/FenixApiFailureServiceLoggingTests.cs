@@ -58,6 +58,22 @@ public class FenixApiFailureServiceLoggingTests {
     }
 
     [Fact]
+    public async Task FailedHealthProbe_ReturnsDisconnected_AndCachesDiagnosticWithoutError() {
+        var apiClient = new Mock<IFenixApiClient>();
+        apiClient.Setup(c => c.IsApiAlive(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Probe failed"));
+        var service = CreateService(apiClient);
+
+        Assert.False(await service.IsApiAvailableAsync(CancellationToken.None));
+        Assert.False(await service.IsApiAvailableAsync(CancellationToken.None));
+
+        var entry = Assert.Single(_entries);
+        Assert.Equal(LogLevel.Debug, entry.Level);
+        Assert.Contains("health check", entry.Message);
+        apiClient.Verify(c => c.IsApiAlive(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task InitialGetAllFailure_DoesNotLogDisconnection() {
         var apiClient = new Mock<IFenixApiClient>();
         apiClient.Setup(c => c.GetManualFailuresAsync(It.IsAny<CancellationToken>())).ReturnsAsync((Stream?)null);
