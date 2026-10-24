@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
+using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.Commands;
 using RealFenixFailures.UI.ViewModels.Base;
 using RealFenixFailures.UI.ViewModels.Extra;
@@ -17,7 +19,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     #region Fields
 
-    private const int MaxLogEntries = 200;
+    private readonly int _maxLogEntries;
 
     private readonly IEngineOrchestrator _orchestrator;
     private readonly IPresetService _presetService;
@@ -64,6 +66,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         RealisticModeViewModel realisticModeViewModel,
         IFlightEventDetector flightEventDetector,
         SettingsWindowViewModel settings,
+        IOptions<FailureEngineSettings> failureEngineSettings,
         ILogger<MainWindowViewModel> logger) {
         _orchestrator = orchestrator;
         _presetService = presetService;
@@ -72,6 +75,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         _flightEventDetector = flightEventDetector;
         Realistic = realisticModeViewModel;
         Settings = settings;
+        _maxLogEntries = failureEngineSettings.Value.MaxLogEntries;
         _logger = logger;
 
         // Suscribirse a los eventos del orquestador
@@ -453,7 +457,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private void FlightEventDetector_FlightEventDetected(object? sender, FlightEventDto e) {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
             LogEntries.Add($"{e.TimestampUtc.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} UTC  {e.Message}");
-            while (LogEntries.Count > MaxLogEntries) {
+            while (LogEntries.Count > _maxLogEntries) {
                 LogEntries.RemoveAt(0);
             }
             CurrentComplexFlightPhase = _flightEventDetector.CurrentPhase;

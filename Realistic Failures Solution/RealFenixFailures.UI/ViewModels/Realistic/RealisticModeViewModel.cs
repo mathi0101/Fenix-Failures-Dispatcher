@@ -400,10 +400,14 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         private set {
             if (SetProperty(ref _isEngineActive, value)) {
                 OnPropertyChanged(nameof(SessionStatusDisplay));
+                OnPropertyChanged(nameof(DebugClockVisible));
                 RaiseActivationState();
             }
         }
     }
+
+    /// <summary>Bloque «Reloj de simulación»: requiere motor activo y FailureEngine:Debug en true.</summary>
+    public bool DebugClockVisible => _isEngineActive && _orchestrator.IsDebug;
 
     /// <summary>Fallas preparadas en cola mientras Fenix no está disponible (solo la cuenta, sin preview).</summary>
     public int PreparedCount => _realisticSessionManager.PreparedCount;

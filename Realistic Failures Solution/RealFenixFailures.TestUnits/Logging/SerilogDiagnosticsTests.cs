@@ -117,12 +117,21 @@ public class SerilogDiagnosticsTests {
             file => File.ReadAllText(file).Contains(diagToken, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void ApplyDefaultConfiguration_DebugFlag_ForcesRootDebugLevel() {
+        var configuration = BuildConfiguration(enabled: true, defaultLevel: "Information");
+
+        var logger = new LoggerConfiguration().ApplyDefaultConfiguration(configuration).CreateLogger();
+        Assert.True(logger.IsEnabled(LogEventLevel.Debug));
+        logger.Dispose();
+    }
+
     private static IConfiguration BuildConfiguration(
         bool enabled,
         string defaultLevel = "Warning",
         Dictionary<string, string>? overrides = null) {
         var data = new Dictionary<string, string?> {
-            ["SimConnectDiagnostics:Enabled"] = enabled ? "true" : "false",
+            ["FailureEngine:Debug"] = enabled ? "true" : "false",
             ["Serilog:MinimumLevel:Default"] = defaultLevel
         };
         if (overrides != null) {

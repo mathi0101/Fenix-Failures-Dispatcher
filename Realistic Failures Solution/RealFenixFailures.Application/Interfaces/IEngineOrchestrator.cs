@@ -34,6 +34,8 @@ public interface IEngineOrchestrator : INotifyPropertyChanged {
     // Reloj de simulación (mocks + motor comparten el mismo tiempo escalado)
     /// <summary>Multiplicador de velocidad del tiempo simulado (1 = tiempo real).</summary>
     double SimulatedTimeScale { get; }
+    /// <summary>Flag de debug del motor (FailureEngine:Debug): habilita herramientas de desarrollo en la UI.</summary>
+    bool IsDebug { get; }
     /// <summary>Cambia el multiplicador de velocidad del tiempo simulado en vivo.</summary>
     void SetSimulatedTimeScale(double scale);
     /// <summary>Salta el tiempo de escenario hacia adelante (p. ej. ir directo al descenso).</summary>

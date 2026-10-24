@@ -1,5 +1,24 @@
 # CHANGELOG
 
+### 2026-10-24 — Cap de sistemas que acumulan desgaste al cerrar sesión + tooltip de reanudar
+
+- Nuevo parámetro `FailureEngine:RealisticMode:Wear:SessionSystemsCap` (default **5**; valores menores a 1 se clampean a 1): al cerrar la sesión ya no acumulan todos los sistemas; se elige al azar una cantidad entre **1 (hardcodeado)** y el cap, y solo esos suman `WearPerFlightHour × horas de escenario`. La selección es un Fisher-Yates parcial con el Random de la política (determinable en tests) sobre los sistemas con tasa > 0. Reduce el realismo forzado de "todos los sistemas" y achica el bloque de desgaste del modal de resultados. El log Debug del cierre informa `acumulan X de Y sistemas elegibles (tope N)` cuando el cap recorta.
+- Tooltip de «REANUDAR EVALUACIÓN» actualizado a la semántica vigente (re-arma en Fenix las fallas en curso, mejor esfuerzo); decía «pausa de fallas no implementada», texto previo al 2026-10-17. Sin cambio de lógica.
+- Pruebas: build Debug 0/0; **230/230** suite completa (nuevo `StopAsync_WearCap_AccumulatesRandomSubsetOfSystems`: 4 sistemas con cap 2 → deltas 1..2, no elegidos quedan sin delta; los dos tests de acumulación previos pasan con cap 100 porque prueban la matemática por sistema contra el catálogo completo). MSFS/Fenix real no verificado.
+
+### 2026-10-24 — Tooltip de «Reanudar evaluación» actualizado a la semántica vigente
+
+- El botón «REANUDAR EVALUACIÓN» del panel Realistic decía «No es la pausa de fallas (no implementada)», texto previo a la pausa que desarma (2026-10-17). Ahora refleja la realidad: reanuda la evaluación y re-arma en Fenix las fallas en curso (`RestoreFailuresOnResume` default true, sin checkbox en la UI), con el matiz de mejor esfuerzo (las no reconstruibles quedan en log).
+- No cambia lógica ni comportamiento. Pruebas: no aplicable (solo texto de tooltip); compilación no re-ejecutada por este cambio.
+
+### 2026-10-24 — Flag `FailureEngine:Debug`, appsettings mínimo y defaults alineados a producción
+
+- `FailureEngineSettings` incorpora el flag `Debug` (bool, default false en código) y `MaxLogEntries` (int, default 50). Con `Debug=true` se activan, sin recompilar: el nivel Debug de Serilog a nivel raíz (gana sobre `MinimumLevel:Default`; los `Override` explícitos se respetan), el log de diagnóstico de SimConnect (absorbe al ex flag `SimConnectDiagnostics:Enabled`, sección eliminada) y la visibilidad del bloque «Reloj de simulación» del panel Realistic (`DebugClockVisible` = motor activo + flag; en producción queda oculto).
+- `MaxLogEntries` reemplaza la constante hardcoded 200 del `MainWindowViewModel`: ahora controla el recorte del log de eventos en vivo que ve el usuario (default 50).
+- Defaults de código alineados a producción para que un appsettings "limpio" sea una no-op: `CheckConnectionIntervalSeconds` 5→30 y `RealisticMode.EvaluationIntervalSeconds` 5→60 (mismos valores que appsettings.json desde 78c74fc).
+- `appsettings.json` de producción queda mínimo: solo `Serilog`. Toda clave de `FailureEngine`, `FenixApi` (incluida `UseMock`, leída cruda solo en Debug; en Release es inerte) y `SimBriefApi` tiene default en código, y `RealisticMode.Profiles` cae a `RealisticProfileCatalog.DefaultsFor` perfil por perfil cuando falta. `appsettings.Development.json` se reduce a lo que difiere: `Debug=true`, mock de Fenix con la IP de testing (`192.168.1.69`) y logging Debug. Única excepción sin default: los overrides de `Serilog:MinimumLevel:Override` (verbosidad de logs de framework; sin ellos la app funciona con más ruido de logs).
+- Pruebas: build Debug y Release sin errores ni advertencias; 229/229 de la suite (nuevo test de que el flag fuerza nivel Debug de raíz; `FailureEngineSettings_RealisticMode_HasObjectiveDefaults` extendido con `Debug=false`, `MaxLogEntries=50` y 30/60). MSFS/Fenix real no verificado.
+
 ### 2026-10-24 — Registrar únicamente decisiones positivas de Realistic
 
 - Se eliminan las trazas por candidata/tick y las decisiones rutinarias negativas: sin datos, sin elegibles, cap excedido, tregua activa, espera/cola llena, descartes y rechazos de armado. El detalle de probabilidad y desgaste se adjunta a la falla elegida tras un sorteo positivo. Tierra registra solo seleccionadas tras cap y encoladas, con el azar real; el resumen cuenta encolados efectivos.

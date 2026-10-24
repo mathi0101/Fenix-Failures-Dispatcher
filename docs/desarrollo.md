@@ -28,15 +28,15 @@ La configuración distribuida vive en `RealFenixFailures.UI/appsettings.json`, l
 - **Release**: carga solo appsettings.json; Development no se copia al output Release ni al publish. La selección depende de la compilación, igual que las integraciones/seeds, no de DOTNET_ENVIRONMENT.
 - Ambos se resuelven desde `AppContext.BaseDirectory`, junto al ejecutable, independientemente del directorio de trabajo. Las variables de entorno se aplican al final (claves anidadas con `__`).
 - Los defaults de las opciones y `RealisticProfileCatalog` reflejan la configuración actual del motor y SimBrief. La URL por defecto de Fenix sigue siendo localhost: la IP de una PC concreta solo vive en Development. Una sección/perfil omitido usa sus defaults; cada entrada explícita de Profiles configura ese perfil. No se rellenan automáticamente campos parciales de un perfil con los defaults específicos de otro riesgo.
+- **Todas las claves tienen default en código** (opciones de cada sección, `Profiles` vía `RealisticProfileCatalog.DefaultsFor`, `FailureEngine:Debug=false` y `MaxLogEntries=50` en `FailureEngineSettings`): el appsettings de producción queda mínimo (solo `Serilog`) y suma claves solo como ajuste manual. Única excepción: los overrides de `Serilog:MinimumLevel:Override`, sin los cuales la app funciona con más ruido de logs de framework.
 - Las modificaciones requieren reiniciar para garantizar su aplicación: los consumidores pueden capturar las opciones al construirse.
 
 Claves disponibles:
 
-- `FailureEngine` — `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds` y la sección `RealisticMode` (parámetros del motor Realistic). Los nombres de los catálogos embebidos (`failures.json`, `training_presets.json`, `realistic_presets.json`) **no son configurables**: son constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs` (quedaron fuera de appsettings).
+- `FailureEngine` — `Debug` (flag de herramientas de desarrollo: fuerza nivel Debug de Serilog a nivel raíz, activa el log de diagnóstico de SimConnect y hace visible el bloque «Reloj de simulación» del panel Realistic; default `false`), `MaxLogEntries` (límite del log de eventos en vivo de la UI, default 50), `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds` y la sección `RealisticMode` (parámetros del motor Realistic). Los nombres de los catálogos embebidos (`failures.json`, `training_presets.json`, `realistic_presets.json`) **no son configurables**: son constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs` (quedaron fuera de appsettings).
 - `FenixApi` — `UseMock` (solo Debug), `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
 - `SimBriefApi` — `BaseUrl`, `DownloadTimeoutSeconds`.
-- `SimConnectDiagnostics` — `Enabled` (flag del log de diagnóstico).
-- `Serilog` — nivel mínimo y overrides. El sink de archivo **no** se configura acá: las rutas viven en el código (ver `AppPaths`).
+- `Serilog` — nivel mínimo y overrides. El sink de archivo **no** se configura acá: las rutas viven en el código (ver `AppPaths`). El ex flag `SimConnectDiagnostics:Enabled` fue absorbido por `FailureEngine:Debug`.
 
 ## Datos del usuario (BD, preferencias, logs)
 

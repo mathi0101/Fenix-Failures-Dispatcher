@@ -214,6 +214,9 @@ public class EngineOrchestrator : IEngineOrchestrator, IDisposable {
     /// <summary>Multiplicador de velocidad del tiempo simulado (1 = tiempo real).</summary>
     public double SimulatedTimeScale => _clock.Scale;
 
+    /// <summary>Flag de debug del motor (FailureEngine:Debug): habilita herramientas de desarrollo en la UI.</summary>
+    public bool IsDebug => _settings.Debug;
+
     public void SetSimulatedTimeScale(double scale) {
         _clock.SetScale(scale);
         _logger.LogInformation("Escala de tiempo simulado cambiada a {Scale}x", _clock.Scale);
