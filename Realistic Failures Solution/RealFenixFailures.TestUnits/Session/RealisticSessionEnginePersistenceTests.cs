@@ -155,6 +155,33 @@ public class RealisticSessionEnginePersistenceTests {
     }
 
     [Fact]
+    public async Task StopSession_AircraftWithoutWearRows_CreatesAndPersistsCatalogWear() {
+        using var db = CreateContext();
+        var seeded = Seed(db);
+        var wearable = new AircraftWearableSystem {
+            AtaId = 999, Name = "Test system", ShortName = "Test", WearPerFlightHour = 0.6
+        };
+        db.Add(wearable);
+        db.SaveChanges();
+        SetupSimulatorConnected();
+        var clock = _now;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
+            new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None)).Started);
+        clock = clock.AddHours(2);
+
+        await engine.StopSession(CancellationToken.None);
+        db.ChangeTracker.Clear();
+
+        var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
+        Assert.Equal(1.2, wear.WearPercentage, 6);
+        var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
+        Assert.Equal(1.2, delta.DeltaPercentage, 6);
+        Assert.Equal(1.2, delta.TotalPercentage, 6);
+    }
+
+    [Fact]
     public async Task StopSession_AccumulatesWearBySessionFlightHours() {
         // Espec §3.2: al cerrar sesión, cada sistema suma WearPerFlightHour × horas de vuelo de la
         // sesión en tiempo de escenario, con clamp 0–100. La duración del OFP no participa.
@@ -185,7 +212,7 @@ public class RealisticSessionEnginePersistenceTests {
         await engine.StopSession(CancellationToken.None);
         var afterStop = DateTime.UtcNow;
 
-        var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id);
+        var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
         Assert.InRange(wear.WearPercentage, 51.2, 51.21);
         Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
         var session = await db.FlightSessions.AsNoTracking().SingleAsync();

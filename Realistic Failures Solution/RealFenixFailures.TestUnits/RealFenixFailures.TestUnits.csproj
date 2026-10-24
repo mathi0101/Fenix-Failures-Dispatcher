@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\RealFenixFailures.UI\ViewModels\Realistic\SessionResultWindowViewModel.cs" Link="Presentation\SessionResultWindowViewModel.cs" />
   </ItemGroup>
 
 </Project>

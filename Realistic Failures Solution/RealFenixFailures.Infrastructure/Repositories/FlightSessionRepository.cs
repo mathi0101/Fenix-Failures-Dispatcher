@@ -15,7 +15,11 @@ public class FlightSessionRepository : IFlightSessionRepository {
 
     public async Task<FlightSession?> GetByIdAsync(int id, CancellationToken ct) {
         return await _dbContext.FlightSessions
+            .Include(x => x.UserAircraft)
             .Include(x => x.TriggeredFailures)
+                .ThenInclude(x=>x.FenixFailure)
+                .ThenInclude(x=>x!.Group)
+                .ThenInclude(x=>x.System)
             .Include(x => x.EventLogs)
             .Include(x => x.FlightPlan)
             .FirstOrDefaultAsync(x => x.Id == id, ct);

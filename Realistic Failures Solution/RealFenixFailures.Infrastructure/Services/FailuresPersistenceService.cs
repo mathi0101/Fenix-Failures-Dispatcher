@@ -27,7 +27,8 @@ public class FailuresPersistenceService : IFailuresPersistenceService {
             major => {
                 var system = new FenixFailureSystem {
                     Name = major.Title,
-                    ShortName = major.ShortTitle
+                    ShortName = major.ShortTitle,
+                    AtaId=major.Id
                 };
                 system.FailureGroups = major.SystemGroups.Select(
                     group => {

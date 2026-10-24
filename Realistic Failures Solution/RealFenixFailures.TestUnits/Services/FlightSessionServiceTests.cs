@@ -167,7 +167,7 @@ public class FlightSessionServiceTests {
         Assert.NotNull(result);
         Assert.Equal("SAEZ", result.OriginIcao);
         Assert.Equal("SBGR", result.DestinationIcao);
-        Assert.Equal(5, result.Summary.TotalFailures);
+        Assert.Equal(4, result.Summary.TotalFailures);
         Assert.Equal(1, result.Summary.ActiveAtEnd);
         Assert.Equal(2, result.Summary.ResolvedByPilot);
         Assert.Equal(1, result.Summary.AutoResolved);
@@ -175,8 +175,34 @@ public class FlightSessionServiceTests {
         Assert.Equal(3, result.Summary.ResolvedCount);
         Assert.Equal(1, result.Summary.Critical);
         Assert.Equal(1, result.Summary.Major);
-        Assert.Equal(3, result.Summary.Minor);
+        Assert.Equal(2, result.Summary.Minor);
         Assert.Equal(5, result.Failures.Count);
+    }
+
+    [Fact]
+    public async Task GetResultAsync_IsSelfContained_AndClosureEventsAreIdempotent() {
+        var (service, db) = CreateSut();
+        using var disposableDb = db;
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        session.FlightPlan!.FlightNumber = "SAB1704";
+        var failure = AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
+        var finished = DateTime.UtcNow;
+        await service.FinalizeSessionAsync(session.Id, finished, null, CancellationToken.None);
+        await service.FinalizeSessionAsync(session.Id, finished, null, CancellationToken.None);
+        db.ChangeTracker.Clear();
+
+        var result = (await service.GetResultAsync(session.Id, CancellationToken.None))!;
+
+        Assert.Equal(session.UserAircraftId, result.UserAircraftId);
+        Assert.StartsWith("TEST-", result.Registration);
+        Assert.Equal("A320", result.AircraftIcaoType);
+        Assert.Equal("SAB1704", result.FlightNumber);
+        var closure = Assert.Single(result.EventLogs);
+        Assert.Equal("FAILURE_NOT_RESOLVED", closure.EventCode);
+        Assert.Equal(failure.Id, closure.TriggeredFailureId);
+        Assert.Equal(FailureLifecycleState.NotResolved, Assert.Single(result.Failures).State);
+        Assert.False(string.IsNullOrEmpty(result.Failures[0].FailureGroup));
+        Assert.NotNull(result.Failures[0].FailureAtaId);
     }
 
     [Fact]
@@ -306,7 +332,7 @@ public class FlightSessionServiceTests {
         var service = CreateSutWithWear(db);
         var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
         AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
-        AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
+        var (_, existingWear) = AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
 
         // ETA 2 h después del arranque de la sesión (AddSession arranca la sesión 2 h atrás).
         var plan = db.FlightPlans.First(p => p.Id == session.FlightPlanId);
@@ -317,7 +343,7 @@ public class FlightSessionServiceTests {
 
         Assert.NotNull(result);
         Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
-        Assert.Equal(20.0, db.AircraftSystemWears.Single().WearPercentage, precision: 6);
+        Assert.Equal(20.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
         Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
             f => f.State == FailureLifecycleState.NotResolved);
     }

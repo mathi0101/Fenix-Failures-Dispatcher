@@ -181,6 +181,26 @@ public class UserAircraftServiceTests {
     }
 
     [Fact]
+    public async Task GetDashboardAsync_AfterExternalWearUpdate_ReadsPersistedValue() {
+        await using var db = CreateContext();
+        var aircraft = new UserAircraft { Registration = "LV-FRESH", IcaoTypeCode = "A320", CreatedAt = DateTime.UtcNow };
+        var system = new AircraftWearableSystem { Name = "Electrical", ShortName = "Elec" };
+        var wear = new AircraftSystemWear { UserAircraft = aircraft, WearableSystem = system, WearPercentage = 50, LastUpdatedAt = DateTime.UtcNow };
+        db.Add(wear);
+        await db.SaveChangesAsync();
+        var service = new UserAircraftService(db);
+        Assert.Equal(50, Assert.Single((await service.GetDashboardAsync(aircraft.Id, CancellationToken.None)).SystemWears).WearPercentage);
+
+        // Simula el guardado del scope de sesión sin refrescar las entidades trackeadas de la UI.
+        await db.AircraftSystemWears.Where(w => w.Id == wear.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(w => w.WearPercentage, 51.2));
+
+        var dashboard = await service.GetDashboardAsync(aircraft.Id, CancellationToken.None);
+
+        Assert.Equal(51.2, Assert.Single(dashboard.SystemWears).WearPercentage, 6);
+    }
+
+    [Fact]
     public async Task GetAllAsync_IncludesSystemWearsWithShortNameAndPercentage() {
         await using var db = CreateContext();
         var aircraft = new UserAircraft {

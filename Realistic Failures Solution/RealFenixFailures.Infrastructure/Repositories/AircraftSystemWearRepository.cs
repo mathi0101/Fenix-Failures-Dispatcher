@@ -16,11 +16,26 @@ public class AircraftSystemWearRepository : IAircraftSystemWearRepository
 
     public async Task<IReadOnlyList<AircraftSystemWear>> GetForAircraftAsync(int userAircraftId, CancellationToken ct)
     {
-        return await _dbContext.AircraftSystemWears
+        var wears = await _dbContext.AircraftSystemWears
             .Include(w => w.WearableSystem)
             .Where(w => w.UserAircraftId == userAircraftId)
             .OrderBy(w => w.WearableSystem != null ? w.WearableSystem.DisplayOrder : 0)
             .ToListAsync(ct);
+        var existingSystemIds = wears.Select(w => w.WearableSystemId).ToHashSet();
+        var catalog = await _dbContext.AircraftWearableSystems.ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        foreach (var system in catalog.Where(s => !existingSystemIds.Contains(s.Id))) {
+            var wear = new AircraftSystemWear {
+                UserAircraftId = userAircraftId,
+                WearableSystemId = system.Id,
+                WearableSystem = system,
+                WearPercentage = 0,
+                LastUpdatedAt = now
+            };
+            _dbContext.AircraftSystemWears.Add(wear);
+            wears.Add(wear);
+        }
+        return wears.OrderBy(w => w.WearableSystem?.DisplayOrder ?? 0).ToArray();
     }
 
     public async Task SaveAsync(CancellationToken ct)

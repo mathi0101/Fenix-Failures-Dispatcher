@@ -27,6 +27,7 @@ public class RealisticSessionManagerTests {
     private Mock<ITriggeredFailureRepository> _triggeredFailureRepository = null!;
     private Mock<IFlightPlanRepository> _flightPlanRepository = new();
     private Mock<IServiceScope> _scope = null!;
+    private readonly Mock<IAircraftSystemWearRepository> _wearRepository = new();
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
@@ -40,6 +41,7 @@ public class RealisticSessionManagerTests {
         serviceProvider.Setup(sp => sp.GetService(typeof(IFailureTrigger))).Returns(_failureTrigger.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(ITriggeredFailureRepository))).Returns(_triggeredFailureRepository.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IFlightPlanRepository))).Returns(_flightPlanRepository.Object);
+        serviceProvider.Setup(sp => sp.GetService(typeof(IAircraftSystemWearRepository))).Returns(_wearRepository.Object);
 
         _scope = new Mock<IServiceScope>();
         _scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
@@ -55,6 +57,31 @@ public class RealisticSessionManagerTests {
             _flightEventDetector.Object,
             evaluationInterval,
             policyFactory: policyFactory);
+    }
+
+    [Fact]
+    public async Task StopAsync_TwoScenarioHours_SavesWearAndPassesDeltaToFinalization() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var wear = new AircraftSystemWear {
+            UserAircraftId = 1, WearPercentage = 50,
+            WearableSystem = new AircraftWearableSystem { AtaId = 24, Name = "Electrical", ShortName = "Elec", WearPerFlightHour = 0.6 }
+        };
+        _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([wear]);
+        var manager = CreateManager(TimeSpan.FromHours(1),
+            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random));
+        Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _now = _now.AddHours(2);
+
+        await manager.StopAsync(CancellationToken.None);
+
+        Assert.Equal(51.2, wear.WearPercentage, 6);
+        _wearRepository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _sessionService.Verify(s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(),
+            It.Is<IReadOnlyList<SystemWearDeltaDto>>(d => d.Count == 1 && d[0].AtaId == 24
+                && Math.Abs(d[0].DeltaPercentage - 1.2) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private void SetupConnected() {
@@ -345,7 +372,7 @@ public class RealisticSessionManagerTests {
     private void SetupFenixFailures(params FenixFailureDto[] failures) {
         var grouped = new AllFenixFailuresResponseDto {
             MajorGroups = new List<FenixMajorSystemGroupDto> {
-                new("Systems", "SYS", new List<FenixSystemGroupDto> { new("Group", failures) })
+                new(0, "Systems", "SYS", new List<FenixSystemGroupDto> { new("Group", failures) })
             }
         };
         _simulator

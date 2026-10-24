@@ -96,7 +96,7 @@ public class RealisticSessionEngineTests {
             .Where(i => i.Method.Name is nameof(IFlightSessionService.AddEventLogAsync) or nameof(IFlightSessionService.AddTriggeredFailureAsync))
             .Select(i => (DateTime)i.Arguments[i.Method.Name == nameof(IFlightSessionService.AddEventLogAsync) ? 5 : 3])
             .ToArray();
-        Assert.Equal(4, timestamps.Length); // inicio, motores, falla y cierre
+        Assert.Equal(5, timestamps.Length); // inicio, OFP, motores, falla y cierre
         Assert.All(timestamps, t => Assert.InRange(t, before, after));
         Assert.Equal(timestamps.OrderBy(t => t), timestamps);
     }
@@ -215,6 +215,7 @@ public class RealisticSessionEngineTests {
         var grouped = new AllFenixFailuresResponseDto {
             MajorGroups = new List<FenixMajorSystemGroupDto> {
                 new(
+                    0,
                     "Systems",
                     "SYS",
                     new List<FenixSystemGroupDto> {

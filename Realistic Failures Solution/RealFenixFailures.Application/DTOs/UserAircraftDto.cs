@@ -92,6 +92,9 @@ public sealed record FailureResultDto {
     public required int Id { get; init; }
     public required string FenixFailureId { get; init; }
     public string FailureName { get; init; } = string.Empty;
+    public string FailureGroup { get; init; } = string.Empty;
+    public string FailureSystem { get; init; } = string.Empty;
+    public int? FailureAtaId { get; init; }
     public FailureSeverity? Severity { get; init; }
     public FailureLifecycleState State { get; init; }
     public ResolutionSource? ResolutionSource { get; init; }
@@ -113,6 +116,14 @@ public sealed record SystemWearDeltaDto {
 /// <summary>Resultado completo de una sesión para el modal (diseño objetivo §13).</summary>
 public sealed record SessionResultDto {
     public required int SessionId { get; init; }
+    public int UserAircraftId { get; init; }
+    public string Registration { get; init; } = string.Empty;
+    public string AircraftIcaoType { get; init; } = string.Empty;
+    public string? FlightNumber { get; init; }
+    public string? Callsign { get; init; }
+    public string? OfpSource { get; init; }
+    public DateTime? DiscardedAt { get; init; }
+    public IReadOnlyList<SessionEventLogDto> EventLogs { get; init; } = [];
     public DateTime StartedAt { get; init; }
     public DateTime? FinishedAt { get; init; }
     public RiskLevel RiskLevel { get; init; }

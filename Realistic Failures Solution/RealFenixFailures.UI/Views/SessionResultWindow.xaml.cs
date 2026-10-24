@@ -1,4 +1,3 @@
-using RealFenixFailures.UI.Converters;
 using RealFenixFailures.UI.ViewModels.Realistic;
 using System.Windows;
 using System.Windows.Input;
@@ -12,7 +11,6 @@ namespace RealFenixFailures.UI.Views;
 public partial class SessionResultWindow : Window {
     public SessionResultWindow(SessionResultWindowViewModel viewModel) {
         InitializeComponent();
-        Resources["InverseBoolToVis"] = new InverseBoolToVisibilityConverter();
         DataContext = viewModel;
     }
 
@@ -21,4 +19,5 @@ public partial class SessionResultWindow : Window {
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private void History_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }

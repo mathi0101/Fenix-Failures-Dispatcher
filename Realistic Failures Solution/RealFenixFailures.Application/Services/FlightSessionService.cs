@@ -169,13 +169,24 @@ public class FlightSessionService : IFlightSessionService {
     /// pasa a NotResolved con fuente SessionEnded y hora de resolución = momento de cierre. Las Rejected quedan como están.
     /// </summary>
     private static void ConsolidateUnresolved(FlightSession session, DateTime finishedUtc) {
+        var lastPhase = session.EventLogs.Where(e => e.FlightPhase != ComplexFlightPhaseEnum.Unknown)
+            .OrderBy(e => e.OccurredAt).ThenBy(e => e.Id).LastOrDefault()?.FlightPhase ?? ComplexFlightPhaseEnum.Unknown;
         foreach (var failure in session.TriggeredFailures ?? []) {
             if (failure.State is not (FailureLifecycleState.Preparing or FailureLifecycleState.Queued
                 or FailureLifecycleState.Sent or FailureLifecycleState.Active)) continue;
             failure.State = FailureLifecycleState.NotResolved;
             failure.ResolvedAtUtc = finishedUtc;
-            failure.ResolvedPhase = failure.FlightPhase;
+            failure.ResolvedPhase = lastPhase;
             failure.ResolutionSource = ResolutionSource.SessionEnded;
+            session.EventLogs.Add(new SessionEventLog {
+                FlightSessionId = session.Id,
+                TriggeredFailureId = failure.Id,
+                OccurredAt = finishedUtc,
+                Category = SessionEventCategory.FailureStateChanged,
+                EventCode = "FAILURE_NOT_RESOLVED",
+                Description = $"{failure.FailureName ?? failure.FenixFailureId} quedó sin resolver al terminar la sesión",
+                FlightPhase = lastPhase
+            });
         }
     }
 
@@ -233,18 +244,30 @@ public class FlightSessionService : IFlightSessionService {
 
     private static SessionResultDto ToResultDto(FlightSession session, IReadOnlyList<SystemWearDeltaDto>? wearDeltas = null) {
         var failures = session.TriggeredFailures ?? [];
+        var launched = failures.Where(f => f.State != FailureLifecycleState.Rejected).ToArray();
         var summary = new ResultSummaryDto {
-            TotalFailures = failures.Count,
+            TotalFailures = launched.Length,
             ActiveAtEnd = failures.Count(f => f.State is FailureLifecycleState.Sent or FailureLifecycleState.Queued or FailureLifecycleState.Active or FailureLifecycleState.Preparing),
             ResolvedByPilot = failures.Count(f => f.State == FailureLifecycleState.ResolvedByPilot),
             AutoResolved = failures.Count(f => f.State == FailureLifecycleState.AutoResolved),
             Rejected = failures.Count(f => f.State == FailureLifecycleState.Rejected),
-            Minor = failures.Count(f => f.Severity == FailureSeverity.Minor),
-            Major = failures.Count(f => f.Severity == FailureSeverity.Major),
-            Critical = failures.Count(f => f.Severity == FailureSeverity.Critical)
+            Minor = launched.Count(f => f.Severity == FailureSeverity.Minor),
+            Major = launched.Count(f => f.Severity == FailureSeverity.Major),
+            Critical = launched.Count(f => f.Severity == FailureSeverity.Critical)
         };
         return new SessionResultDto {
             SessionId = session.Id,
+            UserAircraftId = session.UserAircraftId,
+            Registration = session.UserAircraft?.Registration ?? string.Empty,
+            AircraftIcaoType = session.UserAircraft?.IcaoTypeCode ?? session.FlightPlan?.AircraftIcaoType ?? string.Empty,
+            FlightNumber = session.FlightPlan?.FlightNumber,
+            Callsign = session.FlightPlan?.Callsign,
+            OfpSource = session.FlightPlan?.Source,
+            DiscardedAt = session.DiscardedAt,
+            EventLogs = session.EventLogs.OrderBy(e => e.OccurredAt).ThenBy(e => e.Id).Select(e => new SessionEventLogDto {
+                Id = e.Id, OccurredAt = e.OccurredAt, EventCode = e.EventCode, Category = e.Category,
+                Description = e.Description, FlightPhase = e.FlightPhase, TriggeredFailureId = e.TriggeredFailureId
+            }).ToArray(),
             StartedAt = session.StartedAt,
             FinishedAt = session.FinishedAt,
             RiskLevel = session.RiskLevel,
@@ -255,6 +278,9 @@ public class FlightSessionService : IFlightSessionService {
                 Id = f.Id,
                 FenixFailureId = f.FenixFailureId,
                 FailureName = f.FailureName ?? f.FenixFailureId,
+                FailureGroup = f.FenixFailure?.Group?.Name ?? "",
+                FailureSystem = f.FenixFailure?.Group?.System?.Name ?? "",
+                FailureAtaId = f.FenixFailure?.Group?.System?.AtaId,
                 Severity = f.Severity,
                 State = f.State,
                 ResolutionSource = f.ResolutionSource,

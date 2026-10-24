@@ -888,20 +888,21 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 return;
             }
 
-            // Cronología: la traemos del dashboard de la aeronave seleccionada si corresponde a esa sesión.
-            IReadOnlyList<SessionEventLogDto> eventLogs = [];
-            if (SelectedAircraft is not null) {
-                var dash = await _aircraftService.GetDashboardAsync(SelectedAircraft.Id, CancellationToken.None);
-                var dto = dash.Aircraft.FlightSessions.FirstOrDefault(s => s.Id == sessionId);
-                if (dto is not null) eventLogs = dto.EventLogs;
-            }
-
-            var vm = new SessionResultWindowViewModel(result, eventLogs, SelectedAircraft?.Registration);
-            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => {
+            var vm = new SessionResultWindowViewModel(result);
+            var showHistory = await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => {
                 var owner = System.Windows.Application.Current?.MainWindow;
                 var window = new Views.SessionResultWindow(vm) { Owner = owner };
-                window.ShowDialog();
+                return window.ShowDialog() == true;
             });
+            if (showHistory) {
+                await LoadAircraftAsync();
+                var aircraft = Aircraft.FirstOrDefault(a => a.Id == result.UserAircraftId);
+                if (aircraft is not null) {
+                    await SelectAircraftAsync(aircraft);
+                    var session = Sessions.FirstOrDefault(s => s.Id == sessionId);
+                    if (session is not null) session.IsExpanded = true;
+                }
+            }
         } catch (Exception ex) {
             _logger.LogError(ex, "No se pudo mostrar el resultado de la sesión {SessionId}", sessionId);
         }

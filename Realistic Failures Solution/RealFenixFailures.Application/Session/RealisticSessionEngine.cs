@@ -135,6 +135,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         try {
             await _sessionService.AddEventLogAsync(newSession.Id, SessionEventCategory.SessionStarted, "SESSION_STARTED", "Sesión realista iniciada", ComplexFlightPhaseEnum.Unknown, newSession.StartedAt, ct);
+            await _sessionService.AddEventLogAsync(newSession.Id, SessionEventCategory.OfpLoaded, "OFP_LOADED",
+                $"OFP {newSession.FlightPlan.FlightNumber ?? newSession.FlightPlan.Callsign ?? "sin identificador"} ({newSession.FlightPlan.Source}) asociado a la sesión",
+                ComplexFlightPhaseEnum.Unknown, newSession.StartedAt, ct);
         } catch (Exception) {
             try {
                 await _sessionService.StopAsync(newSession.Id, DateTime.UtcNow, CancellationToken.None);
@@ -159,15 +162,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         if (!IsRunning) return;
         try {
             if (Session!.Session.FinishedAt == null) {
-                try {
-                    await _sessionService.AddEventLogAsync(Session.Session.Id, SessionEventCategory.SessionStopped, "SESSION_STOPPED", "Sesión realista detenida", Session.CurrentFlightPhase, DateTime.UtcNow, ct);
-                } catch (Exception ex) {
-                    _logger.LogWarning(ex, "Failed to register stop event for session {SessionId}", Session.Session.Id);
-                }
                 var stoppedAt = DateTime.UtcNow;
                 await DisarmActiveFailuresAsync(ct);
                 var wearDeltas = await AccumulateWearAsync(Session, stoppedAt, ct);
                 await _sessionService.FinalizeSessionAsync(Session.Session.Id, stoppedAt, wearDeltas, ct);
+                try {
+                    await _sessionService.AddEventLogAsync(Session.Session.Id, SessionEventCategory.SessionStopped, "SESSION_STOPPED", "Sesión realista detenida", Session.CurrentFlightPhase, stoppedAt, ct);
+                } catch (Exception ex) {
+                    _logger.LogWarning(ex, "Failed to register stop event for session {SessionId}", Session.Session.Id);
+                }
             }
             Session = null;
         } finally {

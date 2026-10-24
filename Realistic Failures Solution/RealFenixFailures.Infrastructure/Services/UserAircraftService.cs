@@ -74,6 +74,7 @@ public class UserAircraftService : IUserAircraftService {
     public async Task<UserAircraftDto?> GetByIdAsync(int id, CancellationToken ct) {
         var aircraft = await _dbContext.UserAircrafts
             .Include(x => x.SystemWears)
+                .ThenInclude(x=>x.WearableSystem)
             .Include(x => x.FlightSessions)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
@@ -82,6 +83,7 @@ public class UserAircraftService : IUserAircraftService {
 
     public async Task<AircraftDashboardDto> GetDashboardAsync(int userAircraftId, CancellationToken ct) {
         var aircraft = await _dbContext.UserAircrafts
+            .AsNoTracking()
             .Include(x => x.SystemWears)
                 .ThenInclude(x => x.WearableSystem)
             .Include(x => x.FlightSessions)

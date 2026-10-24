@@ -116,7 +116,8 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 scope.ServiceProvider.GetRequiredService<ITriggeredFailureRepository>(),
                 settings: _realisticModeSettings,
                 policy: policy,
-                fenixFailureDefinitions: scope.ServiceProvider.GetService<IFenixFailureDefinitionRepository>());
+                fenixFailureDefinitions: scope.ServiceProvider.GetService<IFenixFailureDefinitionRepository>(),
+                aircraftSystemWearRepository: scope.ServiceProvider.GetRequiredService<IAircraftSystemWearRepository>());
             engine.PreparedQueueChanged += Engine_PreparedQueueChanged;
 
             var result = await engine.TryStartSession(context, ct);
