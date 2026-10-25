@@ -327,14 +327,23 @@ public class FlightSessionServiceTests {
     }
 
     [Fact]
-    public async Task FinalizeUnfinishedSessionAsync_AppliesWearByEta_OfFlightPlan() {
+    public async Task FinalizeUnfinishedSessionAsync_AppliesWearByEta_FromEnginesStart() {
         var db = CreateContext();
         var service = CreateSutWithWear(db);
         var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
         AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
         var (_, existingWear) = AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
 
-        // ETA 2 h después del arranque de la sesión (AddSession arranca la sesión 2 h atrás).
+        // Encendido de motores 1 h después del arranque (AddSession arranca la sesión 2 h atrás) y
+        // ETA 2 h después del arranque: el desgaste diferido cubre solo la hora de vuelo hasta la ETA.
+        db.SessionEventLogs.Add(new SessionEventLog {
+            FlightSessionId = session.Id,
+            OccurredAt = session.StartedAt.AddHours(1),
+            Category = SessionEventCategory.EnginesStarted,
+            EventCode = "ENGINES_STARTED",
+            Description = "Motores encendidos",
+            FlightPhase = ComplexFlightPhaseEnum.Taxi
+        });
         var plan = db.FlightPlans.First(p => p.Id == session.FlightPlanId);
         plan.EstimatedArrivalUtc = session.StartedAt.AddHours(2);
         db.SaveChanges();
@@ -343,8 +352,28 @@ public class FlightSessionServiceTests {
 
         Assert.NotNull(result);
         Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
-        Assert.Equal(20.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
+        Assert.Equal(15.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
         Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
             f => f.State == FailureLifecycleState.NotResolved);
+    }
+
+    [Fact]
+    public async Task FinalizeUnfinishedSessionAsync_WithoutEnginesStarted_DoesNotApplyWear() {
+        var db = CreateContext();
+        var service = CreateSutWithWear(db);
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        AddTriggeredFailure(db, session.Id, FailureLifecycleState.Active);
+        var (_, existingWear) = AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
+
+        // ETA 2 h después del arranque, pero sin ENGINES_STARTED registrado: no acumula desgaste.
+        var plan = db.FlightPlans.First(p => p.Id == session.FlightPlanId);
+        plan.EstimatedArrivalUtc = session.StartedAt.AddHours(2);
+        db.SaveChanges();
+
+        var result = await service.FinalizeUnfinishedSessionAsync(session.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
+        Assert.Equal(10.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
     }
 }

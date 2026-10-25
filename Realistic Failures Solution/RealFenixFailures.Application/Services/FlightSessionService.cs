@@ -196,13 +196,22 @@ public class FlightSessionService : IFlightSessionService {
         }
     }
 
-    /// <summary>Desgaste de una sesión huérfana: tasa por sistema × horas hasta la ETA del OFP (fallas de la sesión no lo modifican). Devuelve los deltas aplicados.</summary>
+    /// <summary>Desgaste de una sesión huérfana: tasa por sistema × horas desde el primer encendido de motores registrado hasta la ETA del OFP (fallas de la sesión no lo modifican). Sin encendido registrado, no acumula. Devuelve los deltas aplicados.</summary>
     private async Task<IReadOnlyList<SystemWearDeltaDto>> AccumulateWearByEtaAsync(FlightSession session, CancellationToken ct) {
         if (_aircraftSystemWearRepository is null) return [];
         var eta = session.FlightPlan?.EstimatedArrivalUtc;
         if (eta is null) return [];
         try {
-            var hours = (eta.Value - session.StartedAt).TotalHours;
+            var enginesStartedAt = session.EventLogs
+                .Where(e => e.EventCode == "ENGINES_STARTED")
+                .OrderBy(e => e.OccurredAt)
+                .Select(e => (DateTime?)e.OccurredAt)
+                .FirstOrDefault();
+            if (enginesStartedAt is null) {
+                _logger.LogDebug("Sesión {SessionId}: sin encendido de motores registrado, sin desgaste diferido", session.Id);
+                return [];
+            }
+            var hours = (eta.Value - enginesStartedAt.Value).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.UserAircraftId, ct);
             var deltas = new List<SystemWearDeltaDto>();

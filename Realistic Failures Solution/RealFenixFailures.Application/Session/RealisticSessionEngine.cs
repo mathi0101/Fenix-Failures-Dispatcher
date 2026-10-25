@@ -41,6 +41,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private Dictionary<string, int>? _ataByFenixId;
     private DateTime? _lastCadenceTickUtc;
     private DateTime _scenarioStartedAtUtc;
+    private DateTime? _flightTimeStartedAtUtc;
 
 
     private RealisticSession? _session;
@@ -137,6 +138,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             AvailablePresets = presets
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
+        _flightTimeStartedAtUtc = null;
         _logger.LogDebug("Realistic sesión {SessionId}: inicio aceptado; aeronave {AircraftId}, perfil {Risk}, presets {Count}, multiplicador {Multiplier}, desgaste máximo x{WearMax}, cap agravamiento {Cap}, cap tierra {GroundCap}, escenario {ScenarioUtc}",
             newSession.Id, context.Aircraft.Id, Session.RiskLevel, presets.Count, Session.RiskProfile.ProbabilityMultiplier,
             Session.RiskProfile.WearMaxMultiplier, Session.RiskProfile.AggravationCap, Session.RiskProfile.GroundFailuresCap, _scenarioStartedAtUtc);
@@ -312,6 +314,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 FlightEventKind.AltitudeCrossed => (SessionEventCategory.AltitudeCrossed, "ALTITUDE_CROSSED"),
                 _ => (SessionEventCategory.SessionError, "UNKNOWN_EVENT")
             };
+            if (flightEvent.Kind == FlightEventKind.EnginesStarted && _flightTimeStartedAtUtc is null) {
+                _flightTimeStartedAtUtc = _policy.UtcNow;
+                _logger.LogDebug("Realistic sesión {SessionId}: anclaje de horas de vuelo en encendido de motores, escenario {ScenarioUtc}", Session!.Session.Id, _flightTimeStartedAtUtc);
+            }
             await _sessionService.AddEventLogAsync(Session!.Session.Id, category, code, flightEvent.Message, phase, flightEvent.TimestampUtc, ct);
             _logger.LogDebug("Realistic sesión {SessionId}: evento {EventCode} persistido, fase {Phase}, UTC {TimestampUtc}", Session.Session.Id, code, phase, flightEvent.TimestampUtc);
         }
@@ -574,7 +580,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
     /// <summary>
     /// Acumulación de desgaste por horas de vuelo (espec §3.2): al cerrar la sesión, cada sistema suma
-    /// WearPerFlightHour × horas de escenario de sesión, con clamp 0–100. Best-effort: un
+    /// WearPerFlightHour × horas de vuelo desde el primer encendido de motores, con clamp 0–100. Best-effort: un
     /// fallo no interrumpe el stop de la sesión.
     /// </summary>
     /// <summary>
@@ -612,7 +618,11 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private async Task<IReadOnlyList<SystemWearDeltaDto>> AccumulateWearAsync(RealisticSession session, DateTime stoppedAtUtc, CancellationToken ct) {
         if (_aircraftSystemWearRepository is null) return [];
         try {
-            var hours = (_policy.UtcNow - _scenarioStartedAtUtc).TotalHours;
+            if (_flightTimeStartedAtUtc is not { } flightStart) {
+                _logger.LogDebug("Realistic sesión {SessionId}: sin encendido de motores registrado, no acumula desgaste", session.Session.Id);
+                return [];
+            }
+            var hours = (_policy.UtcNow - flightStart).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.Aircraft.Id, ct);
             var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();
@@ -637,7 +647,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 var previousWear = wear.WearPercentage;
                 wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
                 if (wear.WearPercentage > previousWear)
-                    _logger.LogDebug("Realistic sesión {SessionId}: desgaste calculado ATA {Ata} ({System}), horas escenario {Hours}, tasa {Rate}/h, previo {Before}%, delta calculado {CalculatedDelta}%, delta efectivo {AppliedDelta}%, total {After}% (clamp 0–100); pendiente de guardar",
+                    _logger.LogDebug("Realistic sesión {SessionId}: desgaste calculado ATA {Ata} ({System}), horas vuelo {Hours}, tasa {Rate}/h, previo {Before}%, delta calculado {CalculatedDelta}%, delta efectivo {AppliedDelta}%, total {After}% (clamp 0–100); pendiente de guardar",
                         session.Session.Id, wear.WearableSystem!.AtaId, wear.WearableSystem.Name, hours, rate, previousWear, delta, wear.WearPercentage - previousWear, wear.WearPercentage);
                 wear.LastUpdatedAt = stoppedAtUtc;
                 deltas.Add(new SystemWearDeltaDto {

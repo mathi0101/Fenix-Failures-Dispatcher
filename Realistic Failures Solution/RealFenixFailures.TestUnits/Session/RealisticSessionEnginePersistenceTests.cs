@@ -170,6 +170,14 @@ public class RealisticSessionEnginePersistenceTests {
         Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
             new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None)).Started);
+        // Anclaje de desgaste: primer encendido de motores una hora después del arranque.
+        clock = clock.AddHours(1);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Takeoff);
+        await engine.EvaluateAsync(CancellationToken.None);
         clock = clock.AddHours(2);
 
         await engine.StopSession(CancellationToken.None);
@@ -183,9 +191,9 @@ public class RealisticSessionEnginePersistenceTests {
     }
 
     [Fact]
-    public async Task StopSession_AccumulatesWearBySessionFlightHours() {
-        // Espec §3.2: al cerrar sesión, cada sistema suma WearPerFlightHour × horas de vuelo de la
-        // sesión en tiempo de escenario, con clamp 0–100. La duración del OFP no participa.
+    public async Task StopSession_AccumulatesWearFromEnginesStart() {
+        // Espec §3.2: al cerrar sesión, cada sistema suma WearPerFlightHour × horas de vuelo desde el
+        // primer encendido de motores (tiempo de escenario), con clamp 0–100. La duración del OFP no participa.
         var db = CreateContext();
         var seeded = Seed(db);
         var wearable = new AircraftWearableSystem {
@@ -207,7 +215,16 @@ public class RealisticSessionEnginePersistenceTests {
             CancellationToken.None);
         Assert.True(start.Started);
 
-        // Dos horas de escenario acumulan desgaste sin desplazar las fechas UTC del historial.
+        // Una hora de escenario pre-motores no acumula: el anclaje es el ENGINES_STARTED.
+        clock = clock.AddHours(1);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Takeoff);
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        // Dos horas de escenario desde el encendido acumulan desgaste sin desplazar las fechas UTC del historial.
         var beforeStop = DateTime.UtcNow;
         clock = clock.AddHours(2);
         await engine.StopSession(CancellationToken.None);
@@ -218,5 +235,37 @@ public class RealisticSessionEnginePersistenceTests {
         Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
         var session = await db.FlightSessions.AsNoTracking().SingleAsync();
         Assert.InRange(session.FinishedAt!.Value, beforeStop, afterStop);
+    }
+
+    [Fact]
+    public async Task StopSession_WithoutEnginesStarted_DoesNotAccumulateWear() {
+        var db = CreateContext();
+        var seeded = Seed(db);
+        var wearable = new AircraftWearableSystem {
+            AtaId = 24, Name = "Electrical power", ShortName = "Elec", DisplayOrder = 1, WearPerFlightHour = 0.6
+        };
+        db.Add(wearable);
+        db.SaveChanges();
+        db.Add(new AircraftSystemWear {
+            UserAircraftId = seeded.Aircraft.Id, WearableSystemId = wearable.Id,
+            WearPercentage = 50, LastUpdatedAt = _now
+        });
+        db.SaveChanges();
+
+        SetupSimulatorConnected();
+        var clock = DateTime.UtcNow;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        var start = await engine.TryStartSession(new RealisticModeContext(
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None);
+        Assert.True(start.Started);
+
+        // Dos horas de escenario sin encendido de motores (cierre en gate): no acumula desgaste.
+        clock = clock.AddHours(2);
+        await engine.StopSession(CancellationToken.None);
+
+        var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
+        Assert.Equal(50, wear.WearPercentage);
+        Assert.False(db.Set<SessionSystemWearDelta>().Any(d => d.AtaId == wearable.AtaId));
     }
 }
