@@ -180,7 +180,7 @@ public class RealFenixDbContext : DbContext {
             entity.HasKey(x => x.Id);
             entity.HasOne(x => x.FlightSession).WithMany(x => x.TriggeredFailures).HasForeignKey(x => x.FlightSessionId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.FenixFailure).WithMany().HasForeignKey(x => x.FenixFailureId).OnDelete(DeleteBehavior.Restrict);
-            entity.Property(x => x.State).HasDefaultValue(FailureLifecycleState.Sent);
+            entity.Property(x => x.State).HasDefaultValue(FailureLifecycleState.Sent).HasSentinel(FailureLifecycleState.Sent);
             entity.Property(x => x.CanBeTemporary).HasDefaultValue(false);
             entity.Property(x => x.FailureName).HasMaxLength(200);
             entity.Property(x => x.PresetName).HasMaxLength(120);
