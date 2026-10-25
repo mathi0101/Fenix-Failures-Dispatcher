@@ -35,6 +35,7 @@ public class SettingsWindowViewModel : ObservableObject {
         _logger = logger;
 
         _simbriefUserId = preferences.SimbriefUserId;
+        _telemetryEnabled = !preferences.TelemetryOptOut;
 
         AppVersion = GetDisplayVersion();
 
@@ -111,6 +112,18 @@ public class SettingsWindowViewModel : ObservableObject {
         private set => SetProperty(ref _saveStatusText, value);
     }
 
+    /// <summary>Telemetría anónima activada (opt-out invertido en preferencias al persistir).</summary>
+    public bool TelemetryEnabled {
+        get => _telemetryEnabled;
+        set {
+            if (SetProperty(ref _telemetryEnabled, value)) {
+                SaveStatusText = string.Empty;
+                ScheduleSave();
+            }
+        }
+    }
+    private bool _telemetryEnabled;
+
     public bool HasSimbriefId => !string.IsNullOrWhiteSpace(SimbriefUserId);
 
     /// <summary>Persiste las preferencias de inmediato (cierre de ventana).</summary>
@@ -140,7 +153,8 @@ public class SettingsWindowViewModel : ObservableObject {
     private void Persist() {
         try {
             _preferences.SimbriefUserId = SimbriefUserId?.Trim() ?? string.Empty;
-            _logger.LogDebug("Preferencias de usuario guardadas (SimbriefUserId establecido).");
+            _preferences.TelemetryOptOut = !TelemetryEnabled;
+            _logger.LogDebug("Preferencias de usuario guardadas.");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "No se pudieron guardar las preferencias de usuario.");

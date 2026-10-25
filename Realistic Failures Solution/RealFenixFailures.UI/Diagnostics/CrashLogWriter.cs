@@ -7,7 +7,7 @@ using RealFenixFailures.Infrastructure;
 namespace RealFenixFailures.UI.Diagnostics;
 
 /// <summary>
-/// Escribe a disco, en <c>%AppData%/RealFenixFailures/logs/crash</c>, un reporte fatal o recuperable con toda
+/// Escribe a disco, en <c>%AppData%/RealFenixFailures/logs</c> (junto al resto de los logs), un reporte fatal o recuperable con toda
 /// la información relevante del proceso y el trace completo de la excepción
 /// (incluidas excepciones internas anidadas y agregadas).
 /// </summary>
@@ -40,7 +40,7 @@ public static class CrashLogWriter {
     }
 
     /// <summary>
-    /// Escribe el registro de crash en <c>logs/crash/crash-&lt;timestamp&gt;.log</c>
+    /// Escribe el registro de crash en <c>logs/crash-&lt;timestamp&gt;.log</c> (junto al resto de los logs)
     /// y devuelve la ruta del archivo, o null si no se pudo escribir. Nunca lanza:
     /// un fallo del propio registro no debe enmascarar el manejo del error original.
     /// </summary>
@@ -51,7 +51,7 @@ public static class CrashLogWriter {
 
     public static string? WriteReport(string report, bool fatal, string? logsDirectory = null) {
         try {
-            var crashDirectory = Path.Combine(logsDirectory ?? AppPaths.LogsDirectory, "crash");
+            var crashDirectory = logsDirectory ?? AppPaths.LogsDirectory;
             Directory.CreateDirectory(crashDirectory);
             var path = Path.Combine(crashDirectory, $"{(fatal ? "crash" : "error")}-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.log");
             File.WriteAllText(path, report, Encoding.UTF8);

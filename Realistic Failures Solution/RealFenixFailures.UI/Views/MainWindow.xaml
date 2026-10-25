@@ -145,13 +145,14 @@
                                 Content="{Binding Settings.NewUpdateTag, StringFormat='↻ Actualizar a {0}'}"
                                 Visibility="{Binding Settings.HasNewUpdate, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Hay una versión más nueva. Abre Ajustes → Actualizaciones"/>
-                        <Button Content="⟳" Command="{Binding Settings.CheckForUpdatesCommand}"
-                                Style="{StaticResource GhostButtonStyle}" FontSize="14" Margin="0,0,2,0"
-                                ToolTip="Buscar actualizaciones"/>
-                        <TextBlock FontSize="10" Margin="4,0,10,0"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center">
-                            <Run Text="v"/><Run Text="{Binding Settings.AppVersion, Mode=OneWay}"/>
-                        </TextBlock>
+                        <Button Click="OpenUpdatesTab" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                                FontSize="10" Padding="4,0" Margin="4,0,10,0"
+                                Foreground="{StaticResource Brush.Text.Secondary}"
+                                ToolTip="Versión instalada. Clic para ver Actualizaciones">
+                            <TextBlock>
+                                <Run Text="v"/><Run Text="{Binding Settings.AppVersion, Mode=OneWay}"/>
+                            </TextBlock>
+                        </Button>
                         <Button Content="⚙"
                                 Command="{Binding OpenSettingsCommand}"
                                 Style="{StaticResource GhostButtonStyle}"

@@ -29,12 +29,23 @@ jobs:
 
       - name: Arm ZIP portable (README + exe + SimConnect + appsettings, sin BD ni logs)
         shell: pwsh
+        env:
+          POSTHOG_PROJECT_API_KEY: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
         run: |
           $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
           $stage = "$env:RUNNER_TEMP/RealFenixFailures"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
             Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
+          }
+          if ($env:POSTHOG_PROJECT_API_KEY) {
+            $settingsPath = Join-Path $stage "appsettings.json"
+            $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($null -eq $settings.Telemetry) {
+              $settings | Add-Member -Force -NotePropertyName Telemetry -NotePropertyValue ([pscustomobject]@{ Enabled = $true; PostHogProjectApiKey = ''; PostHogHost = 'https://us.i.posthog.com' })
+            }
+            $settings.Telemetry.PostHogProjectApiKey = $env:POSTHOG_PROJECT_API_KEY
+            $settings | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $settingsPath -Encoding utf8
           }
           $tag = if ($env:GITHUB_REF_NAME -like 'v*') { $env:GITHUB_REF_NAME } else { 'v0.0.0-test' }
           $readme = Join-Path $stage "README.md"

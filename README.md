@@ -46,6 +46,12 @@ Qué necesitás para usarla:
 
 Si encontrás un bug, lo más útil es: qué estabas haciendo, qué esperabas que pasara y qué pasó finalmente. Si podés, adjuntá captura de pantalla y el log del día (queda en la carpeta `logs` de la app).
 
+## Privacidad y telemetría
+
+La app puede enviar **un ping anónimo por día** (al abrirla) para medir cuánta gente usa la app. Eso es todo lo que sale: versión de la app, versión de Windows y un identificador aleatorio que no tiene relación con vos ni con tu PC. El país se deduce en el servidor y la IP no se guarda; **nunca** se envían datos de vuelo, contenido del simulador, rutas ni nada personal.
+
+Podés apagarlo en **Ajustes → General → «Enviar estadísticas anónimas de uso»**, y la app funciona igual sin él. Con la opción apagada, lo único que sale a internet es la consulta de actualizaciones (GitHub) y SimBrief (si cargaste tu ID).
+
 ## Arquitectura híbrida
 
 - **SimConnect** es la fuente de verdad del contexto del simulador (MSFS).

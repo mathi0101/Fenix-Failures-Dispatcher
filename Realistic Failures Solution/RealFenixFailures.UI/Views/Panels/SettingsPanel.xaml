@@ -192,13 +192,21 @@
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                <CheckBox IsChecked="{Binding TelemetryEnabled}" FontSize="11" Margin="0,10,0,0"
+                                          HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                          Foreground="{StaticResource Brush.Text.Primary}"
+                                          Content="Enviar estadísticas anónimas de uso"/>
+                                <TextBlock Text="Un ping por día al abrir la app: se envía versión utilizada. Sin datos de vuelo, ni datos personales, ni contenido del simulador. El país se deriva en el servidor y la IP no se almacena. Podés apagarlo cuando quieras."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
                             <StackPanel>
                                 <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Los logs diarios y los reportes individuales de errores están en esta carpeta (subcarpeta crash para los reportes)." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="Los logs diarios y los reportes individuales de errores (crash-*.log / error-*.log) están en esta carpeta." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
                                 <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
                                 <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
@@ -374,7 +382,7 @@
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Command="{Binding OpenIssuesCommand}"
                                 HorizontalAlignment="Left"/>
-                        <TextBlock Text="Consejo: adjuntá el log diario más reciente y el reporte individual de la subcarpeta crash, si existe, junto con la versión que usás."
+                        <TextBlock Text="Consejo: adjuntá el log diario más reciente y el reporte individual (crash-*.log), si existe, junto con la versión que usás."
                                    FontSize="11"
                                    Foreground="{StaticResource Brush.Text.Secondary}"
                                    TextWrapping="Wrap" Width="520"
@@ -383,7 +391,7 @@
                         <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
                             <StackPanel>
                                 <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Los logs diarios y los reportes individuales de errores están en esta carpeta (subcarpeta crash para los reportes)." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="Los logs diarios y los reportes individuales de errores (crash-*.log / error-*.log) están en esta carpeta." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
                                 <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
                                 <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>

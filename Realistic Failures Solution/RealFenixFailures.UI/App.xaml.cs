@@ -29,6 +29,7 @@ public partial class App : System.Windows.Application {
                 configure.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
 #endif
                 configure.AddEnvironmentVariables();
+                configure.AddUserSecrets<TelemetrySettings>(optional: true);
             })
             .ConfigureRealFenixFailures()
             .Build();
@@ -83,6 +84,15 @@ public partial class App : System.Windows.Application {
                 startupException,
                 "La aplicación no pudo iniciarse (error al crear la ventana principal). Se generó un registro de crash.");
             return;
+        }
+
+        // Ping anónimo de telemetría (1 por día; respeta opt-out; best-effort).
+        // Blindado: un problema de telemetría (DI, red, config) jamás puede tirar abajo el arranque.
+        try {
+            _host.Services.GetRequiredService<TelemetryService>().TrySendStartupPing();
+        }
+        catch (Exception ex) {
+            Console.Error.WriteLine($"Telemetría: {ex.Message}");
         }
 
         base.OnStartup(e);

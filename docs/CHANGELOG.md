@@ -1,5 +1,24 @@
 # CHANGELOG
 
+### 2026-10-25 — Status bar: versión clickeable abre Actualizaciones (se quita el botón ⟳)
+
+- La etiqueta de versión (`vX.Y.Z`) de la status bar es ahora un botón plano: un clic abre Ajustes directo en la pestaña Actualizaciones (misma acción que la pill «↻ Actualizar a vX.Y.Z», que no cambia). Se elimina el botón **⟳** que estaba entre la pill y la versión; el chequeo manual sigue disponible en la pestaña (y automático al arrancar). Docs de Ajustes actualizados ([configuracion-y-preferencias.md](ui/configuracion-y-preferencias.md)).
+
+### 2026-10-25 — Reportes de crash junto al resto de los logs y fix de DI en telemetría
+
+- **Reportes de crash en `logs/`, sin subcarpeta**: `CrashLogWriter` escribe ahora `crash-*.log`/`error-*.log` directamente en `%AppData%\RealFenixFailures\logs\`, junto al log diario (antes: subcarpeta `logs/crash/`). Los archivos existentes en la subcarpeta no se mueven. Textos de Ajustes (pestañas General y Reportar un fallo) y docs (`arquitectura.md`, `configuracion-y-preferencias.md`) actualizados.
+- **Fix de DI en telemetría** (detectado con crash real en la prueba Release): `TelemetryService` inyecta `TelemetrySettings` directa, que nadie registraba como servicio → `InvalidOperationException` al activar en `App.OnStartup` (reporte en `logs/crash/crash-20261025-204629-*.log`). Registro corregido (`AddSingleton<TelemetrySettings>(sp => IOptions<TelemetrySettings>.Value)`), using `Microsoft.Extensions.Options`, y la llamada al ping ahora va en `try/catch` propio: la telemetría no puede tirar abajo el arranque bajo ninguna circunstancia.
+- **Prueba Release del ping (esta PC, sin MSFS/Fenix)**: línea de arranque con versión OK (`Real Fenix Failures v0.3.0-beta.1 iniciando`), versiones en todas las líneas OK; `userprefs.json` quedó con `AnonymousId` generado, `TelemetryOptOut: false` y `LastTelemetryDate` del día (camino del ping completo, dedup marcado). Sin rechazos de PostHog en el log con nivel Debug forzado → envío sin error reportado. **Confirmación final pendiente del lado del usuario**: evento `app_started` visible en el tablero de PostHog (Activity/Insights).
+
+### 2026-10-25 — Telemetría anónima de uso (ping diario con PostHog)
+
+- **Ping `app_started` anónimo, 1 por instalación/día** al abrir la app: versión de la app, versión de Windows, bitness y GUID aleatorio persistido (`userprefs.json`); país derivado server-side por PostHog (la IP no se envía en el payload ni se almacena). Nunca viajan datos de vuelo, máquina, usuario ni contenido del simulador.
+- **Gates**: `Telemetry:Enabled` (default `true`), `PostHogProjectApiKey` no vacía (repo la deja **vacía** — cero claves versionadas), opt-out del usuario (`Ajustes → General → «Enviar estadísticas anónimas de uso»`, nuevo toggle `TelemetryEnabled`), builds `#if DEBUG` no envían, dedup por proceso (`Interlocked`) y por día (`LastTelemetryDate` UTC).
+- **Implementación**: nuevo `Services/TelemetryService.cs` (singleton en DI, `HttpClient` propio, timeout 5 s, fire-and-forget, silencioso — máx `Debug` en log); `UserPreferencesService` suma `GetOrCreateAnonymousId`/`TelemetryOptOut`/`LastTelemetryDate`; `App.OnStartup` dispara el ping tras mostrar la ventana. En desarrollo la clave llega por **User Secrets** (`UserSecretsId` versionado en el csproj de la UI + `AddUserSecrets<TelemetrySettings>(optional: true)` en `App.xaml.cs`; en el store local solo se verificó el nombre de la clave, nunca su valor).
+- **Secreto del workflow**: `release.yml` (paso Arm ZIP) inyecta el secreto de GitHub `POSTHOG_PROJECT_API_KEY` en el `appsettings.json` del ZIP publicado (si falta el secreto, el ZIP no telemetriza). Token `phc_` es público de proyecto por diseño; rotación solo vía PostHog + secreto.
+- Docs: nuevo [ui/telemetria.md](ui/telemetria.md) (fuente única), claves en [desarrollo.md](desarrollo.md), divulgación para usuarios en el README, índice actualizado.
+- Verificación: build Debug 0 errores / 0 advertencias, suite 235/235. El envío real y el tablero de PostHog **no verificados** (requieren Release + secreto configurado; pasos en ui/telemetria.md).
+
 ### 2026-10-25 — Versión y actualizaciones en la status bar, chequeo al arrancar y versión en cada línea de log
 
 - **Status bar con versión y actualizaciones**: al lado derecho (junto al ⚙) se suman la **versión instalada** (`v{Settings.AppVersion}`, vía nuevo `AppVersionInfo`, InformationalVersion recortada del `+sha`), un botón **⟳** que ejecuta el chequeo de GitHub Releases ya existente (`Settings.CheckForUpdatesCommand`) y una **pill «↻ Actualizar a vX.Y.Z»** visible solo cuando hay versión más nueva, que abre Ajustes directo en la pestaña Actualizaciones (`OpenUpdatesTab` → `SettingsPanel.ShowUpdatesTab()`). El ⚙ no cambia.
