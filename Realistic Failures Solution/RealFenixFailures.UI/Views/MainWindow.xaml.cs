@@ -72,7 +72,7 @@ public partial class MainWindow : Window {
 
         _isCloseDialogOpen = true;
         try {
-            var dialog = new CloseChoiceWindow { Owner = this };
+            var dialog = new CloseChoiceWindow(allowFullExit: !_viewModel.IsAnyModeActive) { Owner = this };
             var accepted = dialog.ShowDialog() == true;
             if (!accepted)
                 return;
@@ -95,6 +95,30 @@ public partial class MainWindow : Window {
         } finally {
             _isCloseDialogOpen = false;
         }
+    }
+
+    /// <summary>
+    /// Petición de salida completa (desde la bandeja): con una sesión activa solo muestra
+    /// el aviso de que hay que terminar la sesión primero; sin sesión activa, habilita el
+    /// cierre y apaga la app. Devuelve true si la salida fue aceptada.
+    /// </summary>
+    public bool TryRequestFullExit() {
+        if (_viewModel.IsAnyModeActive) {
+            if (_isCloseDialogOpen)
+                return false;
+
+            _isCloseDialogOpen = true;
+            try {
+                new CloseChoiceWindow(allowFullExit: false) { Owner = this }.ShowDialog();
+            } finally {
+                _isCloseDialogOpen = false;
+            }
+            return false;
+        }
+
+        IsExitAllowed = true;
+        Dispatcher.BeginInvoke(() => System.Windows.Application.Current.Shutdown());
+        return true;
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {

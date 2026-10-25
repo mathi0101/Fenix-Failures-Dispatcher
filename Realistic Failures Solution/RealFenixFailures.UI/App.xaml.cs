@@ -86,8 +86,10 @@ public partial class App : System.Windows.Application {
 
     private void RequestExit() {
         foreach (System.Windows.Window window in Windows) {
-            if (window is MainWindow mainWindow)
-                mainWindow.IsExitAllowed = true;
+            if (window is MainWindow mainWindow) {
+                mainWindow.TryRequestFullExit();
+                return;
+            }
         }
 
         Shutdown();
