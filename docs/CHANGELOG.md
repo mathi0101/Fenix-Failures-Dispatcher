@@ -8,9 +8,12 @@
 - Docs: [configuracion-y-preferencias.md](ui/configuracion-y-preferencias.md) (grupo de status bar + chequeo al arrancar), [manejo-de-errores-y-arranque.md](ui/manejo-de-errores-y-arranque.md) (versión en el log diario).
 - Verificación: build Debug **0 errores / 0 advertencias**; suite **235/235**. La UI nueva (pill, ⟳, versión) y la línea de arranque no se verificaron en sesión interactiva: requieren prueba manual (o PC de testing). Sin cambios de esquema ni migraciones.
 
-### 2026-10-25 — Convención: bump de versión sugerido por tarea de agente
+### 2026-10-25 — Rebalanceo de desgaste: tasas subidas y cantidad de sistemas escalada por horas de vuelo
 
-- Nueva convención para agentes: toda tarea que cambie código termina su resumen con un **bump de versión sugerido, no aplicado** (`feat` → minor, `fix` → patch, `docs`/`refactor`/`test`/`chore` → sin bump), calculado desde el `<Version>` vigente de `Directory.Build.props`. El agente no edita ese archivo ni crea tags: el número se define y cierra recién en el runbook de release de [desarrollo.md](desarrollo.md). Documentado en [AGENTS.md](../AGENTS.md) (sección "Versión: sugerir el bump, no aplicarlo") y en [desarrollo.md](desarrollo.md#sugerencia-de-versión-por-tarea-de-agente). Objetivo: evitar conflictos multi-agente sobre `Directory.Build.props` y bumps innecesarios, manteniendo el número como decisión del usuario en el release. Sin cambios de código.
+- **Tasas de desgaste del catálogo subidas ~+15–50 %** (`AircraftWearableSystem.WearPerFlightHour`): ENG 0.5→0.7, Start faults 0.8→1.0, APU 0.4→0.5, HYD/FUEL/NEUM 0.6→0.75, Flight controls 0.4→0.5, grupo 0.3→0.4, grupo 0.2→0.3, grupo 0.1→0.15. Migración incremental `RebalanceWearRates` (solo `UpdateData`, `Down` simétrico) actualiza las bases existentes al arrancar (`MigrateAsync`); el desgaste ya acumulado no se toca.
+- **Cantidad de sistemas que acumulan escala con las horas de vuelo** (antes: sorteo fijo entre 1 y cap): 1,5 sistemas por hora de vuelo, mínimo 3 en vuelo corto, máximo todos los elegibles en vuelo largo (≥13,4 h con 19 sistemas). Aplica al cierre normal (via `RealisticWearScaling`, selección aleatoria con el Random de la política) y al desgaste diferido de sesiones huérfanas.
+- **`FailureEngine:RealisticMode:Wear:SessionSystemsCap` cambia de semántica y default**: ahora es tope opcional (0 = sin tope, nuevo default; antes 5 fijo). Un valor > 0 recota el máximo del escalado.
+- Pruebas: build Debug/Release **0 errores / 0 advertencias**; suite **235/235** (nuevos: mínimo 3 sistemas en vuelo corto y cap en vuelo largo, cierre normal y huérfana; `InitialReleaseMigrationTests` actualizados al set de 2 migraciones). Detalle en [realistic-mode/estado-y-diseno.md](realistic-mode/estado-y-diseno.md). Calibración y sesión real MSFS/Fenix no verificadas.
 
 ### 2026-10-25 — Fix de warnings EF de raíz, horas de desgaste desde encendido de motores y guard de salida con sesión activa
 

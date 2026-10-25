@@ -1,5 +1,6 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
+using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces.Repositories;
@@ -12,13 +13,15 @@ public class FlightSessionService : IFlightSessionService {
     private readonly IFlightSessionRepository _sessionRepository;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
     private readonly IAircraftSystemWearRepository? _aircraftSystemWearRepository;
+    private readonly Random _wearRandom;
     private readonly ILogger<FlightSessionService> _logger;
 
     public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository,
-        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null) {
+        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null, Random? wearRandom = null) {
         _sessionRepository = sessionRepository;
         _triggeredFailureRepository = triggeredFailureRepository;
         _aircraftSystemWearRepository = aircraftSystemWearRepository;
+        _wearRandom = wearRandom ?? Random.Shared;
         _logger = logger ?? NullLogger<FlightSessionService>.Instance;
     }
 
@@ -214,8 +217,17 @@ public class FlightSessionService : IFlightSessionService {
             var hours = (eta.Value - enginesStartedAt.Value).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.UserAircraftId, ct);
+            var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();
+            var count = RealisticWearScaling.CountForHours(hours, eligible.Count, sessionSystemsCap: 0);
+            if (count < eligible.Count) {
+                for (var i = 0; i < count; i++) {
+                    var j = _wearRandom.Next(i, eligible.Count);
+                    (eligible[i], eligible[j]) = (eligible[j], eligible[i]);
+                }
+                eligible = eligible.Take(count).ToList();
+            }
             var deltas = new List<SystemWearDeltaDto>();
-            foreach (var wear in wears) {
+            foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
                 var delta = rate * hours;

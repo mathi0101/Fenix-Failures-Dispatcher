@@ -84,7 +84,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 1,
                             Name = "Air Conditioning",
                             ShortName = "Air",
-                            WearPerFlightHour = 0.20000000000000001
+                            WearPerFlightHour = 0.29999999999999999
                         },
                         new
                         {
@@ -93,7 +93,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 2,
                             Name = "AutoFlight",
                             ShortName = "AutoFlight",
-                            WearPerFlightHour = 0.10000000000000001
+                            WearPerFlightHour = 0.14999999999999999
                         },
                         new
                         {
@@ -102,7 +102,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 3,
                             Name = "Communications",
                             ShortName = "Communications",
-                            WearPerFlightHour = 0.29999999999999999
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
@@ -111,7 +111,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 4,
                             Name = "Electrical power",
                             ShortName = "Elec",
-                            WearPerFlightHour = 0.29999999999999999
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
@@ -120,7 +120,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 5,
                             Name = "Fire protection",
                             ShortName = "Fire",
-                            WearPerFlightHour = 0.20000000000000001
+                            WearPerFlightHour = 0.29999999999999999
                         },
                         new
                         {
@@ -129,7 +129,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 6,
                             Name = "Flight controls",
                             ShortName = "Flight controls",
-                            WearPerFlightHour = 0.40000000000000002
+                            WearPerFlightHour = 0.5
                         },
                         new
                         {
@@ -138,7 +138,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 7,
                             Name = "Fuel",
                             ShortName = "Fuel",
-                            WearPerFlightHour = 0.59999999999999998
+                            WearPerFlightHour = 0.75
                         },
                         new
                         {
@@ -147,7 +147,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 8,
                             Name = "Hydraulic power",
                             ShortName = "Hydraulic",
-                            WearPerFlightHour = 0.59999999999999998
+                            WearPerFlightHour = 0.75
                         },
                         new
                         {
@@ -156,7 +156,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 9,
                             Name = "Ice and rain protection",
                             ShortName = "Ice/Rain",
-                            WearPerFlightHour = 0.10000000000000001
+                            WearPerFlightHour = 0.14999999999999999
                         },
                         new
                         {
@@ -165,7 +165,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 10,
                             Name = "Indicating/Recording system",
                             ShortName = "Indicating/Recording",
-                            WearPerFlightHour = 0.29999999999999999
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
@@ -174,7 +174,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 11,
                             Name = "Landing gear",
                             ShortName = "Gear",
-                            WearPerFlightHour = 0.20000000000000001
+                            WearPerFlightHour = 0.29999999999999999
                         },
                         new
                         {
@@ -183,7 +183,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 12,
                             Name = "Navigation",
                             ShortName = "Navigation",
-                            WearPerFlightHour = 0.29999999999999999
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
@@ -192,7 +192,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 13,
                             Name = "Oxygen",
                             ShortName = "Oxygen",
-                            WearPerFlightHour = 0.10000000000000001
+                            WearPerFlightHour = 0.14999999999999999
                         },
                         new
                         {
@@ -201,7 +201,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 14,
                             Name = "Pneumatic",
                             ShortName = "Pneumatic",
-                            WearPerFlightHour = 0.59999999999999998
+                            WearPerFlightHour = 0.75
                         },
                         new
                         {
@@ -210,7 +210,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 15,
                             Name = "Information systems",
                             ShortName = "Information",
-                            WearPerFlightHour = 0.29999999999999999
+                            WearPerFlightHour = 0.40000000000000002
                         },
                         new
                         {
@@ -219,7 +219,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 16,
                             Name = "APU",
                             ShortName = "APU",
-                            WearPerFlightHour = 0.40000000000000002
+                            WearPerFlightHour = 0.5
                         },
                         new
                         {
@@ -228,7 +228,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 17,
                             Name = "Doors",
                             ShortName = "Doors",
-                            WearPerFlightHour = 0.10000000000000001
+                            WearPerFlightHour = 0.14999999999999999
                         },
                         new
                         {
@@ -237,7 +237,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 18,
                             Name = "Power plant",
                             ShortName = "Engines",
-                            WearPerFlightHour = 0.5
+                            WearPerFlightHour = 0.69999999999999996
                         },
                         new
                         {
@@ -246,7 +246,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 19,
                             Name = "Start faults",
                             ShortName = "Start Faults",
-                            WearPerFlightHour = 0.80000000000000004
+                            WearPerFlightHour = 1.0
                         });
                 });
 

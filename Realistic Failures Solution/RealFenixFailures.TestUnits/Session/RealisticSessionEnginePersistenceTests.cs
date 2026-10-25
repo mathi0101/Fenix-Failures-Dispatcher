@@ -69,7 +69,7 @@ public class RealisticSessionEnginePersistenceTests {
         return (system, group, definition, preset, aircraft, flightPlan);
     }
 
-    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null) {
+    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null, int sessionSystemsCap = 0) {
         var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
         var defRepo = new FenixFailureDefinitionRepository(db);
         var flightSessionRepo = new FlightSessionRepository(db);
@@ -82,7 +82,7 @@ public class RealisticSessionEnginePersistenceTests {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
             Physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 1.0 },
-            Wear = new WearSettings { SessionSystemsCap = 100 },
+            Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap },
             Profiles = {
                 new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
             }
@@ -178,16 +178,17 @@ public class RealisticSessionEnginePersistenceTests {
                 new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
             .Returns(ComplexFlightPhaseEnum.Takeoff);
         await engine.EvaluateAsync(CancellationToken.None);
-        clock = clock.AddHours(2);
+        // 14 h de vuelo (1,5 sistemas/h supera los 20 elegibles): acumulan todos, selección determinística.
+        clock = clock.AddHours(14);
 
         await engine.StopSession(CancellationToken.None);
         db.ChangeTracker.Clear();
 
         var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.Equal(1.2, wear.WearPercentage, 6);
+        Assert.Equal(8.4, wear.WearPercentage, 6);
         var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
-        Assert.Equal(1.2, delta.DeltaPercentage, 6);
-        Assert.Equal(1.2, delta.TotalPercentage, 6);
+        Assert.Equal(8.4, delta.DeltaPercentage, 6);
+        Assert.Equal(8.4, delta.TotalPercentage, 6);
     }
 
     [Fact]
@@ -224,14 +225,15 @@ public class RealisticSessionEnginePersistenceTests {
             .Returns(ComplexFlightPhaseEnum.Takeoff);
         await engine.EvaluateAsync(CancellationToken.None);
 
-        // Dos horas de escenario desde el encendido acumulan desgaste sin desplazar las fechas UTC del historial.
+        // Catorce horas de vuelo desde el encendido (≥13,4 h → 1,5/h cubre los 20 elegibles): acumulan todos,
+        // sin desplazar las fechas UTC del historial. La hora pre-motores no cuenta.
         var beforeStop = DateTime.UtcNow;
-        clock = clock.AddHours(2);
+        clock = clock.AddHours(14);
         await engine.StopSession(CancellationToken.None);
         var afterStop = DateTime.UtcNow;
 
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.InRange(wear.WearPercentage, 51.2, 51.21);
+        Assert.InRange(wear.WearPercentage, 58.4, 58.41);
         Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
         var session = await db.FlightSessions.AsNoTracking().SingleAsync();
         Assert.InRange(session.FinishedAt!.Value, beforeStop, afterStop);
@@ -267,5 +269,57 @@ public class RealisticSessionEnginePersistenceTests {
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
         Assert.Equal(50, wear.WearPercentage);
         Assert.False(db.Set<SessionSystemWearDelta>().Any(d => d.AtaId == wearable.AtaId));
+    }
+
+    [Fact]
+    public async Task StopSession_ShortFlight_AccumulatesMinimumThreeSystems() {
+        // Vuelo corto (2 h → 1,5 sistemas/h = 3): acumulan exactamente 3 de los 19 del catálogo, mínimo del escalado.
+        var db = CreateContext();
+        var seeded = Seed(db);
+        SetupSimulatorConnected();
+        var clock = DateTime.UtcNow;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        var start = await engine.TryStartSession(new RealisticModeContext(
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None);
+        Assert.True(start.Started);
+
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Takeoff);
+        await engine.EvaluateAsync(CancellationToken.None);
+        clock = clock.AddHours(2);
+        await engine.StopSession(CancellationToken.None);
+
+        var deltas = await db.Set<SessionSystemWearDelta>().ToListAsync();
+        Assert.Equal(3, deltas.Count);
+    }
+
+    [Fact]
+    public async Task StopSession_CapLimitsSystemCountEvenOnLongFlight() {
+        // Tope explícito: con SessionSystemsCap=2, un vuelo de 14 h acumula 2 sistemas, no todos.
+        var db = CreateContext();
+        var seeded = Seed(db);
+        SetupSimulatorConnected();
+        var clock = DateTime.UtcNow;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock, sessionSystemsCap: 2);
+        var start = await engine.TryStartSession(new RealisticModeContext(
+            RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None);
+        Assert.True(start.Started);
+
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Takeoff);
+        await engine.EvaluateAsync(CancellationToken.None);
+        clock = clock.AddHours(14);
+        await engine.StopSession(CancellationToken.None);
+
+        var deltas = await db.Set<SessionSystemWearDelta>().ToListAsync();
+        Assert.Equal(2, deltas.Count);
     }
 }

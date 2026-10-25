@@ -248,9 +248,9 @@ public class FlightSessionServiceTests {
         return service;
     }
 
-    private static (AircraftWearableSystem System, AircraftSystemWear Wear) AddWearable(RealFenixDbContext db, int aircraftId, double ratePerHour, double basePercentage) {
+    private static (AircraftWearableSystem System, AircraftSystemWear Wear) AddWearable(RealFenixDbContext db, int aircraftId, double ratePerHour, double basePercentage, int ataId = 29) {
         var system = new AircraftWearableSystem {
-            AtaId = 29,
+            AtaId = ataId,
             Name = "Hidráulica",
             ShortName = "HYD",
             DisplayOrder = 1,
@@ -335,7 +335,38 @@ public class FlightSessionServiceTests {
         var (_, existingWear) = AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0);
 
         // Encendido de motores 1 h después del arranque (AddSession arranca la sesión 2 h atrás) y
-        // ETA 2 h después del arranque: el desgaste diferido cubre solo la hora de vuelo hasta la ETA.
+        // ETA 16 h después del arranque: 15 h de vuelo (1,5 sistemas/h ≥ 22 elegibles) → acumulan todos.
+        db.SessionEventLogs.Add(new SessionEventLog {
+            FlightSessionId = session.Id,
+            OccurredAt = session.StartedAt.AddHours(1),
+            Category = SessionEventCategory.EnginesStarted,
+            EventCode = "ENGINES_STARTED",
+            Description = "Motores encendidos",
+            FlightPhase = ComplexFlightPhaseEnum.Taxi
+        });
+        var plan = db.FlightPlans.First(p => p.Id == session.FlightPlanId);
+        plan.EstimatedArrivalUtc = session.StartedAt.AddHours(16);
+        db.SaveChanges();
+
+        var result = await service.FinalizeUnfinishedSessionAsync(session.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
+        Assert.Equal(85.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
+        Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
+            f => f.State == FailureLifecycleState.NotResolved);
+    }
+
+    [Fact]
+    public async Task FinalizeUnfinishedSessionAsync_ShortFlight_AppliesMinimumThreeSystems() {
+        var db = CreateContext();
+        var service = CreateSutWithWear(db);
+        var session = AddSession(db, RiskLevel.Moderate, "SUMU", "SAEZ", null);
+        for (var i = 0; i < 3; i++)
+            AddWearable(db, session.UserAircraftId, ratePerHour: 5.0, basePercentage: 10.0, ataId: 900 + i);
+
+        // Encendido de motores 1 h después del arranque y ETA 2 h después del arranque: 1 h de vuelo →
+        // el escalado garantiza mínimo 3 sistemas con desgaste aunque el vuelo sea corto.
         db.SessionEventLogs.Add(new SessionEventLog {
             FlightSessionId = session.Id,
             OccurredAt = session.StartedAt.AddHours(1),
@@ -351,10 +382,8 @@ public class FlightSessionServiceTests {
         var result = await service.FinalizeUnfinishedSessionAsync(session.Id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.True(db.FlightSessions.First().FinishedAt.HasValue);
-        Assert.Equal(15.0, db.AircraftSystemWears.Single(w => w.Id == existingWear.Id).WearPercentage, precision: 6);
-        Assert.Contains(db.TriggeredFailures.Where(f => f.FlightSessionId == session.Id),
-            f => f.State == FailureLifecycleState.NotResolved);
+        Assert.Equal(3, result!.WearDeltas.Count);
+        Assert.All(result.WearDeltas, d => Assert.True(d.DeltaPercentage > 0));
     }
 
     [Fact]

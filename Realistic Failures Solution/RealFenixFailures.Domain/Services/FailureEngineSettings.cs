@@ -86,9 +86,9 @@ public class WearSettings {
     public double AmplificationFactor { get; set; } = 0.5;
     public int ThresholdNoticePct { get; set; } = 80;
     /// <summary>
-    /// Tope de sistemas que acumulan desgaste al cerrar la sesión: se elige una cantidad aleatoria
-    /// entre 1 (hardcodeado) y este valor, y solo esos sistemas suman. Valores menores a 1 se clampean a 1.
-    /// Limita el realismo forzado de "todos los sistemas" y el tamaño del desgaste en el resumen.
+    /// Tope opcional de sistemas que acumulan desgaste al cerrar la sesión. La cantidad base escala con las
+    /// horas de vuelo (1,5 sistemas/h, mínimo 3, máximo todos los elegibles); un valor > 0 recota ese máximo.
+    /// 0 o negativo = sin tope (default).
     /// </summary>
-    public int SessionSystemsCap { get; set; } = 5;
+    public int SessionSystemsCap { get; set; } = 0;
 }

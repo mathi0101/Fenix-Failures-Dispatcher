@@ -612,8 +612,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     /// <summary>
     /// Acumula el desgaste por horas de vuelo de la sesión (diseño objetivo §12) y devuelve el delta aplicado
     /// por sistema para el modal de resultados (§13). Un error de desgaste no interrumpe el cierre.
-    /// No suman todos los sistemas: se elige al azar una cantidad entre 1 y <c>Wear:SessionSystemsCap</c>,
-    /// y solo esos sistemas acumulan en este cierre (el Random es el de la política, determinable en tests).
+    /// No acumulan todos los sistemas: la cantidad escala con las horas de vuelo (1,5 sistemas/h, mínimo 3,
+    /// máximo todos los elegibles) y <c>Wear:SessionSystemsCap</c> > 0 la recota; la selección es aleatoria
+    /// con el Random de la política (determinable en tests).
     /// </summary>
     private async Task<IReadOnlyList<SystemWearDeltaDto>> AccumulateWearAsync(RealisticSession session, DateTime stoppedAtUtc, CancellationToken ct) {
         if (_aircraftSystemWearRepository is null) return [];
@@ -627,8 +628,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.Aircraft.Id, ct);
             var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();
             var eligibleCount = eligible.Count;
-            var cap = Math.Max(1, _settings.Wear.SessionSystemsCap);
-            var count = Math.Min(cap, eligibleCount);
+            var cap = _settings.Wear.SessionSystemsCap;
+            var count = RealisticWearScaling.CountForHours(hours, eligibleCount, cap);
             if (count < eligibleCount) {
                 for (var i = 0; i < count; i++) {
                     var j = _policy.Next(i, eligibleCount);
@@ -637,8 +638,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 eligible = eligible.Take(count).ToList();
             }
             if (count < eligibleCount)
-                _logger.LogDebug("Realistic sesión {SessionId}: cap de desgaste por cierre, acumulan {Count} de {Total} sistemas elegibles (tope {Cap})",
-                    session.Session.Id, count, eligibleCount, cap);
+                _logger.LogDebug("Realistic sesión {SessionId}: acumulan {Count} de {Total} sistemas elegibles por {Hours:F1} h de vuelo (tope {Cap})",
+                    session.Session.Id, count, eligibleCount, hours, cap);
             var deltas = new List<SystemWearDeltaDto>();
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
