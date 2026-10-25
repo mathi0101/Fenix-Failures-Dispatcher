@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-10-25 — README reorientado a usuarios (pitch de beta) + estado actualizado
+
+- `README.md` reescrito con foco en quienes llegan al repo buscando una herramienta: encabezado con badge de CI, aviso de **beta** con llamada a descargar y reportar feedback, secciones "Por qué existe" (SOPs/flows de Airbus, fallas contextuales), "Modos" con los **4 perfiles de riesgo** del modo Realistic (Bajo/Moderado/Alto/7700, verificado contra `RealisticProfileCatalog`), "Descarga" (Releases, single-file self-contained win-x64; requisitos Windows x64, MSFS 2020/2024, cualquier avión de Fenix con API local) y "Reportar bugs y feedback" (Issues + qué incluir: pasos, esperado vs obtenido, captura y log del día). H1 alineado a la marca real de la app ("Real Fenix Failures", título de la ventana) en lugar de "Realistic A320 Fenix Failures".
+- "Estado honesto" actualizado con datos verificados hoy: suite **230/230** (corrida local `dotnet test`), CI en push/PR a `dev`/`master`, distribución por workflow `Release` al taguear `v*`, modo Realistic (motor v2 + UI) implementado y commiteado (ya no aplica el "WIP sin commitear" anterior), integración real MSFS/Fenix sigue sin verificar y **MSFS 2020** sin prueba manual (compatibilidad afirmada por la API de SimConnect). El resto del contenido de desarrollador (arquitectura híbrida, stack, comandos, docs, licencia) se conserva.
+- El pitch de difusión para WhatsApp/Discord quedó en `mensaje-beta.md` (sin trackear; decidir si se versiona). Sin cambios de código. Build/test: 230/230 local. MSFS/Fenix real no verificado.
+
 ### 2026-10-24 — Cap de sistemas que acumulan desgaste al cerrar sesión + tooltip de reanudar
 
 - Nuevo parámetro `FailureEngine:RealisticMode:Wear:SessionSystemsCap` (default **5**; valores menores a 1 se clampean a 1): al cerrar la sesión ya no acumulan todos los sistemas; se elige al azar una cantidad entre **1 (hardcodeado)** y el cap, y solo esos suman `WearPerFlightHour × horas de escenario`. La selección es un Fisher-Yates parcial con el Random de la política (determinable en tests) sobre los sistemas con tasa > 0. Reduce el realismo forzado de "todos los sistemas" y achica el bloque de desgaste del modal de resultados. El log Debug del cierre informa `acumulan X de Y sistemas elegibles (tope N)` cuando el cap recorta.
