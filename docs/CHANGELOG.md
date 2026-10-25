@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026-10-25 — Definido el próximo release: 0.3.0-beta.1 con todas las novedades desde v0.2.0-beta.1
+
+- El número del próximo release vuelve a **0.3.0-beta.1** (el bump a 0.4.0-beta.1 se definió antes de cerrar el alcance; el tag nunca se publicó — último publicado: v0.2.0-beta.1, verificado local y remoto). `docs/releases/v0.3.0-beta.1.md` reescrito para cubrir **todos** los cambios desde v0.2.0-beta.1: desgaste desde motores, escala por duración, tasas rebalanceadas con migración, cierre protegido con sesión activa, versión clickeable + pill + chequeo al arrancar, versión en logs y crash reports, crashes junto a los logs, telemetría anónima con opt-out y README en el ZIP.
+
 ### 2026-10-25 — Status bar: versión clickeable abre Actualizaciones (se quita el botón ⟳)
 
 - La etiqueta de versión (`vX.Y.Z`) de la status bar es ahora un botón plano: un clic abre Ajustes directo en la pestaña Actualizaciones (misma acción que la pill «↻ Actualizar a vX.Y.Z», que no cambia). Se elimina el botón **⟳** que estaba entre la pill y la versión; el chequeo manual sigue disponible en la pestaña (y automático al arrancar). Docs de Ajustes actualizados ([configuracion-y-preferencias.md](ui/configuracion-y-preferencias.md)).
