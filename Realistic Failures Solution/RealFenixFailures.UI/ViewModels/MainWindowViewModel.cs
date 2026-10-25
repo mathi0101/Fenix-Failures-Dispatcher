@@ -350,6 +350,16 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         await _orchestrator.UpdateConnection(CancellationToken.None);
         await LoadCustomPresetsAsync();
         await _orchestrator.StartAutomaticTimerAsync(CancellationToken.None);
+        _ = CheckForUpdatesAtStartupAsync();
+    }
+
+    private async Task CheckForUpdatesAtStartupAsync() {
+        try {
+            await Settings.CheckForUpdatesAsync();
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "El chequeo de actualizaciones al inicio no pudo completarse.");
+        }
     }
 
     #endregion

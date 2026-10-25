@@ -137,11 +137,27 @@
                         </Border>
                     </StackPanel>
 
-                    <Button Grid.Column="4" Content="⚙"
-                            Command="{Binding OpenSettingsCommand}"
-                            Style="{StaticResource GhostButtonStyle}"
-                            FontSize="14"
-                            ToolTip="Configuración"/>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Click="OpenUpdatesTab" Cursor="Hand"
+                                Background="#1A2540" BorderThickness="0"
+                                Foreground="{StaticResource Brush.Accent.Blue.Primary}"
+                                FontSize="11" FontWeight="SemiBold" Padding="12,4" Margin="0,0,8,0"
+                                Content="{Binding Settings.NewUpdateTag, StringFormat='↻ Actualizar a {0}'}"
+                                Visibility="{Binding Settings.HasNewUpdate, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Hay una versión más nueva. Abre Ajustes → Actualizaciones"/>
+                        <Button Content="⟳" Command="{Binding Settings.CheckForUpdatesCommand}"
+                                Style="{StaticResource GhostButtonStyle}" FontSize="14" Margin="0,0,2,0"
+                                ToolTip="Buscar actualizaciones"/>
+                        <TextBlock FontSize="10" Margin="4,0,10,0"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center">
+                            <Run Text="v"/><Run Text="{Binding Settings.AppVersion, Mode=OneWay}"/>
+                        </TextBlock>
+                        <Button Content="⚙"
+                                Command="{Binding OpenSettingsCommand}"
+                                Style="{StaticResource GhostButtonStyle}"
+                                FontSize="14"
+                                ToolTip="Configuración"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 

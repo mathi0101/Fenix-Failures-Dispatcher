@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 2026-10-25 — Versión y actualizaciones en la status bar, chequeo al arrancar y versión en cada línea de log
+
+- **Status bar con versión y actualizaciones**: al lado derecho (junto al ⚙) se suman la **versión instalada** (`v{Settings.AppVersion}`, vía nuevo `AppVersionInfo`, InformationalVersion recortada del `+sha`), un botón **⟳** que ejecuta el chequeo de GitHub Releases ya existente (`Settings.CheckForUpdatesCommand`) y una **pill «↻ Actualizar a vX.Y.Z»** visible solo cuando hay versión más nueva, que abre Ajustes directo en la pestaña Actualizaciones (`OpenUpdatesTab` → `SettingsPanel.ShowUpdatesTab()`). El ⚙ no cambia.
+- **Chequeo automático al abrir la app**: `MainWindowViewModel.InitializeAsync` lanza fire-and-forget `CheckForUpdatesAtStartupAsync` → `SettingsWindowViewModel.CheckForUpdatesAsync` (pasa a pública). No bloquea el arranque ni instala nada: si hay versión nueva aparece la pill y el estado queda en la pestaña; fallo de red → solo `Debug` en el log.
+- **Versión en los logs**: el template default de Serilog suma `v{AppVersion}` en cada línea del log diario (property enriquecida desde `AppVersionInfo` en `HostBuilderExtensions`) y `App.OnStartup` registra «Real Fenix Failures v{Version} iniciando (SO: …)». Así, cualquier log que envíe un usuario identifica la build; un template custom en `Serilog:WriteTo:0:Args:outputTemplate` lo reemplaza. El crash log ya incluía la versión (sin cambios).
+- Docs: [configuracion-y-preferencias.md](ui/configuracion-y-preferencias.md) (grupo de status bar + chequeo al arrancar), [manejo-de-errores-y-arranque.md](ui/manejo-de-errores-y-arranque.md) (versión en el log diario).
+- Verificación: build Debug **0 errores / 0 advertencias**; suite **235/235**. La UI nueva (pill, ⟳, versión) y la línea de arranque no se verificaron en sesión interactiva: requieren prueba manual (o PC de testing). Sin cambios de esquema ni migraciones.
+
 ### 2026-10-25 — Convención: bump de versión sugerido por tarea de agente
 
 - Nueva convención para agentes: toda tarea que cambie código termina su resumen con un **bump de versión sugerido, no aplicado** (`feat` → minor, `fix` → patch, `docs`/`refactor`/`test`/`chore` → sin bump), calculado desde el `<Version>` vigente de `Directory.Build.props`. El agente no edita ese archivo ni crea tags: el número se define y cierra recién en el runbook de release de [desarrollo.md](desarrollo.md). Documentado en [AGENTS.md](../AGENTS.md) (sección "Versión: sugerir el bump, no aplicarlo") y en [desarrollo.md](desarrollo.md#sugerencia-de-versión-por-tarea-de-agente). Objetivo: evitar conflictos multi-agente sobre `Directory.Build.props` y bumps innecesarios, manteniendo el número como decisión del usuario en el release. Sin cambios de código.

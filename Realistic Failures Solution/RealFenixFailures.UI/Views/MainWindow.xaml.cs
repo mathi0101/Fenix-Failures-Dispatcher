@@ -139,6 +139,11 @@ public partial class MainWindow : Window {
     private void CloseWindow(object sender, RoutedEventArgs e) =>
         Close();
 
+    private void OpenUpdatesTab(object sender, RoutedEventArgs e) {
+        _viewModel.IsSettingsOpen = true;
+        SettingsPanelHost.ShowUpdatesTab();
+    }
+
     private void OpenDonationPage(object sender, RoutedEventArgs e) {
         try {
             Process.Start(new ProcessStartInfo(SupportLinks.Donation) { UseShellExecute = true });

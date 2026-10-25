@@ -23,6 +23,7 @@ public static class HostBuilderExtensions {
         return hostBuilder
             .UseSerilog((context, services, loggerConfiguration) => {
                 loggerConfiguration.ApplyDefaultConfiguration(context.Configuration);
+                loggerConfiguration.Enrich.WithProperty("AppVersion", AppVersionInfo.Current);
                 loggerConfiguration.WriteTo.Sink(new UnexpectedErrorSink(CrashReporter.ReportUnexpected));
             })
             .ConfigureServices((context, services) => {

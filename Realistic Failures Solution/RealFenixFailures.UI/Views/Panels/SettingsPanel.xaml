@@ -147,7 +147,8 @@
         </Border>
 
         <!-- CONTENIDO -->
-        <TabControl Grid.Row="1"
+        <TabControl x:Name="SettingsTabs"
+                    Grid.Row="1"
                     Margin="20,16,20,20"
                     Background="Transparent"
                     BorderThickness="0"
@@ -276,7 +277,7 @@
                 </ScrollViewer>
             </TabItem>
             <!-- ============ ACTUALIZACIONES ============ -->
-            <TabItem Header="Actualizaciones">
+            <TabItem x:Name="UpdatesTab" Header="Actualizaciones">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
                         <TextBlock Text="VERSIÓN" Style="{StaticResource SettingsSectionTitleStyle}"/>

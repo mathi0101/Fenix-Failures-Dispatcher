@@ -166,10 +166,10 @@ public class SettingsWindowViewModel : ObservableObject {
         return Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
     }
 
-    private async Task CheckForUpdatesAsync() {
+    /// <summary>Chequeo de actualizaciones: manual (pestaña) y automático (arranque de la app).</summary>
+    public async Task CheckForUpdatesAsync() {
         if (IsCheckingForUpdates)
             return;
-
         IsCheckingForUpdates = true;
         HasNewUpdate = false;
         UpdateState = UpdateCheckState.Checking;

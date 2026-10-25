@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.UI.DependencyInjection;
@@ -50,6 +51,9 @@ public partial class App : System.Windows.Application {
             await _host.StartAsync();
 
             using var scope = _host.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ILogger<App>>()
+                .LogInformation("Real Fenix Failures v{Version} iniciando (SO: {OS}).",
+                    AppVersionInfo.Current, Environment.OSVersion.VersionString);
             var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
             await dbContext.Database.MigrateAsync();
 
