@@ -54,6 +54,8 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF_NAME
           $zip = Join-Path $env:RUNNER_TEMP "RealFenixFailures-$tag-win-x64.zip"
-          $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--generate-notes', '--title', $tag)
+          $notes = Join-Path "docs/releases" "$tag.md"
+          $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--title', $tag)
+          if (Test-Path $notes) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           gh @ghArgs

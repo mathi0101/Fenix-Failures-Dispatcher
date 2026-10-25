@@ -446,3 +446,6 @@ FodyWeavers.xsd
 # Modo desarrollo: presets regenerables no se versionan; failures.json sí (catálogo curado desde 2026-10-17)
 Realistic Failures Solution/RealFenixFailures.Domain/Resources/training_presets.json
 Realistic Failures Solution/RealFenixFailures.Domain/Resources/realistic_presets.json
+
+# Notas curadas de release para usuarios (docs/releases), no resultados de build
+!docs/releases/

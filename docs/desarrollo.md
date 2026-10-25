@@ -103,13 +103,11 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
 
 6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, publica en una carpeta explícita (`${{ runner.temp }}/RealFenixFailures-publish`), arma el ZIP desde esa misma carpeta (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `SimConnect.dll` nativa + `appsettings.json`, sin BD/logs) y crea el release. No busca ejecutables recursivamente en bin/Release; si falta un archivo requerido, el empaquetado falla. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos cuatro archivos. El `SimConnect.dll` nativo es **obligatorio** junto al exe: sin él el wrapper managed (mixto C++/CLI) no carga y la app falla al conectar (ver [simconnect](integraciones/simconnect.md)).
 
-7. **GitHub Release** (desde `master`): automático con el workflow `Release` al pushear el tag (crea el release en `master` con `--generate-notes` y adjunta el ZIP; los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales). A mano:
+7. **Release notes curadas y GitHub Release** (desde `master`): las notas de cada release se curan en `docs/releases/vX.Y.Z.md` — lenguaje para el usuario final (qué cambia para su juego, sin jerga técnica), con secciones p. ej. Novedades / Mejoras / Correcciones / Actualización y el link *Full Changelog* `vAnterior...vNuevo`. El agente la genera **antes de crear el tag** a partir de `git log vAnterior..HEAD --oneline` y de las entradas de [CHANGELOG.md](CHANGELOG.md) posteriores a la fecha del tag anterior; se commitea en `dev` para que entre al merge a `master`. El workflow `Release` al pushear el tag usa ese archivo como cuerpo del release (`--notes-file docs/releases/vX.Y.Z.md`) si existe; si no, cae a `--generate-notes` (lista cruda de commits). Los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales. A mano:
 
    ```sh
-   gh release create v0.2.0 --target master --generate-notes --title "v0.2.0" ruta/al/zip.zip
+   gh release create v0.2.0 --target master --notes-file docs/releases/v0.2.0.md --title "v0.2.0" ruta/al/zip.zip
    ```
-
-   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md).
 
 8. **Post-release**: subir `<Version>` en `Directory.Build.props` de `dev` a la próxima de desarrollo (p. ej. `0.3.0-dev.0`) y push. Verificar manualmente que la pestaña Actualizaciones detecta el release publicado.
 
