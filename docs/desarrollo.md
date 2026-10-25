@@ -119,6 +119,12 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
 
 10. **Protección y PRs (reglas vigentes)**: el ruleset `Protección dev/master` (Settings → Rules → Rulesets) bloquea borrado y force-push de ambas ramas con bypass "Always" para el rol admin. Forzar PR en `master` es recomendable **recién cuando haya colaboradores con write** (mismo ruleset: activar "Require a pull request before merging"); trabajando solo, el bypass ya deja el push directo y un PR por release solo agrega fricción. Opcional: segundo ruleset sobre tags `v*` (target tags, mismas reglas de borrado/force-push).
 
+### Sugerencia de versión por tarea de agente
+
+Cada tarea de agente que cambie código cierra su resumen con un **bump de versión sugerido, no aplicado**: `feat` → minor, `fix` → patch, `docs`/`refactor`/`test`/`chore` → sin bump (queda pendiente para la próxima tarea que sí lo amerite). El número se calcula desde el `<Version>` vigente de `Directory.Build.props` y se informa como `Bump sugerido: X.Y.Z(-dev.N)`.
+
+El agente no edita `Directory.Build.props` ni crea tags: la versión se define recién en los pasos 2-3 y 8 del runbook (elegir/cerrar/post-release), a decisión del usuario. Así se evitan conflictos multi-agente sobre ese archivo y bumps inflados por cambios que no ameritan release.
+
 ## Validación
 
 - Antes de terminar un cambio: build Debug y Release + `dotnet test` sin errores; auditoría de dependencias (`dotnet list RealFenixFailures.slnx package --vulnerable --include-transitive`) sin paquetes vulnerables y builds con **0 advertencias**.
