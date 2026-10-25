@@ -71,9 +71,19 @@ public class RealisticSessionManagerTests {
         };
         _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync([wear]);
-        var manager = CreateManager(TimeSpan.FromHours(1),
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20),
             evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random));
+        // El anclaje de desgaste es el ENGINES_STARTED: se lo hace llegar al engine por el loop real.
+        _sessionService
+            .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Cruise);
+        await Task.Delay(200);
         _now = _now.AddHours(2);
 
         await manager.StopAsync(CancellationToken.None);
@@ -101,9 +111,19 @@ public class RealisticSessionManagerTests {
         var w24 = NewWear(24);
         _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync([w21, w22, w23, w24]);
-        var manager = CreateManager(TimeSpan.FromHours(1),
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20),
             evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random), settings);
+        // El anclaje de desgaste es el ENGINES_STARTED: se lo hace llegar al engine por el loop real.
+        _sessionService
+            .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Cruise);
+        await Task.Delay(200);
         _now = _now.AddHours(2);
 
         await manager.StopAsync(CancellationToken.None);

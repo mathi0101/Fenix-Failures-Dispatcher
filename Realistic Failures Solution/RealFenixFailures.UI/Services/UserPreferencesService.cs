@@ -39,6 +39,47 @@ public class UserPreferencesService {
         }
     }
 
+    /// <summary>GUID anónimo y persistente de esta instalación (telemetría); no identifica al usuario.</summary>
+    public string GetOrCreateAnonymousId() {
+        lock (_lock) {
+            if (!string.IsNullOrWhiteSpace(_preferences.AnonymousId))
+                return _preferences.AnonymousId!;
+            _preferences.AnonymousId = Guid.NewGuid().ToString("N");
+        }
+        Save();
+        return _preferences.AnonymousId!;
+    }
+
+    /// <summary>Opt-out de la telemetría anónima (default: activada).</summary>
+    public bool TelemetryOptOut {
+        get {
+            lock (_lock) return _preferences.TelemetryOptOut;
+        }
+        set {
+            lock (_lock) {
+                if (_preferences.TelemetryOptOut == value)
+                    return;
+                _preferences.TelemetryOptOut = value;
+            }
+            Save();
+        }
+    }
+
+    /// <summary>Fecha (UTC) del último ping de telemetría enviado; dedup diario.</summary>
+    public DateTime? LastTelemetryDate {
+        get {
+            lock (_lock) return _preferences.LastTelemetryDate;
+        }
+        set {
+            lock (_lock) {
+                if (_preferences.LastTelemetryDate == value)
+                    return;
+                _preferences.LastTelemetryDate = value;
+            }
+            Save();
+        }
+    }
+
     private UserPreferences Load() {
         try {
             if (!File.Exists(_filePath))
@@ -73,4 +114,13 @@ public class UserPreferencesService {
 
 public class UserPreferences {
     public string? SimbriefUserId { get; set; }
+
+    /// <summary>Identificador aleatorio persistente de la instalación (telemetría anónima).</summary>
+    public string? AnonymousId { get; set; }
+
+    /// <summary>True si el usuario desactivó el ping anónimo de uso.</summary>
+    public bool TelemetryOptOut { get; set; }
+
+    /// <summary>Día (UTC) del último ping enviado; evita más de uno por día.</summary>
+    public DateTime? LastTelemetryDate { get; set; }
 }

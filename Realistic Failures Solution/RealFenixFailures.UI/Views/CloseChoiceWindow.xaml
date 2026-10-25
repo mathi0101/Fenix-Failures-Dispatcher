@@ -35,6 +35,12 @@
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow"/>
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#1A1E26"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#3A3F4A"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -63,12 +69,17 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource ChoiceButtonStyle}" Background="#B33A3A" BorderBrush="#B33A3A" Click="Shutdown_Click">
+            <Button x:Name="ShutdownButton" Style="{StaticResource ChoiceButtonStyle}" Background="#B33A3A" BorderBrush="#B33A3A"
+                    ToolTipService.ShowOnDisabled="True" Click="Shutdown_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0"/>
                     <StackPanel>
-                        <TextBlock Text="Cerrar la app por completo" FontWeight="SemiBold"/>
-                        <TextBlock Text="Se detiene el motor de fallas y sale de la bandeja." FontSize="11" Foreground="#E8C9C9"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Cerrar la app por completo" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ShutdownLockIcon" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                       Margin="6,1,0,0" Foreground="#F5B741" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        </StackPanel>
+                        <TextBlock x:Name="ShutdownSubtitle" Text="Se detiene el motor de fallas y sale de la bandeja." FontSize="11" Foreground="#E8C9C9"/>
                     </StackPanel>
                 </StackPanel>
             </Button>

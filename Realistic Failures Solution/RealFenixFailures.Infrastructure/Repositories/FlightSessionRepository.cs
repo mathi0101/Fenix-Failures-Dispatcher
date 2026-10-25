@@ -22,6 +22,7 @@ public class FlightSessionRepository : IFlightSessionRepository {
                 .ThenInclude(x=>x.System)
             .Include(x => x.EventLogs)
             .Include(x => x.FlightPlan)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
@@ -31,6 +32,7 @@ public class FlightSessionRepository : IFlightSessionRepository {
             .Include(x => x.TriggeredFailures)
             .Include(x => x.EventLogs)
             .Include(x => x.FlightPlan)
+            .AsSplitQuery()
             .Where(x => x.FinishedAt == null)
             .OrderByDescending(x => x.StartedAt)
             .ToListAsync(ct);

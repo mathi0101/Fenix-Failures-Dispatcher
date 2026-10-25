@@ -27,4 +27,7 @@ public partial class SettingsPanel : UserControl {
 
     private void ClosePanel(object sender, RoutedEventArgs e) =>
         CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Activa la pestaña Actualizaciones (acceso directo desde la status bar).</summary>
+    public void ShowUpdatesTab() => SettingsTabs.SelectedItem = UpdatesTab;
 }

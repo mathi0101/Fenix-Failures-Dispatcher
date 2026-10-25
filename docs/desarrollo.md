@@ -36,6 +36,7 @@ Claves disponibles:
 - `FailureEngine` — `Debug` (flag de herramientas de desarrollo: fuerza nivel Debug de Serilog a nivel raíz, activa el log de diagnóstico de SimConnect y hace visible el bloque «Reloj de simulación» del panel Realistic; default `false`), `MaxLogEntries` (límite del log de eventos en vivo de la UI, default 50), `CheckConnectionIntervalSeconds`, `CheckIntervalSeconds` y la sección `RealisticMode` (parámetros del motor Realistic). Los nombres de los catálogos embebidos (`failures.json`, `training_presets.json`, `realistic_presets.json`) **no son configurables**: son constantes en `RealFenixFailures.Domain/Services/EmbeddedResourceNames.cs` (quedaron fuera de appsettings).
 - `FenixApi` — `UseMock` (solo Debug), `BaseUrl`, `Port` (predeterminado 8083), `ManualFailuresPath`, `SaveManualPath`, `HealthCheckIntervalSeconds`, `HealthCheckTimeout`.
 - `SimBriefApi` — `BaseUrl`, `DownloadTimeoutSeconds`.
+- `Telemetry` — ping anónimo de uso (ver [ui/telemetria.md](ui/telemetria.md)): `Enabled` (default `true`), `PostHogProjectApiKey` (token público de ingesta `phc_...`; **vacío en el repo**: el workflow Release lo inyecta desde el secreto `POSTHOG_PROJECT_API_KEY`; en desarrollo llega por User Secrets o variable de entorno `Telemetry__PostHogProjectApiKey`; vacío = no se envía nada), `PostHogHost` (default `https://us.i.posthog.com`). En builds DEBUG nunca se envía.
 - `Serilog` — nivel mínimo y overrides. El sink de archivo **no** se configura acá: las rutas viven en el código (ver `AppPaths`). El ex flag `SimConnectDiagnostics:Enabled` fue absorbido por `FailureEngine:Debug`.
 
 ## Datos del usuario (BD, preferencias, logs)
@@ -101,15 +102,13 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
    git push origin master --follow-tags
    ```
 
-6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, publica en una carpeta explícita (`${{ runner.temp }}/RealFenixFailures-publish`), arma el ZIP desde esa misma carpeta (exe + `Microsoft.FlightSimulator.SimConnect.dll` + `SimConnect.dll` nativa + `appsettings.json`, sin BD/logs) y crea el release. No busca ejecutables recursivamente en bin/Release; si falta un archivo requerido, el empaquetado falla. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos cuatro archivos. El `SimConnect.dll` nativo es **obligatorio** junto al exe: sin él el wrapper managed (mixto C++/CLI) no carga y la app falla al conectar (ver [simconnect](integraciones/simconnect.md)).
+6. **Publicar el build portable**: automático con el workflow `Release` (`.github/workflows/release.yml`): al pushear el tag, GitHub Actions compila el publish single-file self-contained win-x64, publica en una carpeta explícita (`${{ runner.temp }}/RealFenixFailures-publish`), arma el ZIP desde esa misma carpeta (README.md generado en el momento: instrucciones de instalación de `docs/releases/README-INSTALACION.md` + notas curadas de `docs/releases/vX.Y.Z.md` si existe, exe + `Microsoft.FlightSimulator.SimConnect.dll` + `SimConnect.dll` nativa + `appsettings.json`, sin BD/logs) y crea el release. No busca ejecutables recursivamente en bin/Release; si falta un archivo requerido, el empaquetado falla. A mano sería `dotnet publish RealFenixFailures.UI/RealFenixFailures.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true` + zipear esos cinco archivos. El `SimConnect.dll` nativo es **obligatorio** junto al exe: sin él el wrapper managed (mixto C++/CLI) no carga y la app falla al conectar (ver [simconnect](integraciones/simconnect.md)).
 
-7. **GitHub Release** (desde `master`): automático con el workflow `Release` al pushear el tag (crea el release en `master` con `--generate-notes` y adjunta el ZIP; los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales). A mano:
+7. **Release notes curadas y GitHub Release** (desde `master`): las notas de cada release se curan en `docs/releases/vX.Y.Z.md` — lenguaje para el usuario final (qué cambia para su juego, sin jerga técnica), con secciones p. ej. Novedades / Mejoras / Correcciones / Actualización y el link *Full Changelog* `vAnterior...vNuevo`. El agente la genera **antes de crear el tag** a partir de `git log vAnterior..HEAD --oneline` y de las entradas de [CHANGELOG.md](CHANGELOG.md) posteriores a la fecha del tag anterior; se commitea en `dev` para que entre al merge a `master`. El workflow `Release` al pushear el tag usa ese archivo como cuerpo del release (`--notes-file docs/releases/vX.Y.Z.md`) si existe; si no, cae a `--generate-notes` (lista cruda de commits). Los tags con sufijo, p. ej. `v0.2.0-beta.1`, se marcan pre-release y el updater los muestra como tales. A mano:
 
    ```sh
-   gh release create v0.2.0 --target master --generate-notes --title "v0.2.0" ruta/al/zip.zip
+   gh release create v0.2.0 --target master --notes-file docs/releases/v0.2.0.md --title "v0.2.0" ruta/al/zip.zip
    ```
-
-   Completar las notas con el resumen de la entrada correspondiente de [CHANGELOG.md](CHANGELOG.md).
 
 8. **Post-release**: subir `<Version>` en `Directory.Build.props` de `dev` a la próxima de desarrollo (p. ej. `0.3.0-dev.0`) y push. Verificar manualmente que la pestaña Actualizaciones detecta el release publicado.
 
@@ -118,6 +117,12 @@ Ciclo completo para publicar una versión. La fuente de verdad del número es `<
 10. **CI/CD (GitHub Actions)**: `ci.yml` compila y corre la suite en cada push a `dev`/`master` y en cada PR (runner windows-latest limpio: si algo solo anda por dependencias locales de la PC, el CI lo delata). `release.yml` automatiza los pasos 6-7 con el push del tag `v*` (y admite ejecución manual `workflow_dispatch` que solo arma y sube el ZIP como artefacto de prueba, sin crear release). El workflow de release asume publish **self-contained** (no exige .NET Desktop Runtime en las PCs de los usuarios).
 
 10. **Protección y PRs (reglas vigentes)**: el ruleset `Protección dev/master` (Settings → Rules → Rulesets) bloquea borrado y force-push de ambas ramas con bypass "Always" para el rol admin. Forzar PR en `master` es recomendable **recién cuando haya colaboradores con write** (mismo ruleset: activar "Require a pull request before merging"); trabajando solo, el bypass ya deja el push directo y un PR por release solo agrega fricción. Opcional: segundo ruleset sobre tags `v*` (target tags, mismas reglas de borrado/force-push).
+
+### Sugerencia de versión por tarea de agente
+
+Cada tarea de agente que cambie código cierra su resumen con un **bump de versión sugerido, no aplicado**: `feat` → minor, `fix` → patch, `docs`/`refactor`/`test`/`chore` → sin bump (queda pendiente para la próxima tarea que sí lo amerite). El número se calcula desde el `<Version>` vigente de `Directory.Build.props` y se informa como `Bump sugerido: X.Y.Z(-dev.N)`.
+
+El agente no edita `Directory.Build.props` ni crea tags: la versión se define recién en los pasos 2-3 y 8 del runbook (elegir/cerrar/post-release), a decisión del usuario. Así se evitan conflictos multi-agente sobre ese archivo y bumps inflados por cambios que no ameritan release.
 
 ## Validación
 

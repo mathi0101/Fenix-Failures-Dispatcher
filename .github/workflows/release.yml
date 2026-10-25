@@ -27,8 +27,10 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           --output "${{ runner.temp }}/RealFenixFailures-publish"
 
-      - name: Arm ZIP portable (exe + SimConnect + appsettings, sin BD ni logs)
+      - name: Arm ZIP portable (README + exe + SimConnect + appsettings, sin BD ni logs)
         shell: pwsh
+        env:
+          POSTHOG_PROJECT_API_KEY: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
         run: |
           $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
           $stage = "$env:RUNNER_TEMP/RealFenixFailures"
@@ -36,7 +38,26 @@ jobs:
           foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
             Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
           }
+          if ($env:POSTHOG_PROJECT_API_KEY) {
+            $settingsPath = Join-Path $stage "appsettings.json"
+            $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($null -eq $settings.Telemetry) {
+              $settings | Add-Member -Force -NotePropertyName Telemetry -NotePropertyValue ([pscustomobject]@{ Enabled = $true; PostHogProjectApiKey = ''; PostHogHost = 'https://us.i.posthog.com' })
+            }
+            $settings.Telemetry.PostHogProjectApiKey = $env:POSTHOG_PROJECT_API_KEY
+            $settings | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $settingsPath -Encoding utf8
+          }
           $tag = if ($env:GITHUB_REF_NAME -like 'v*') { $env:GITHUB_REF_NAME } else { 'v0.0.0-test' }
+          $readme = Join-Path $stage "README.md"
+          Set-Content -LiteralPath $readme -Value "# FNX Realistic Failures System $tag`n" -Encoding utf8
+          Add-Content -LiteralPath $readme -Value (Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE "docs/releases/README-INSTALACION.md") -Raw -Encoding utf8) -Encoding utf8
+          $notes = Join-Path $env:GITHUB_WORKSPACE "docs/releases/$tag.md"
+          if (Test-Path $notes) {
+            Add-Content -LiteralPath $readme -Value "---`n" -Encoding utf8
+            Add-Content -LiteralPath $readme -Value (Get-Content -LiteralPath $notes -Raw -Encoding utf8) -Encoding utf8
+          } else {
+            Add-Content -LiteralPath $readme -Value "---`nLas notas de esta versión están en la página del release en GitHub." -Encoding utf8
+          }
           Compress-Archive -Path "$stage/*" -DestinationPath "$env:RUNNER_TEMP/RealFenixFailures-$tag-win-x64.zip"
 
       - name: Subir ZIP como artefacto (solo ejecución manual de prueba)
@@ -54,6 +75,8 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF_NAME
           $zip = Join-Path $env:RUNNER_TEMP "RealFenixFailures-$tag-win-x64.zip"
-          $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--generate-notes', '--title', $tag)
+          $notes = Join-Path "docs/releases" "$tag.md"
+          $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--title', $tag)
+          if (Test-Path $notes) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           gh @ghArgs

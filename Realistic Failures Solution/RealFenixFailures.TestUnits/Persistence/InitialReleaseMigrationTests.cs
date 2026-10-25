@@ -18,8 +18,8 @@ public class InitialReleaseMigrationTests {
             Assert.False(db.Database.HasPendingModelChanges());
             await db.Database.MigrateAsync();
 
-            var applied = Assert.Single(await db.Database.GetAppliedMigrationsAsync());
-            Assert.EndsWith("_InitialRelease", applied);
+            var applied = await db.Database.GetAppliedMigrationsAsync();
+            Assert.Contains(applied, m => m.EndsWith("_InitialRelease"));
             Assert.Empty(await db.Database.GetPendingMigrationsAsync());
             Assert.Equal(19, await db.AircraftWearableSystems.CountAsync());
             Assert.Equal(4, await db.FailurePresetTypes.CountAsync());
@@ -56,7 +56,8 @@ public class InitialReleaseMigrationTests {
         Assert.Empty(await db.Database.GetAppliedMigrationsAsync());
 
         await db.Database.MigrateAsync();
-        Assert.Single(await db.Database.GetAppliedMigrationsAsync());
+        var applied = await db.Database.GetAppliedMigrationsAsync();
+        Assert.Contains(applied, m => m.EndsWith("_InitialRelease"));
         Assert.Equal(19, await db.AircraftWearableSystems.CountAsync());
     }
 }

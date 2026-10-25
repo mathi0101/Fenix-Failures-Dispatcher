@@ -1,5 +1,6 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
+using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces.Repositories;
@@ -12,13 +13,15 @@ public class FlightSessionService : IFlightSessionService {
     private readonly IFlightSessionRepository _sessionRepository;
     private readonly ITriggeredFailureRepository _triggeredFailureRepository;
     private readonly IAircraftSystemWearRepository? _aircraftSystemWearRepository;
+    private readonly Random _wearRandom;
     private readonly ILogger<FlightSessionService> _logger;
 
     public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository,
-        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null) {
+        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null, Random? wearRandom = null) {
         _sessionRepository = sessionRepository;
         _triggeredFailureRepository = triggeredFailureRepository;
         _aircraftSystemWearRepository = aircraftSystemWearRepository;
+        _wearRandom = wearRandom ?? Random.Shared;
         _logger = logger ?? NullLogger<FlightSessionService>.Instance;
     }
 
@@ -196,17 +199,35 @@ public class FlightSessionService : IFlightSessionService {
         }
     }
 
-    /// <summary>Desgaste de una sesión huérfana: tasa por sistema × horas hasta la ETA del OFP (fallas de la sesión no lo modifican). Devuelve los deltas aplicados.</summary>
+    /// <summary>Desgaste de una sesión huérfana: tasa por sistema × horas desde el primer encendido de motores registrado hasta la ETA del OFP (fallas de la sesión no lo modifican). Sin encendido registrado, no acumula. Devuelve los deltas aplicados.</summary>
     private async Task<IReadOnlyList<SystemWearDeltaDto>> AccumulateWearByEtaAsync(FlightSession session, CancellationToken ct) {
         if (_aircraftSystemWearRepository is null) return [];
         var eta = session.FlightPlan?.EstimatedArrivalUtc;
         if (eta is null) return [];
         try {
-            var hours = (eta.Value - session.StartedAt).TotalHours;
+            var enginesStartedAt = session.EventLogs
+                .Where(e => e.EventCode == "ENGINES_STARTED")
+                .OrderBy(e => e.OccurredAt)
+                .Select(e => (DateTime?)e.OccurredAt)
+                .FirstOrDefault();
+            if (enginesStartedAt is null) {
+                _logger.LogDebug("Sesión {SessionId}: sin encendido de motores registrado, sin desgaste diferido", session.Id);
+                return [];
+            }
+            var hours = (eta.Value - enginesStartedAt.Value).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.UserAircraftId, ct);
+            var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();
+            var count = RealisticWearScaling.CountForHours(hours, eligible.Count, sessionSystemsCap: 0);
+            if (count < eligible.Count) {
+                for (var i = 0; i < count; i++) {
+                    var j = _wearRandom.Next(i, eligible.Count);
+                    (eligible[i], eligible[j]) = (eligible[j], eligible[i]);
+                }
+                eligible = eligible.Take(count).ToList();
+            }
             var deltas = new List<SystemWearDeltaDto>();
-            foreach (var wear in wears) {
+            foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
                 var delta = rate * hours;

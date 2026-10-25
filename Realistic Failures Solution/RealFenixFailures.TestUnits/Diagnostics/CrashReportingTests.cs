@@ -157,7 +157,7 @@ public class CrashReportingTests {
             var second = CrashLogWriter.WriteReport(report, false, directory)!;
             Assert.NotEqual(first, second);
             Assert.True(File.Exists(first));
-            Assert.Equal("crash", Path.GetFileName(Path.GetDirectoryName(first)));
+            Assert.Equal(directory, Path.GetDirectoryName(first));
             var written = File.ReadAllText(first);
             Assert.Contains("ERROR — permite continuar", written);
             Assert.Contains("Fecha (UTC)", written);

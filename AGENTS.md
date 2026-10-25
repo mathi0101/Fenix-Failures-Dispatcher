@@ -48,6 +48,12 @@ Regla de capas: las integraciones no conocen lógica de dominio de los modos; la
 - Nunca afirmar una prueba que no se haya ejecutado: si no se corrió, se dice "no verificado". Cualquier cambio de integración real (MSFS/Fenix) debe probarse manualmente antes de declararse funcionando.
 - No repetir documentación extensa en respuestas o commits: citar el doc y el cambio puntual.
 
+## Versión: sugerir el bump, no aplicarlo
+
+- Toda tarea que cambie código termina su resumen con un **bump de versión sugerido**, derivado del tipo de commit: `feat` → minor, `fix` → patch, `docs`/`refactor`/`test`/`chore` → sin bump (queda pendiente para la próxima tarea que sí lo amerite). Se calcula desde el `<Version>` vigente de `Realistic Failures Solution/Directory.Build.props` y se informa como `Bump sugerido: X.Y.Z(-dev.N)`.
+- El agente **no edita** `Directory.Build.props` ni crea tags: el número se define y cierra recién en los pasos de versión del [runbook de release](docs/desarrollo.md#runbook-de-release-dev--master--tag--github-release), a decisión del usuario.
+- **Release notes curadas**: al preparar un release (antes del tag), el agente genera `docs/releases/vX.Y.Z.md` — lenguaje para el usuario final, sin jerga técnica — a partir de `git log vAnterior..HEAD` y de las entradas de [docs/CHANGELOG.md](docs/CHANGELOG.md) posteriores al tag anterior (receta en el paso 7 del runbook). El workflow `Release` usa ese archivo como cuerpo del release si existe; si no, cae a `--generate-notes`.
+
 ## Migraciones EF (pre-release y producción)
 
 - Desde la preparación de la primera pre-release, `App.xaml.cs` arranca con `MigrateAsync()`. `InitialRelease` crea el esquema vigente con sus seeds; los siguientes cambios de esquema requieren migraciones incrementales en Infrastructure.

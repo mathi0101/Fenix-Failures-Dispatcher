@@ -88,6 +88,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon>Assets\Branding\app-icon.ico</ApplicationIcon>
     <StartupObject>RealFenixFailures.UI.Program</StartupObject>
+    <UserSecretsId>c3f0d6c2-11c7-4213-8bfe-3c14a4f51279</UserSecretsId>
   </PropertyGroup>
 
 </Project>

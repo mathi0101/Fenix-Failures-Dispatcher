@@ -66,6 +66,7 @@ public class UserAircraftService : IUserAircraftService {
             .Include(x => x.FlightSessions)
             .Include(x => x.SystemWears)
                 .ThenInclude(x => x.WearableSystem)
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         return aircrafts.Select(ToDto).ToArray();
@@ -76,6 +77,7 @@ public class UserAircraftService : IUserAircraftService {
             .Include(x => x.SystemWears)
                 .ThenInclude(x=>x.WearableSystem)
             .Include(x => x.FlightSessions)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return aircraft is null ? null : ToDto(aircraft);
@@ -89,6 +91,7 @@ public class UserAircraftService : IUserAircraftService {
             .Include(x => x.FlightSessions)
                 .ThenInclude(s => s.TriggeredFailures)
                     .ThenInclude(s => s.FenixFailure)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == userAircraftId, ct)
             ?? throw new KeyNotFoundException($"UserAircraft {userAircraftId} not found.");
 
@@ -118,6 +121,7 @@ public class UserAircraftService : IUserAircraftService {
             .ThenInclude(s => s.FenixFailure)
             .Include(s => s.EventLogs)
             .Include(s => s.FlightPlan)
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         return sessions.Select(ToSessionDto).ToArray();

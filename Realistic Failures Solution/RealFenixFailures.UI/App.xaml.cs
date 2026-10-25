@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.UI.DependencyInjection;
@@ -28,6 +29,7 @@ public partial class App : System.Windows.Application {
                 configure.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
 #endif
                 configure.AddEnvironmentVariables();
+                configure.AddUserSecrets<TelemetrySettings>(optional: true);
             })
             .ConfigureRealFenixFailures()
             .Build();
@@ -50,6 +52,9 @@ public partial class App : System.Windows.Application {
             await _host.StartAsync();
 
             using var scope = _host.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ILogger<App>>()
+                .LogInformation("Real Fenix Failures v{Version} iniciando (SO: {OS}).",
+                    AppVersionInfo.Current, Environment.OSVersion.VersionString);
             var dbContext = scope.ServiceProvider.GetRequiredService<RealFenixDbContext>();
             await dbContext.Database.MigrateAsync();
 
@@ -81,13 +86,24 @@ public partial class App : System.Windows.Application {
             return;
         }
 
+        // Ping anónimo de telemetría (1 por día; respeta opt-out; best-effort).
+        // Blindado: un problema de telemetría (DI, red, config) jamás puede tirar abajo el arranque.
+        try {
+            _host.Services.GetRequiredService<TelemetryService>().TrySendStartupPing();
+        }
+        catch (Exception ex) {
+            Console.Error.WriteLine($"Telemetría: {ex.Message}");
+        }
+
         base.OnStartup(e);
     }
 
     private void RequestExit() {
         foreach (System.Windows.Window window in Windows) {
-            if (window is MainWindow mainWindow)
-                mainWindow.IsExitAllowed = true;
+            if (window is MainWindow mainWindow) {
+                mainWindow.TryRequestFullExit();
+                return;
+            }
         }
 
         Shutdown();

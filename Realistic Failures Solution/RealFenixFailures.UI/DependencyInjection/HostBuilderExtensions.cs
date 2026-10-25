@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using RealFenixFailures.Application;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Services;
@@ -23,6 +24,7 @@ public static class HostBuilderExtensions {
         return hostBuilder
             .UseSerilog((context, services, loggerConfiguration) => {
                 loggerConfiguration.ApplyDefaultConfiguration(context.Configuration);
+                loggerConfiguration.Enrich.WithProperty("AppVersion", AppVersionInfo.Current);
                 loggerConfiguration.WriteTo.Sink(new UnexpectedErrorSink(CrashReporter.ReportUnexpected));
             })
             .ConfigureServices((context, services) => {
@@ -33,6 +35,9 @@ public static class HostBuilderExtensions {
                 services.AddFenixIntegration(context.Configuration);
                 services.AddSimbriefIntegration(context.Configuration);
                 services.AddSingleton<UserPreferencesService>();
+                services.Configure<TelemetrySettings>(context.Configuration.GetSection("Telemetry"));
+                services.AddSingleton<TelemetrySettings>(sp => sp.GetRequiredService<IOptions<TelemetrySettings>>().Value);
+                services.AddSingleton<TelemetryService>();
                 services.AddSingleton<IUpdateChecker, GithubUpdateChecker>();
                 services.AddSingleton<IRealisticExpectationService, RealisticExpectationService>();
                 services.AddTransient<SettingsWindowViewModel>();
