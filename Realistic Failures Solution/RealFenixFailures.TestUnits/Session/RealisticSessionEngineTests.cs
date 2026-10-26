@@ -283,7 +283,9 @@ public class RealisticSessionEngineTests {
         Low = new() { RiskLevel = 1, ProbabilityMultiplier = 0.75, WearMaxMultiplier = 2.5, AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0 },
         Moderate = new() { RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 0 },
         High = new() { RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 3.5, AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 600 },
-        Squawk7700 = new() { RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0, AggravationCap = null, GroundFailuresCap = 5, CriticalRespiteSeconds = 300 }
+        Squawk7700 = new() { RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0, AggravationCap = null, GroundFailuresCap = 5, CriticalRespiteSeconds = 300 },
+        // Determinismo: sin fallas temporales salvo en los tests que las ejercitan explícitamente.
+        TemporaryFailureProbability = 0
     };
 
     private static RealisticModeContext Context(RiskLevel risk = RiskLevel.Moderate) =>

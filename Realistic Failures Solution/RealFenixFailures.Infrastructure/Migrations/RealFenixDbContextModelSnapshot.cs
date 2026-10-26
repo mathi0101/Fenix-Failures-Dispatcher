@@ -656,6 +656,9 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
 
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FailureName")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");

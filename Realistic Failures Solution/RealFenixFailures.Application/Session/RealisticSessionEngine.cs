@@ -252,6 +252,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             }
 
             var stateChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
+            await ExpireTemporaryFailuresAsync(currentPhase, stateChanges, ct);
 
             var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
             var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
@@ -332,7 +333,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     ///   • Sent → Active cuando <c>failed=true</c> (confirmada por Fenix).
     ///   • Active → ResolvedByPilot cuando <c>failed=false</c> y ya no está armada (el piloto la despejó).
     /// </summary>
-    private async Task<IReadOnlyList<FailureStateChangeInfo>> ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
+    private async Task<List<FailureStateChangeInfo>> ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
         var session = Session;
         if (session is null) return [];
 
@@ -375,6 +376,37 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     /// <summary>
+    /// Expiración de fallas temporales (tipos-de-falla §4.3): cada tick, las fallas aleatorias activas cuyo
+    /// <c>ExpiresAtUtc</c> (tiempo de escenario) ya pasó se desarmen en Fenix y quedan
+    /// <c>AutoResolved</c>/<c>EngineAuto</c>. Reutiliza el desarme del simulador; score y tope de simultáneas
+    /// se liberan solos (derivan de activas). Un desarme fallido reintenta en el próximo tick.
+    /// </summary>
+    private async Task ExpireTemporaryFailuresAsync(ComplexFlightPhaseEnum phase, List<FailureStateChangeInfo> stateChanges, CancellationToken ct) {
+        var session = Session;
+        if (session is null) return;
+
+        var now = _policy.UtcNow;
+        var active = await _triggeredFailureRepository.GetActiveForSessionAsync(session.Session.Id, ct);
+        foreach (var failure in active) {
+            if (failure.ExpiresAtUtc is not DateTime expiresAt || expiresAt > now) continue;
+
+            var disarmed = await _simulator.DisarmFailureAsync(failure.FenixFailureId, ct);
+            if (!disarmed) {
+                _logger.LogWarning("Temporary failure {FenixFailureId} expired but Fenix did not confirm the disarm; retrying next tick", failure.FenixFailureId);
+                continue;
+            }
+
+            var utcNow = DateTime.UtcNow;
+            await _sessionService.UpdateTriggeredFailureStateAsync(
+                session.Session.Id, failure.FenixFailureId, FailureLifecycleState.AutoResolved,
+                phase, ResolutionSource.EngineAuto, utcNow, ct);
+            _logger.LogInformation("Temporary failure expired and auto-resolved: {Id}", failure.FenixFailureId);
+            await LogStateChangeAsync(session.Session.Id, failure, FailureLifecycleState.AutoResolved, "FAILURE_EXPIRED_TEMPORARY", phase, utcNow, ct);
+            stateChanges.Add(new FailureStateChangeInfo(failure.FenixFailureId, failure.FailureName ?? failure.FenixFailureId, FailureLifecycleState.AutoResolved, failure.Severity, utcNow));
+        }
+    }
+
+    /// <summary>
     /// Registra en el log de eventos de la sesión la transición de ciclo de vida confirmada por Fenix
     /// (el evento <c>FailureStateChanged</c> quedaba sin uso). Un fallo al registrar no aborta la
     /// reconciliación: la transición ya se persiste en <c>UpdateTriggeredFailureStateAsync</c>.
@@ -384,6 +416,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var description = newState switch {
                 FailureLifecycleState.Active => $"Falla confirmada activa por Fenix: {failure.FailureName} ({failure.FenixFailureId})",
                 FailureLifecycleState.ResolvedByPilot => $"Falla resuelta por el piloto: {failure.FailureName} ({failure.FenixFailureId})",
+                FailureLifecycleState.AutoResolved => $"Falla temporal expirada (auto-resuelta): {failure.FailureName} ({failure.FenixFailureId})",
                 _ => $"Falla en estado {newState}: {failure.FailureName} ({failure.FenixFailureId})"
             };
             await _sessionService.AddEventLogAsync(sessionId, SessionEventCategory.FailureStateChanged, eventCode, description, phase, utcNow, ct);
@@ -486,8 +519,19 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         // La política usa tiempo de escenario; el historial y los DTO usan UTC de pared.
         var triggeredAtUtc = DateTime.UtcNow;
+        // Temporalidad de fallas aleatorias (tipos-de-falla §4.3): solo candidatos de catálogo (sin preset),
+        // solo leves y graves — las críticas nunca son temporales. El dado decide; la vida es uniforme en
+        // tiempo de escenario y la expiración la ejecuta el tick (ExpireTemporaryFailuresAsync).
+        var chosenSeverity = chosen.FenixFailure?.Severity ?? FailureSeverity.Minor;
+        DateTime? expiresAtUtc = null;
+        if (chosen.Preset is null
+            && chosenSeverity != FailureSeverity.Critical
+            && _policy.RollTemporaryFailure(_settings.TemporaryFailureProbability)) {
+            expiresAtUtc = _policy.TemporaryExpiryUtc(_settings.TemporaryLifetimeMinMinutes, _settings.TemporaryLifetimeMaxMinutes);
+            _logger.LogInformation("Failure drawn as temporary: {FenixFailureId} expires at {ExpiresAtUtc} (scenario time)", chosen.FenixFailureId, expiresAtUtc);
+        }
         try {
-            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, phase, triggeredAtUtc, ct);
+            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, phase, triggeredAtUtc, ct, expiresAtUtc);
             _logger.LogDebug("Realistic sesión {SessionId}: decisión positiva, {FailureId} enviada y persistida como Sent, UTC {TriggeredAtUtc}", session.Session.Id, chosen.FenixFailureId, triggeredAtUtc);
         } catch (OperationCanceledException ex) {
             // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token

@@ -46,17 +46,17 @@ public class RealisticModeSettings {
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3,
+        RiskLevel = 2, ProbabilityMultiplier = 1, WearMaxMultiplier = 2,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 120 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
     public RealisticProfileSettings High { get; set; } = new() {
-        RiskLevel = 3, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4,
+        RiskLevel = 3, ProbabilityMultiplier = 1.4, WearMaxMultiplier = 2.5,
         AggravationCap = 8, GroundFailuresCap = 3, CriticalRespiteSeconds = 60 * 60
     };
     /// <summary>Perfil Squawk 7700 (nivel 4): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Squawk7700</c>).</summary>
     public RealisticProfileSettings Squawk7700 { get; set; } = new() {
-        RiskLevel = 4, ProbabilityMultiplier = 5, WearMaxMultiplier = 5,
+        RiskLevel = 4, ProbabilityMultiplier = 2.2, WearMaxMultiplier = 4,
         AggravationCap = 10, GroundFailuresCap = 5, CriticalRespiteSeconds = 30 * 60
     };
 
@@ -72,6 +72,13 @@ public class RealisticModeSettings {
     public OfpWindowSettings Ofp { get; set; } = new();
     /// <summary>Parámetros del desgaste de sistemas por sesión.</summary>
     public WearSettings Wear { get; set; } = new();
+
+    /// <summary>Probabilidad (0–1) de que un sorteo aleatorio en vuelo salga temporal (se desactiva sola tras su vida). Solo leves y graves: las críticas nunca son temporales.</summary>
+    public double TemporaryFailureProbability { get; set; } = 0.25;
+    /// <summary>Vida mínima de una falla temporal, en minutos de tiempo de escenario, desde el armado.</summary>
+    public int TemporaryLifetimeMinMinutes { get; set; } = 10;
+    /// <summary>Vida máxima de una falla temporal, en minutos de tiempo de escenario (>= mínima; se invierte si viniera al revés).</summary>
+    public int TemporaryLifetimeMaxMinutes { get; set; } = 30;
 }
 
 /// <summary>
@@ -81,7 +88,7 @@ public class RealisticModeSettings {
 /// </summary>
 public class RealisticPhysicsSettings {
     /// <summary>λ base por falla Minor elegible en vuelo, en eventos/hora. Subirlo escala linealmente toda la cadencia en vuelo.</summary>
-    public double FailureRatePerHourBase { get; set; } = 0.2;
+    public double FailureRatePerHourBase { get; set; } = 0.15;
     /// <summary>Probabilidad base (0–1) de cada falla Minor individual en el seed de tierra, antes de multiplicadores.</summary>
     public double GroundSeedBaseProbability { get; set; } = 0.001;
     /// <summary>Cuánto más rara es cada severidad a igualdad de todo lo demás (multiplicador de λ en vuelo y de p en tierra).</summary>
@@ -95,7 +102,7 @@ public class RealisticPhysicsSettings {
 /// <summary>Cuánto más rara es cada severidad a igualdad de todo lo demás (multiplicador de λ / p).</summary>
 public class PhysicsSeverityRateMultipliers {
     /// <summary>Multiplicador de las fallas leves (referencia de frecuencia relativa).</summary>
-    public double Minor { get; set; } = 1.2;
+    public double Minor { get; set; } = 1;
     /// <summary>Multiplicador de las fallas graves: 0,4 = el 40 % de frecuentes que las leves a igualdad de lo demás.</summary>
     public double Major { get; set; } = 0.4;
     /// <summary>Multiplicador de las fallas críticas: 0,12 = ~1 crítica cada 8 leves a igualdad de lo demás.</summary>

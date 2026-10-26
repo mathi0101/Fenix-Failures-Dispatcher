@@ -53,11 +53,11 @@ Un escenario (preset) está compuesto por fallas; cada falla del escenario puede
 - **Igual que hoy**: caps de agravamiento, treguas y topes de simultáneas por perfil; regla de severidad del perfil (Bajo sin críticas) sigue en `FailureRuleEvaluator`.
 - **Sinergia**: la estimación del balance ya era global por severidad, así que quedó alineada al universo nuevo sin cambios.
 
-### 4.3 Fallas temporales (nuevo)
+### 4.3 Fallas temporales (implementado 2026-10-26, versión simplificada)
 
-- Se sortean **igual que las aleatorias** (mismo universo y proceso), pero al armarse se les asigna un **tiempo aleatorio de vida** dentro de la sesión: transcurrido, la falla se desactiva sola (auto-resolución) sin acción del piloto.
-- Parámetros nuevos de configuración: ventana de vida (mín/máx) y proporción de sorteos que salen temporales vs permanentes (o un multiplicador propio; decisión en la tarea de implementación).
-- Mientras están activas cuentan para los topes de simultáneas y para el agravamiento igual que cualquier falla.
+- **Diseño final**: la temporalidad es una **propiedad del sorteo**, no del catálogo — cada sorteo aleatorio (solo leves y graves; **las críticas nunca**) tiene probabilidad `TemporaryFailureProbability` (0,25) de salir temporal. Si sale temporal, recibe vida uniforme entre `TemporaryLifetimeMinMinutes` (10) y `TemporaryLifetimeMaxMinutes` (30) de tiempo de escenario; transcurrida, se auto-resuelve sin acción del piloto. Se descartó marcar fallas en `failures.json` (menos curaduría frágil y ajustable como cualquier perilla).
+- **Implementación**: dado en `SendFailureAndRecordAsync` (cuello de busqueda de armado, cubre cola y directo); expiración en el tick (`ExpireTemporaryFailuresAsync`, después de la reconciliación) reutilizando el desarme del simulador con `State = AutoResolved` + `ResolutionSource = EngineAuto` + log `FAILURE_EXPIRED_TEMPORARY`; `TriggeredFailure.ExpiresAtUtc` (columna nueva nullable, migración `AddTriggeredFailureExpiresAtUtc` — la app la aplica al arrancar). Un desarme fallido reintenta en el próximo tick (huérfanas: expiran al primer tick tras reanudar).
+- Mientras están activas cuentan para los topes de simultáneas y para el agravamiento igual que cualquier falla (al expirar se liberan solos, derivan de activas). La expiración no renueva la tregua crítica. El balance de comparación no cambia (mismo sorteo).
 
 ### 4.4 Escenarios predefinidos (hoy: presets)
 
@@ -87,15 +87,16 @@ Terminología de severidad vigente (no cambia): leves = Minor, graves = Major, c
 - El reporte de balance: su fórmula global por severidad ya no depende del universo de presets, y con las fallas aleatorias sacadas del catálogo completo se vuelve **más** exacta.
 - La doctrina de tierra: solo leves (ahora también solo recuperables), nunca graves ni críticas al iniciar sesión.
 
-## 7. Plan de implementación sugerido (tareas separadas)
+## 7. Plan de implementación (tareas separadas)
 
 1. **Ground**: filtro `Repairable = true` en las candidatas de tierra — **hecho (2026-10-26)**.
 2. **Universo aleatorio**: reemplazar el sorteo en vuelo por el catálogo completo — **hecho (2026-10-26)** (`GetFlightUniverseAsync`).
-3. **Temporales**: duración (`FailureDuration`) + auto-resolución + parámetros de ventana y proporción — pendiente.
+3. **Temporales**: probabilidad por sorteo + vida uniforme + auto-resolución en el tick — **hecho (2026-10-26, versión simplificada, ver §4.3)**; queda pendiente el valor de `FailureDuration` como dimensión formal si algún día hace falta distinguirlas más allá del motor.
 4. **Escenarios armables**: armado por fase con disparo delegado a Fenix; requiere el esquema nuevo de `realistic_presets.json` — pendiente (tarea aparte, ver §8).
 5. **UI/docs**: etiquetas de la ventana de perfiles y textos del modal según §5 cuando el motor ya tenga los tipos — pendiente.
 
 ## 8. Dependencias y abiertas
 
 - **Migración de `realistic_presets.json`**: necesaria para §4.4 (esquema con activación por definición). Tarea aparte; hasta entonces los escenarios siguen armándose como hoy.
-- **Abiertas (decidir en implementación)**: ventana de vida de las temporales (mín/máx) y su proporción vs permanentes; si la auto-resolución de una temporal que estaba agravando un sistema recalcúla el score al bajar; interacción tregua crítica × temporales (¿una temporal que expira durante la tregua reactiva el reloj?); si el cap de tierra aplica también a fallas de tierra provenientes de escenarios.
+- **Resueltas en la implementación de temporales (2026-10-26)**: ventana de vida = `TemporaryLifetimeMin/MaxMinutes` (10–30, uniforme) y proporción = `TemporaryFailureProbability` (0,25); el score se libera solo al expirar (deriva de activas); la expiración no renueva la tregua crítica.
+- **Abiertas**: si el cap de tierra aplica también a fallas de tierra provenientes de escenarios; etiquetas de UI para temporales si algún día se quieren mostrar al piloto (hoy la auto-resolución es invisible: misterio con sentido).

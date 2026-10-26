@@ -26,6 +26,8 @@ public class TriggeredFailure {
     public ComplexFlightPhaseEnum? ResolvedPhase { get; set; }
     public ResolutionSource? ResolutionSource { get; set; }
     public bool CanBeTemporary { get; set; }
+    /// <summary>Momento (tiempo de escenario) en que la falla temporal se auto-resuelve; null = permanente. Solo lo setea el motor al armar fallas aleatorias no críticas que salieron temporales (tipos-de-falla §4.3).</summary>
+    public DateTime? ExpiresAtUtc { get; set; }
     public DateTime? PreparedAtUtc { get; set; }
 
     public FlightSession? FlightSession { get; set; }

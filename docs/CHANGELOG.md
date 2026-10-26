@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 2026-10-26 — feat(realistic): fallas aleatorias temporales con auto-resolución (tarea 3 de tipos-de-falla, versión simplificada)
+
+- **La temporalidad es del sorteo, no del catálogo**: cada sorteo aleatorio en vuelo (solo leves y graves; **las críticas nunca son temporales**) tiene probabilidad `TemporaryFailureProbability` (0,25) de salir temporal y, si sale, vida uniforme entre `TemporaryLifetimeMinMinutes`/`MaxMinutes` (10–30) de tiempo de escenario, tras la cual se desactiva sola. Se descartó marcar fallas en `failures.json`: menos curaduría frágil y ajustable como cualquier perilla de `FailureEngineSettings`.
+- **Implementación**: dado en `SendFailureAndRecordAsync` (único cuello de armado: cubre sorteo directo y cola offline), `TriggeredFailure.ExpiresAtUtc` (columna nueva nullable, migración `AddTriggeredFailureExpiresAtUtc` — la app la aplica con `MigrateAsync` al arrancar) y expiración en el tick (`ExpireTemporaryFailuresAsync`, tras la reconciliación): desarme del simulador + `State = AutoResolved` + `ResolutionSource = EngineAuto` + evento `FAILURE_EXPIRED_TEMPORARY`. Desarme fallido reintenta en el próximo tick; huérfanas expiran al primer tick tras reanudar; la expiración no renueva la tregua crítica; el score de agravamiento y el tope de simultáneas se liberan solos (derivan de activas).
+- **UI: ninguna** — el piloto ve la falla desaparecer sola (misterio con sentido); solo el log de eventos de la sesión la registra.
+- **Tests**: 5 nuevos (`RealisticFailurePolicyTemporaryTests`: probabilidad 0/1, vida en ventana, bordes invertidos normalizados, ventana no positiva) con reloj y RNG deterministas; fixture de engine con `TemporaryFailureProbability = 0` para mantener el determinismo de los demás; `RealisticExpectationServiceTests` recalcula dos derivaciones que asumían implícitamente Moderado ×1,0 (hoy 1,3 — calibración que vas ajustando). Suite **254/254** (build 0 errores). No verificado en sesión real MSFS/Fenix.
+
 ### 2026-10-26 — feat(realistic): fallas de tierra recuperables y fallas aleatorias desde el catálogo completo (tareas 1-2 de tipos-de-falla)
 
 - **Tierra solo leves y recuperables**: `BuildGroundCandidatesAsync` filtra ahora `Severity == Minor && CanBeRepaired` — nunca arranca una sesión con una falla permanente que el piloto no puede resolver (tipos-de-falla.md §4.1). El campo del catálogo/código es `CanBeRepaired` (`repairable` en `failures.json`); «recuperable» es la traducción al usuario.

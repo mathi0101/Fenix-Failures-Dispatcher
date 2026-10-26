@@ -7,7 +7,7 @@ namespace RealFenixFailures.Application.Interfaces;
 public interface IFlightSessionService {
     Task<FlightSession> StartNewAsync(RealisticModeContext context, CancellationToken cancellationToken);
     Task<FlightSession> StopAsync(int sessionId, DateTime finishedAt, CancellationToken ct);
-    Task AddTriggeredFailureAsync(int sessionId, PresetFailureDefinition chosen, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct);
+    Task AddTriggeredFailureAsync(int sessionId, PresetFailureDefinition chosen, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct, DateTime? expiresAtUtc = null);
     Task AddEventLogAsync(int sessionId, SessionEventCategory category, string eventCode, string description, ComplexFlightPhaseEnum flightPhase, DateTime occurredAtUtc, CancellationToken ctOptions);
 
     /// <summary>

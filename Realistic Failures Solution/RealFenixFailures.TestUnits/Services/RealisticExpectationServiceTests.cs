@@ -18,19 +18,24 @@ public class RealisticExpectationServiceTests {
 
     [Fact]
     public void Compute_ZeroWearTwoHoursModerate_MatchesReferenceMath() {
-        var dto = CreateService().Compute(averageWearPct: 0, flightHours: 2, profileRisk: RiskLevel.Moderate);
+        var settings = new FailureEngineSettings();
+        var dto = CreateService(settings).Compute(averageWearPct: 0, flightHours: 2, profileRisk: RiskLevel.Moderate);
 
-        Assert.Equal(0.22, dto.RatePerHour, precision: 5);
-        Assert.Equal(0.44, dto.ExpectedFailures, precision: 5);
+        var rate = RealisticExpectationService.ReferenceRatePerHour * settings.RealisticMode.Moderate.ProbabilityMultiplier;
+        Assert.Equal(rate, dto.RatePerHour, precision: 5);
+        Assert.Equal(rate * 2, dto.ExpectedFailures, precision: 5);
         Assert.Equal(2, dto.FlightHours);
-        Assert.Equal((1 - Math.Exp(-0.22 * 2)) * 100, dto.ProbabilityAtLeastOnePct, precision: 5);
+        Assert.Equal((1 - Math.Exp(-rate * 2)) * 100, dto.ProbabilityAtLeastOnePct, precision: 5);
     }
 
     [Fact]
     public void Compute_WithoutWearOrHours_FallsBackToReferenceRate() {
-        var dto = CreateService().Compute(averageWearPct: null, flightHours: null, profileRisk: null);
+        var settings = new FailureEngineSettings();
+        var dto = CreateService(settings).Compute(averageWearPct: null, flightHours: null, profileRisk: null);
 
-        Assert.Equal(RealisticExpectationService.ReferenceRatePerHour, dto.RatePerHour, precision: 5);
+        // Sin perfil explícito la referencia es Moderado: la tasa base escala por su multiplicador vigente.
+        var expected = RealisticExpectationService.ReferenceRatePerHour * settings.RealisticMode.Moderate.ProbabilityMultiplier;
+        Assert.Equal(expected, dto.RatePerHour, precision: 5);
         Assert.Null(dto.FlightHours);
         Assert.Equal(0, dto.ExpectedFailures);
         Assert.Equal(0, dto.ProbabilityAtLeastOnePct);

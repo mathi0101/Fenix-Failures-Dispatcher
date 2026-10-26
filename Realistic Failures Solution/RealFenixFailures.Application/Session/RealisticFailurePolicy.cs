@@ -71,6 +71,16 @@ public sealed class RealisticFailurePolicy {
     /// <summary>Tregua tras una falla crítica definida por el perfil, s (0 = sin tregua). No hay techo global: vale el valor del perfil.</summary>
     public TimeSpan EffectiveRespite(RealisticProfileSettings profile) => TimeSpan.FromSeconds(Math.Max(0, profile.CriticalRespiteSeconds));
 
+    /// <summary>Sorteo de temporalidad de una falla aleatoria (tipos-de-falla §4.3): true si sale temporal.</summary>
+    public bool RollTemporaryFailure(double probability) => probability > 0 && _random.NextDouble() < probability;
+
+    /// <summary>Momento de expiración de una falla temporal: uniforme entre min y max minutos de tiempo de escenario desde ahora. Min/max se normalizan; valores no positivos devuelven ahora (expira en el próximo tick).</summary>
+    public DateTime TemporaryExpiryUtc(int minMinutes, int maxMinutes) {
+        var (low, high) = minMinutes <= maxMinutes ? (minMinutes, maxMinutes) : (maxMinutes, minMinutes);
+        var minutes = Math.Max(0, low) + _random.NextDouble() * Math.Max(0, high - Math.Max(0, low));
+        return _utcNow().AddMinutes(minutes);
+    }
+
     public IReadOnlyList<PresetFailureDefinition> EvaluateEligible(
         IEnumerable<PresetFailureDefinition> candidates,
         ComplexFlightPhaseEnum currentPhase,
