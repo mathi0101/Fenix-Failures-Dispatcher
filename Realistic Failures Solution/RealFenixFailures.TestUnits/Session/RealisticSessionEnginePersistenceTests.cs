@@ -48,7 +48,7 @@ public class RealisticSessionEnginePersistenceTests {
         var group = new FenixFailureGroup { Name = "APU", System = system };
         var definition = new FenixFailureDefinition {
             FenixFailureId = GroundFailureId, Name = "APU Generator",
-            Group = group, Severity = FailureSeverity.Minor
+            Group = group, Severity = FailureSeverity.Minor, CanBeRepaired = true
         };
         var preset = new FailurePreset {
             Name = "P-GATE", Description = "d", TriggerDescription = "t",

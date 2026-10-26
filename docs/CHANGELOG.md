@@ -1,5 +1,19 @@
 # CHANGELOG
 
+### 2026-10-26 — feat(realistic): fallas de tierra recuperables y fallas aleatorias desde el catálogo completo (tareas 1-2 de tipos-de-falla)
+
+- **Tierra solo leves y recuperables**: `BuildGroundCandidatesAsync` filtra ahora `Severity == Minor && CanBeRepaired` — nunca arranca una sesión con una falla permanente que el piloto no puede resolver (tipos-de-falla.md §4.1). El campo del catálogo/código es `CanBeRepaired` (`repairable` en `failures.json`); «recuperable» es la traducción al usuario.
+- **Fallas aleatorias desde el catálogo completo** (corrige el error de modelado §4.2): nuevo `GetFlightUniverseAsync` en `RealisticSessionEngine` — el sorteo en vuelo usa `FenixFailureDefinitionRepository.GetAllWithSystemsAsync` (cacheado por vida del engine) con candidatos sintéticos `Preset = null` (pasan el filtro de fase en cualquier fase) y `Probability = 1.0` (la λ por severidad la pone la política: base × severidad × perfil × desgaste, idéntico a la estimación del balance). Los presets dejan de alimentar el sorteo aleatorio; siguen cargados para el armado de escenarios (tarea futura).
+- **Comportamiento derivado**: una preparada offline de catálogo **sobrevive el cambio de fase** (las fallas aleatorias no tienen fase); los tests adaptados documentan la semántica nueva. Regla de severidad del perfil (Bajo sin críticas) sigue en `FailureRuleEvaluator`, sin cambios.
+- **Tests**: 2 nuevos (`GroundSeed_OnlyOffersMinorAndRepairableFailures`, `FlightRandomFailures_ComeFromFullCatalog_NotFromPresetDefinitions`); `SetupValidPersistence` y `RealisticSessionManagerTests` stubbean el repositorio de catálogo; seed de persistencia con `CanBeRepaired = true`. Suite **249/249**. No verificado en sesión real MSFS/Fenix — en la PC de testing va a cambiar la variedad de fallas aleatorias (ahora puede salir cualquier falla del catálogo, incluidas las que no estaban en ningún preset).
+
+### 2026-10-26 — Diseño: taxonomía de tipos de falla del modo Realistic
+
+- **Nuevo doc `docs/realistic-mode/tipos-de-falla.md`** (fuente única del diseño, pendiente de implementación): dos familias por modo de activación — **instantáneas** (el motor sortea y dispara: fallas de tierra, aleatorias y temporales) y **armables** (Fenix dispara con su lógica interna tras el armado: escenarios predefinidos/presets).
+- **Cambios de comportamiento que introduce**: tierra solo leves **y recuperables** (`IsRecoverable`/`Repairable`); fallas aleatorias salen del **catálogo completo** en vez de armarse desde definiciones de presets (mismo proceso estocástico: λ global por severidad × perfil × desgaste); **fallas temporales** = aleatorias con auto-resolución tras tiempo aleatorio; **escenarios** se arman tal cual los define `realistic_presets.json` (la app arma en la fase correcta, ej. falla de motor before V1 se arma en taxi inicial, y Fenix ejecuta en el momento preciso — no lo simulamos).
+- **Nomenclatura normalizada** (UI/código/docs): ActivationMode (`Instant`/`Armed`), FailureOrigin (`Catalog`/`Scenario`), FailureDuration (`Permanent`/`Timed`), fuentes Ground/Random/Timed/Scenario; se descarta «fallas inteligentes» en favor de «escenarios predefinidos». La migración de `realistic_presets.json` al esquema con activación por definición queda como **tarea aparte** (dependencia del armado de escenarios).
+- Solo diseño: sin cambios de código ni de motor en este commit. Enlazado desde `estado-y-diseno.md`.
+
 ### 2026-10-26 — Reporte de balance orientado a experiencia y layout 16:9; recalibración de perfiles
 
 - **Vuelo típico 3 h**: `RealisticExpectationService.DefaultFlightHours` 1,5 → 3,0. Toda estimación «por vuelo» (reporte y fallback de la ventana de perfiles sin OFP) usa 3 h.

@@ -39,6 +39,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private bool _hasEverHadFenixRead;
     private bool _groundSeeded;
     private Dictionary<string, int>? _ataByFenixId;
+    private IReadOnlyList<PresetFailureDefinition>? _flightUniverse;
     private DateTime? _lastCadenceTickUtc;
     private DateTime _scenarioStartedAtUtc;
     private DateTime? _flightTimeStartedAtUtc;
@@ -416,7 +417,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         excluded.UnionWith(Queue.Snapshot().Select(q => q.FenixFailureId));
 
         var candidates = _policy.EvaluateEligible(
-                session.AvailablePresets.SelectMany(p => p.PresetFailureDefinitions),
+                await GetFlightUniverseAsync(ct),
                 phase, session.RiskLevel, excluded)
             .DistinctBy(c => c.FenixFailureId)
             .ToList();
@@ -576,6 +577,25 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         }
         _ataByFenixId = lookup;
         return lookup;
+    }
+
+    /// <summary>
+    /// Universo de fallas aleatorias en vuelo (tipos-de-falla.md §4.2): el catálogo completo persistido
+    /// (FenixFailureDefinition), no las definiciones de presets. Candidatos sintéticos con
+    /// <c>Preset = null</c> (pasan el filtro de fase en cualquier fase de vuelo) y <c>Probability = 1.0</c> —
+    /// la λ por severidad la pone la política (base × severidad × perfil × desgaste), igual que la
+    /// estimación del balance. Cacheado por vida del engine (el catálogo no cambia a mitad de sesión).
+    /// </summary>
+    private async Task<IReadOnlyList<PresetFailureDefinition>> GetFlightUniverseAsync(CancellationToken ct) {
+        if (_flightUniverse is not null) return _flightUniverse;
+        if (_fenixFailureDefinitions is null) return [];
+        var catalog = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        _flightUniverse = catalog.Select(entity => new PresetFailureDefinition {
+            FenixFailureId = entity.FenixFailureId,
+            FenixFailure = entity,
+            Probability = 1.0
+        }).ToList();
+        return _flightUniverse;
     }
 
     /// <summary>
@@ -804,7 +824,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         var result = new List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>();
         var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
-        foreach (var entity in availableFailures.Where(x=> x.Severity is FailureSeverity.Minor)) {
+        // Solo leves Y recuperables (tipos-de-falla.md §4.1): nunca se arranca una sesión con una falla
+        // permanente que el piloto no puede resolver en tierra.
+        foreach (var entity in availableFailures.Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)) {
             if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
             var ataId = entity.Group?.System?.AtaId ?? 0;
             var wear = wearByAta.GetValueOrDefault(ataId);

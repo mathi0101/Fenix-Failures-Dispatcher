@@ -28,6 +28,7 @@ public class RealisticSessionManagerTests {
     private Mock<IFlightPlanRepository> _flightPlanRepository = new();
     private Mock<IServiceScope> _scope = null!;
     private readonly Mock<IAircraftSystemWearRepository> _wearRepository = new();
+    private readonly Mock<IFenixFailureDefinitionRepository> _fenixFailureDefinitions = new();
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null, RealisticModeSettings? realisticSettings = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
@@ -42,6 +43,7 @@ public class RealisticSessionManagerTests {
         serviceProvider.Setup(sp => sp.GetService(typeof(ITriggeredFailureRepository))).Returns(_triggeredFailureRepository.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IFlightPlanRepository))).Returns(_flightPlanRepository.Object);
         serviceProvider.Setup(sp => sp.GetService(typeof(IAircraftSystemWearRepository))).Returns(_wearRepository.Object);
+        serviceProvider.Setup(sp => sp.GetService(typeof(IFenixFailureDefinitionRepository))).Returns(_fenixFailureDefinitions.Object);
 
         _scope = new Mock<IServiceScope>();
         _scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
@@ -164,6 +166,11 @@ public class RealisticSessionManagerTests {
             : new List<FailurePreset> {
                 new() { Id = 1, Name = "PRESET", FlightPhase = ComplexFlightPhaseEnum.Unknown, PresetFailureDefinitions = definitions.ToList() }
             };
+        // Universo de fallas aleatorias = catálogo completo (tipos-de-falla.md §4.2): las entidades de las
+        // definiciones hacen de catálogo de prueba.
+        _fenixFailureDefinitions
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(definitions?.Select(d => d.FenixFailure!).Where(e => e is not null).ToList() ?? []);
         _presetService
             .Setup(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(presets);
