@@ -16,6 +16,7 @@
 | [integraciones/fenix-api.md](integraciones/fenix-api.md) | Endpoints Fenix, configuración por claves, cliente real/mock, reset y verificaciones | Antes de tocar `Integrations.Fenix` | Vigente |
 | [ui/instancia-unica-y-bandeja.md](ui/instancia-unica-y-bandeja.md) | Instancia única (Mutex) y icono de bandeja del sistema en `RealFenixFailures.UI` | Antes de tocar `App.xaml(.cs)`, `MainWindow` o los servicios de bandeja/instancia única | Vigente (pendiente de verificación manual) |
 | [ui/telemetria.md](ui/telemetria.md) | Ping anónimo de uso (PostHog): qué se envía, opt-out, configuración y secreto del workflow de release | Antes de tocar telemetría, Ajustes → General o el workflow de release | Vigente (pendiente de verificación real) |
+| [demos/](demos/) | Demos navegables (mocks HTML con datos ficticios) de la interfaz, publicables en GitHub Pages y linkeadas desde el README | Antes de editar un mock, agregar uno nuevo o activar Pages | Vigente |
 
 ## Histórico
 

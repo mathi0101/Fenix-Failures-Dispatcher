@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock · Resultados de la sesión — Real Fenix Failures</title>
+<style>
+  :root {
+    --bg-deep: #0D0F14; --card: #13161E; --card-hover: #1A1E28;
+    --titlebar: #0A0C10; --statusbar: #0F1117; --log: #0A0C10;
+    --scenario-sel: #1A2540; --warn-bg: #2A1C0A;
+    --blue: #3B82F6; --green: #22C55E; --amber: #F59E0B; --orange: #F97316;
+    --red: #EF4444; --text: #F1F5F9; --text-sec: #64748B;
+    --border: #1E2433; --meta: #94A3B8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg-deep); color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 12px 48px; }
+  .disclaimer { position: sticky; top: 0; z-index: 50; width: 100%;
+    background: var(--warn-bg); border-bottom: 1px solid var(--amber);
+    color: var(--amber); font-size: 12.5px; font-weight: 600; text-align: center; padding: 9px 16px; }
+  .disclaimer span { opacity: .92; font-weight: 400; }
+  .frame { width: 900px; max-width: 100%; background: var(--card);
+    border: 1px solid #2A2F3A; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); margin-top: 24px; }
+  .titlebar { background: var(--titlebar); border-bottom: 1px solid var(--border);
+    padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .titlebar b { font-size: 13px; }
+  .tbbtn { background: transparent; border: 1px solid #334155; color: var(--text);
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; cursor: pointer; }
+  .content { padding: 14px 16px 8px; }
+  .meta { font-size: 12px; color: var(--meta); margin-right: 18px; margin-bottom: 5px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  .route { font-family: Consolas, monospace; font-size: 22px; font-weight: 700; margin-right: 12px; }
+  .riskpill { border: 1px solid var(--amber); color: var(--amber); border-radius: 4px;
+    padding: 3px 8px; font-size: 10px; font-weight: 700; vertical-align: middle; }
+  .wearsum { color: var(--green); font-size: 12px; }
+  .section { color: var(--amber); font-family: Consolas, monospace; font-size: 11px;
+    font-weight: 700; margin: 18px 0 8px; }
+  .subtitle { font-size: 11px; color: var(--meta); margin-bottom: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .tile { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .tile .n { font-family: Consolas, monospace; font-size: 22px; font-weight: 700; }
+  .tile .c { font-size: 10px; color: var(--meta); margin-top: 4px; }
+  .sevline { font-size: 11px; margin-top: 8px; }
+  .sevline span { margin-right: 16px; }
+  .timelinebox { background: var(--bg-deep); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 0; }
+  .trow { display: grid; grid-template-columns: 105px 18px 1fr; padding: 5px 12px; align-items: start; }
+  .trow .t { font-family: Consolas, monospace; font-size: 11px; color: var(--meta); }
+  .trow .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; }
+  .trow .code { font-family: Consolas, monospace; font-size: 10px; margin-right: 10px; }
+  .trow .phase { font-size: 11px; color: var(--meta); }
+  .trow .desc { font-size: 12px; }
+  .fcard { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 8px; }
+  .fcard.unresolved { border-color: var(--red); }
+  .fcard .fname { font-size: 13px; font-weight: 600; }
+  .fcard .meta { font-size: 11px; margin: 5px 0 3px; }
+  .sevchip { border: 1px solid; border-radius: 4px; padding: 2px 7px; font-size: 10px;
+    font-weight: 700; margin-right: 8px; }
+  .statechip { background: var(--card-hover); border-radius: 4px; padding: 2px 7px;
+    font-size: 10px; font-weight: 700; }
+  .fdetail { font-family: Consolas, monospace; font-size: 11px; color: var(--meta); }
+  .wearbox { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .wrow { padding: 8px 4px; border-radius: 4px; margin-bottom: 2px; }
+  .wrow.maint { background: var(--warn-bg); }
+  .wrow .grid { display: grid; grid-template-columns: 2fr 80px 80px 2fr; gap: 0 8px; align-items: center; }
+  .wrow .sys { font-size: 12px; font-weight: 600; }
+  .wrow .ata { font-family: Consolas, monospace; font-size: 10px; color: var(--meta); }
+  .wrow .delta { color: var(--green); font-family: Consolas, monospace; font-size: 12px; text-align: right; }
+  .wrow .total { font-family: Consolas, monospace; font-size: 12px; text-align: right; }
+  .wbar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .wbar i { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+  .wbar.maint i { background: var(--amber); }
+  .whead { display: grid; grid-template-columns: 2fr 80px 80px 2fr; gap: 0 8px;
+    font-size: 10px; color: var(--meta); padding: 0 4px 8px; }
+  .whead .r { text-align: right; }
+  .maintwarn { color: var(--amber); font-size: 10px; font-weight: 700; margin-top: 5px; }
+  .thresh { font-size: 10px; color: var(--meta); margin: 10px 0 2px 4px; }
+  .footer { border-top: 1px solid var(--border); background: var(--titlebar);
+    padding: 12px 16px; display: flex; justify-content: flex-end; gap: 10px; }
+  .fbtn { padding: 9px 14px; border-radius: 6px; border: 1px solid #334155;
+    background: transparent; color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; }
+  .fbtn.primary { background: var(--blue); border-color: var(--blue); }
+  .pagefoot { margin-top: 20px; font-size: 11px; color: var(--text-sec); text-align: center; }
+  .pagefoot a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer">
+  ⚠ SIMULACIÓN ILUSTRATIVA — <span>Mock de la interfaz con datos ficticios. Ningún valor mostrado representa valores reales del simulador ni de una sesión real.</span>
+</div>
+
+<div class="frame">
+  <div class="titlebar">
+    <b>Resultados de la sesión</b>
+    <button class="tbbtn" aria-label="Cerrar resultados">✕</button>
+  </div>
+
+  <div class="content">
+    <div style="margin-bottom:8px">
+      <span class="route">SAEZ → LEBL</span>
+      <span class="riskpill">MODERADO</span>
+    </div>
+    <div>
+      <span class="meta">LV-FNX · A320</span>
+      <span class="meta">OFP: SimBrief (IB 6842)</span>
+    </div>
+    <div>
+      <span class="meta">Inicio: 25/10/2026 23:12:04 UTC</span>
+      <span class="meta">Fin: 26/10/2026 02:41:37 UTC</span>
+      <span class="meta">Duración: 3 h 29 min</span>
+    </div>
+    <p class="wearsum">Desgaste medio de la sesión: +0,8 %</p>
+
+    <p class="section">RESUMEN</p>
+    <div class="tiles">
+      <div class="tile"><div class="n">5</div><div class="c">Fallas lanzadas</div></div>
+      <div class="tile"><div class="n" style="color:var(--green)">2</div><div class="c">Resueltas por el piloto</div></div>
+      <div class="tile"><div class="n" style="color:var(--green)">2</div><div class="c">Auto-resueltas (engine)</div></div>
+      <div class="tile"><div class="n" style="color:var(--red)">1</div><div class="c">No resueltas (cierre)</div></div>
+      <div class="tile"><div class="n" style="color:var(--amber)">3</div><div class="c">Rechazadas (no evento)</div></div>
+      <div class="tile"><div class="n" style="color:var(--blue)">0</div><div class="c">Activas al cierre</div></div>
+    </div>
+    <p class="sevline">
+      Severidad:
+      <span style="color:var(--amber)">2 Minor</span>
+      <span style="color:var(--orange)">2 Major</span>
+      <span style="color:var(--red)">1 Critical</span>
+    </p>
+
+    <p class="section">CRONOLOGÍA DE LA SESIÓN</p>
+    <p class="subtitle">Eventos registrados de vuelo y fallas, en orden UTC. La fecha completa está disponible sobre cada hora.</p>
+    <div class="timelinebox">
+      <div class="trow"><span class="t">23:12:04 UTC</span><span class="dot" style="background:var(--blue)"></span>
+        <div><span class="code" style="color:var(--blue)">SESSION_STARTED</span><span class="phase">Fase no disponible</span><div class="desc">Sesión realista iniciada</div></div></div>
+      <div class="trow"><span class="t">23:12:05 UTC</span><span class="dot" style="background:var(--blue)"></span>
+        <div><span class="code" style="color:var(--blue)">OFP_LOADED</span><span class="phase">Fase no disponible</span><div class="desc">OFP SAEZ → LEBL validado (SimBrief)</div></div></div>
+      <div class="trow"><span class="t">23:18:41 UTC</span><span class="dot" style="background:var(--blue)"></span>
+        <div><span class="code" style="color:var(--blue)">PHASE_CHANGED</span><span class="phase">Puerta</span><div class="desc">Fase: Taxi</div></div></div>
+      <div class="trow"><span class="t">23:26:12 UTC</span><span class="dot" style="background:var(--green)"></span>
+        <div><span class="code" style="color:var(--green)">ENGINES_STARTED</span><span class="phase">Taxi</span><div class="desc">Motores encendidos</div></div></div>
+      <div class="trow"><span class="t">23:31:48 UTC</span><span class="dot" style="background:var(--blue)"></span>
+        <div><span class="code" style="color:var(--blue)">PHASE_CHANGED</span><span class="phase">Taxi</span><div class="desc">Fase: Despegue</div></div></div>
+      <div class="trow"><span class="t">00:14:03 UTC</span><span class="dot" style="background:var(--meta)"></span>
+        <div><span class="code" style="color:var(--meta)">ALTITUDE_CROSSED</span><span class="phase">Ascenso</span><div class="desc">Altitud cruzada: FL100</div></div></div>
+      <div class="trow"><span class="t">01:05:37 UTC</span><span class="dot" style="background:var(--orange)"></span>
+        <div><span class="code" style="color:var(--orange)">FAILURE_TRIGGERED</span><span class="phase">Ascenso</span><div class="desc">Blue hydraulic low level (Major)</div></div></div>
+      <div class="trow"><span class="t">01:31:22 UTC</span><span class="dot" style="background:var(--green)"></span>
+        <div><span class="code" style="color:var(--green)">FAILURE_RESOLVED_BY_PILOT</span><span class="phase">Crucero</span><div class="desc">Blue hydraulic low level resuelta por el piloto</div></div></div>
+      <div class="trow"><span class="t">01:58:44 UTC</span><span class="dot" style="background:var(--orange)"></span>
+        <div><span class="code" style="color:var(--orange)">FAILURE_TRIGGERED</span><span class="phase">Crucero</span><div class="desc">FCU Channel 1 (Major)</div></div></div>
+      <div class="trow"><span class="t">02:07:16 UTC</span><span class="dot" style="background:var(--green)"></span>
+        <div><span class="code" style="color:var(--green)">FAILURE_AUTO_RESOLVED</span><span class="phase">Crucero</span><div class="desc">FCU Channel 1 auto-resuelta (engine)</div></div></div>
+      <div class="trow"><span class="t">02:35:10 UTC</span><span class="dot" style="background:var(--orange)"></span>
+        <div><span class="code" style="color:var(--orange)">FAILURE_TRIGGERED</span><span class="phase">Crucero</span><div class="desc">Rapid decompression (Critical)</div></div></div>
+      <div class="trow"><span class="t">02:41:37 UTC</span><span class="dot" style="background:var(--red)"></span>
+        <div><span class="code" style="color:var(--red)">FAILURE_NOT_RESOLVED</span><span class="phase">Crucero</span><div class="desc">Rapid decompression — consolidada como no resuelta al cierre</div></div></div>
+    </div>
+
+    <p class="section">FALLAS LANZADAS</p>
+    <p class="subtitle">Momento, fase, resolución y fuente observada. Las no resueltas se consolidan al cierre.</p>
+
+    <div class="fcard">
+      <div class="fname">CPC 1</div>
+      <div><span class="meta" style="margin:0">ATA 21 · Air Conditioning</span>
+        <span class="sevchip" style="border-color:var(--amber);color:var(--amber)">Minor</span>
+        <span class="statechip" style="color:var(--green)">Resuelta por el piloto</span></div>
+      <div class="fdetail">F_PNEUMATIC_CPC_1 · 00:12:53 UTC · Ascenso · FL 090</div>
+    </div>
+    <div class="fcard">
+      <div class="fname">Blue hydraulic low level</div>
+      <div><span class="meta" style="margin:0">ATA 29 · Hydraulic power</span>
+        <span class="sevchip" style="border-color:var(--orange);color:var(--orange)">Major</span>
+        <span class="statechip" style="color:var(--green)">Resuelta por el piloto</span></div>
+      <div class="fdetail">F_HYD_LOW_BLUE · 01:05:37 UTC · Ascenso · FL 210</div>
+    </div>
+    <div class="fcard">
+      <div class="fname">Zone controller primary</div>
+      <div><span class="meta" style="margin:0">ATA 21 · Air Conditioning</span>
+        <span class="sevchip" style="border-color:var(--amber);color:var(--amber)">Minor</span>
+        <span class="statechip" style="color:var(--green)">Auto-resuelta (engine)</span></div>
+      <div class="fdetail">F_PNEUMATIC_ZONECONTROLLER_PRIM · 01:47:02 UTC · Crucero · FL 350</div>
+    </div>
+    <div class="fcard">
+      <div class="fname">FCU Channel 1</div>
+      <div><span class="meta" style="margin:0">ATA 22 · AutoFlight</span>
+        <span class="sevchip" style="border-color:var(--orange);color:var(--orange)">Major</span>
+        <span class="statechip" style="color:var(--green)">Auto-resuelta (engine)</span></div>
+      <div class="fdetail">F_FCU_1 · 01:58:44 UTC · Crucero · FL 350</div>
+    </div>
+    <div class="fcard unresolved">
+      <div class="fname">Rapid decompression</div>
+      <div><span class="meta" style="margin:0">ATA 21 · Air Conditioning</span>
+        <span class="sevchip" style="border-color:var(--red);color:var(--red)">Critical</span>
+        <span class="statechip" style="color:var(--red)">No resuelta (cierre)</span></div>
+      <div class="fdetail">F_PNEUMATIC_DECOMPRESSION_MAJOR · 02:35:10 UTC · Crucero · FL 350</div>
+    </div>
+
+    <p class="section">RECHAZADAS — NO EVENTO</p>
+    <div class="fcard">
+      <div class="fname">Pack 1 overheat</div>
+      <div><span class="meta" style="margin:0">ATA 21 · Air Conditioning</span>
+        <span class="sevchip" style="border-color:var(--orange);color:var(--orange)">Major</span>
+        <span class="statechip" style="color:var(--meta)">Rechazada (no evento)</span></div>
+      <div class="fdetail">F_PNEUMATIC_PACK_1_OVERHEAT · motivo: fuera de fase elegible</div>
+    </div>
+    <div class="fcard">
+      <div class="fname">AP 1</div>
+      <div><span class="meta" style="margin:0">ATA 22 · AutoFlight</span>
+        <span class="sevchip" style="border-color:var(--orange);color:var(--orange)">Major</span>
+        <span class="statechip" style="color:var(--meta)">Rechazada (no evento)</span></div>
+      <div class="fdetail">F_AUTOFLIGHT_AP1 · motivo: tope de agravamiento de la sesión</div>
+    </div>
+    <div class="fcard">
+      <div class="fname">Outflow valve stuck</div>
+      <div><span class="meta" style="margin:0">ATA 21 · Air Conditioning</span>
+        <span class="sevchip" style="border-color:var(--orange);color:var(--orange)">Major</span>
+        <span class="statechip" style="color:var(--meta)">Rechazada (no evento)</span></div>
+      <div class="fdetail">F_PNEUMATIC_OUTFLOWVALVE_STUCK · motivo: tregua tras falla crítica</div>
+    </div>
+
+    <p class="section">DESGASTE POR COMPONENTE — AUMENTO DE ESTA SESIÓN</p>
+    <p class="subtitle">Tasa por sistema × horas de la sesión. El total corresponde al cierre de este vuelo.</p>
+    <div class="wearbox">
+      <div class="whead"><span>SISTEMA</span><span class="r">Δ SESIÓN</span><span class="r">TOTAL</span><span style="margin-left:14px">ACUMULADO (0–100 %)</span></div>
+      <div class="wrow">
+        <div class="grid">
+          <div><div class="sys">Hydraulic power</div><div class="ata">ATA 29</div></div>
+          <div class="delta">+0,42 %</div><div class="total">27,4 %</div>
+          <div class="wbar"><i style="width:27.4%"></i></div>
+        </div>
+      </div>
+      <div class="wrow">
+        <div class="grid">
+          <div><div class="sys">Air Conditioning</div><div class="ata">ATA 21</div></div>
+          <div class="delta">+0,18 %</div><div class="total">12,1 %</div>
+          <div class="wbar"><i style="width:12.1%"></i></div>
+        </div>
+      </div>
+      <div class="wrow maint">
+        <div class="grid">
+          <div><div class="sys">Landing gear</div><div class="ata">ATA 32</div></div>
+          <div class="delta">+0,24 %</div><div class="total">83,5 %</div>
+          <div class="wbar maint"><i style="width:83.5%"></i></div>
+        </div>
+        <div class="maintwarn">⚠ REQUIERE MANTENIMIENTO</div>
+      </div>
+      <p class="thresh">Aviso de mantenimiento: 80 % de desgaste acumulado o más.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="fbtn">VER HISTORIAL COMPLETO</button>
+    <button class="fbtn primary">CERRAR</button>
+  </div>
+</div>
+
+<p class="pagefoot">Mock de <b>Real Fenix Failures</b> · interfaz simulada, sin datos reales · <a href="index.html">← Volver a las demos</a></p>
+
+</body>
+</html>
