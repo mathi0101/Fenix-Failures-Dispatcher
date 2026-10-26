@@ -50,26 +50,26 @@ Esto preserva la **invariancia al `EvaluationIntervalSeconds`** (requisito duro:
 
 ### 1.1 Parámetros globales de física (nueva sección `RealisticMode:Physics`)
 
-| Parámetro | Default borrador | Significado |
+| Parámetro | Default vigente | Significado |
 |---|---|---|
-| `FailureRatePerHourBase` | 0.01 | λ base por falla Minor elegible, en eventos/hora |
-| `GroundSeedBaseProbability` | 0.01 | p one-shot del seed de tierra (unidad distinta de la anterior; se mantiene separada para calibrar cada eje) |
-| `SeverityRateMultiplier` | Minor 1.0 / Major 0.4 / Critical 0.15 | Cuánto más rara es cada severidad a igualdad de todo lo demás |
+| `FailureRatePerHourBase` | 0.2 | λ base por falla Minor elegible, en eventos/hora |
+| `GroundSeedBaseProbability` | 0.001 | p one-shot del seed de tierra (unidad distinta de la anterior; se mantiene separada para calibrar cada eje) |
+| `SeverityRateMultiplier` | Minor 1.2 / Major 0.4 / Critical 0.12 | Cuánto más rara es cada severidad a igualdad de todo lo demás |
 | `AggravationWeights` | Minor 1 / Major 2 / Critical 4 | Pesos del score de agravamiento (§2) |
 | `SameAtaAggravationExtra` | 1 | Puntos extra por cada falla previa simultánea del mismo ATA (§2.3) |
 
-Estos defaults viven en `RealisticProfileCatalog` (código, única fuente); `appsettings` puede sobrescribirlos para calibrar en la PC de testing sin recompilar.
+Estos defaults viven en `FailureEngineSettings` (`RealisticModeSettings` con perfiles nombrados, código, única fuente); `appsettings` puede sobrescribirlos — incluso campo por campo (`FailureEngine:RealisticMode:Moderate:WearMaxMultiplier`) — para calibrar en la PC de testing sin recompilar.
 
-Con ~20 Minors y ~5 Majors elegibles por fase, las tasas esperadas quedan:
+La estimación de presentación es **global por severidad** (§8.7): λ = `FailureRatePerHourBase` × multiplicador de severidad × multiplicador del perfil × factor de desgaste. No pondera por fase ni por la composición de presets. Tasas por hora resultantes:
 
-| Perfil | Mult | Minor/h | Major/h | Critical/h | (Referencia actual) |
-|---|---|---|---|---|---|
-| Low | 0.75 | 0.15 | 0.015 | 0 | hoy: 0.5 / 0.05 / 0 |
-| Moderate | 1.0 | 0.20 | 0.02 | 0.003 | hoy: 0.2 / 0.1 / 0.01 |
-| High | 1.5 | 0.30 | 0.03 | 0.010 | hoy: 0.3 / 0.25 / 0.1 |
-| 7700 | 2.5 | 0.50 | 0.05 | 0.019 | hoy: 0.6 / 0.5 / 0.3 |
+| Perfil | Mult | 0 % wear: Minor/h / Major/h / Critical/h | 25 % wear |
+|---|---|---|---|
+| Low | 0.6 | 0,14 / 0,05 / 0 (política: sin críticas) | 0,18 / 0,06 / 0 |
+| Moderate | 1.0 | 0,24 / 0,08 / 0,024 | 0,36 / 0,12 / 0,036 |
+| High | 1.5 | 0,36 / 0,12 / 0,036 | 0,63 / 0,21 / 0,063 |
+| 7700 | 2.5 | 0,60 / 0,20 / 0,060 | 1,28 / 0,43 / 0,13 |
 
-Consecuencias deliberadas: las Majors bajan ~5× en Moderate (corrección del "es demasiado" del incidente) y Low deja el 0.5/h de Minors que era mayor que Moderate (anomalía histórica). El bloqueo de Critical en Low sigue siendo política, no física (ver §2.3).
+La lectura que importa es por vuelo típico (1,5 h, 25 % de desgaste): Moderado ≈ 0,77 fallas con 1 crítica cada ~19 vuelos, Alto 1 crítica cada ~11 y 7700 cada ~5 (`docs/balance/balance-realistic.md`, sección «Experiencia por vuelo»). El bloqueo de Critical en Low sigue siendo política, no física (ver §2.3).
 
 ### 1.2 El `Probability` del preset se conserva
 
@@ -171,11 +171,10 @@ Perfil: de 11 campos a **6**. Espejo completo validado en `%TEMP%\RF-espejo\apps
   "GroundFailureEnabled": true,
   "ThinkingLinesCap": 50,
   "EvaluationDeltaCapSeconds": 300,
-  "RespiteClampSeconds": 900,
   "Physics": {
     "FailureRatePerHourBase": 0.01,
     "GroundSeedBaseProbability": 0.01,
-    "SeverityRateMultiplier": { "Minor": 1.0, "Major": 0.4, "Critical": 0.15 },
+    "SeverityRateMultiplier": { "Minor": 1.2, "Major": 0.4, "Critical": 0.12 },
     "AggravationWeights": { "Minor": 1, "Major": 2, "Critical": 4 },
     "SameAtaAggravationExtra": 1
   },
@@ -186,7 +185,7 @@ Perfil: de 11 campos a **6**. Espejo completo validado en `%TEMP%\RF-espejo\apps
     { "RiskLevel": 4, "ProbabilityMultiplier": 2.5,  "WearMaxMultiplier": 4.0, "AggravationCap": null, "GroundFailuresCap": 5, "CriticalRespiteSeconds": 300 }
   ],
   "Ofp": { "PreStartWindowHours": 2, "PostArrivalWindowHours": 0.5 },
-  "Wear": { "AmplificationFactor": 0.5, "ThresholdNoticePct": 80 }
+  "Wear": { "ThresholdNoticePct": 80 }
 }
 ```
 
@@ -283,10 +282,10 @@ Junto a «Desgaste medio: X%» del header colapsable (paso 3), agregar la expect
 - Sin OFP: ritmo por hora: «≈ 0.2 fallas/h de vuelo (referencia Moderado)».
 - El desgaste medio entra vía `WearFactor` por sistema (§3.1); tooltip detalla supuestos (perfil de referencia, duración, desgaste vigente).
 - Si hay perfil elegido, se muestra además el valor con ese perfil.
-- Requiere un servicio de Application (ej. `IRealisticExpectationService`: wear + duración → Σλ, esperadas, P≥1) que reutilice la λ del motor. Es estimación de presentación, no cambia el motor (mismo criterio que §5.3).
+- Implementado como `IRealisticExpectationService` (Application): `Compute` (referencia con tasa fija `ReferenceRatePerHour`) para el header y `ComputePerProfileAsync` (λ real por severidad del modelo §1, sin presets ni fases) para la ventana de perfiles. Es estimación de presentación, no cambia el motor (mismo criterio que §5.3).
 
 ## 9. Riesgos abiertos
 
-- **Mix de severidades uniforme entre perfiles**: con multiplicadores globales, todos los perfiles comparten proporciones (hoy Low tiene Majors 10× más raras que Minors y High casi parejas). Mitigado: bloqueo político de Critical en Low + calibración posterior.
+- ~~**Mix de severidades uniforme entre perfiles**~~: **resuelto (2026-10-26)** — la estimación es global por severidad, así que las proporciones entre leves/graves/críticas son exactamente las de `SeverityRateMultiplier` en todos los perfiles (antes la composición del catálogo distorsionaba: graves más frecuentes que leves). Queda como política el bloqueo de Critical en Low.
 - **Dos bases de datos con esquema nuevo**: la PC de testing comparte su DB en el share; regenerarla borra historial de sesiones — coordinar con el usuario antes.
 - **Trabajo multi-agente**: el árbol tiene WIP de otras tareas (ver `git status`); la implementación se hará sobre archivos releídos al momento y commits selectivos de solo los archivos de esta spec.
