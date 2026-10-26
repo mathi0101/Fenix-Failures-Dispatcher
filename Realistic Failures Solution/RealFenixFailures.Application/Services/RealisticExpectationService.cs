@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Session;
+using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
 
@@ -16,10 +17,31 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
     /// </summary>
     public const double ReferenceRatePerHour = 0.22;
 
-    private readonly FailureEngineSettings _settings;
+    /// <summary>Duración de vuelo de referencia para estimar cuando no hay OFP cargado.</summary>
+    public const double DefaultFlightHours = 1.5;
 
-    public RealisticExpectationService(IOptions<FailureEngineSettings> settings) {
+    /// <summary>Desgaste medio de referencia cuando la aeronave todavía no registra desgaste.</summary>
+    public const double DefaultAverageWearPct = 25;
+
+    /// <summary>Minutos típicos por fase en una vuelta de ~1,5 h; base del peso de cada fase en vuelo.</summary>
+    private static readonly IReadOnlyDictionary<ComplexFlightPhaseEnum, double> PhaseMinutes = new Dictionary<ComplexFlightPhaseEnum, double> {
+        [ComplexFlightPhaseEnum.OnGate] = 10,
+        [ComplexFlightPhaseEnum.Taxi] = 8,
+        [ComplexFlightPhaseEnum.Takeoff] = 2,
+        [ComplexFlightPhaseEnum.Climb] = 18,
+        [ComplexFlightPhaseEnum.Cruise] = 40,
+        [ComplexFlightPhaseEnum.Descent] = 8,
+        [ComplexFlightPhaseEnum.Approach] = 10,
+        [ComplexFlightPhaseEnum.Landing] = 2,
+    };
+    private static readonly double TotalPhaseMinutes = PhaseMinutes.Values.Sum();
+
+    private readonly FailureEngineSettings _settings;
+    private readonly IPresetService? _presetService;
+
+    public RealisticExpectationService(IOptions<FailureEngineSettings> settings, IPresetService? presetService = null) {
         _settings = settings.Value;
+        _presetService = presetService;
     }
 
     public RealisticExpectationDto Compute(double? averageWearPct, double? flightHours, RiskLevel? profileRisk) {
@@ -37,5 +59,64 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
             ExpectedFailures = hours is null ? 0 : rate * hours.Value,
             ProbabilityAtLeastOnePct = hours is null ? 0 : (1 - Math.Exp(-rate * hours.Value)) * 100
         };
+    }
+
+    public async Task<IReadOnlyList<ProfileExpectationDto>> ComputePerProfileAsync(double? averageWearPct, double? flightHours, CancellationToken ct = default) {
+        var mode = _settings.RealisticMode;
+        var physics = mode.Physics;
+        var (minorCount, majorCount, _) = FailureCatalogStats.SeverityCounts();
+        var wearPct = averageWearPct ?? DefaultAverageWearPct;
+        var hours = flightHours is > 0 ? flightHours.Value : DefaultFlightHours;
+
+        // Universo de candidatas en vuelo: los mismos presets que monta el motor al iniciar la sesión,
+        // ponderados por la duración de la fase en que cada preset es elegible.
+        var presets = await SafeGetRealisticPresetsAsync(ct);
+
+        var results = new List<ProfileExpectationDto>();
+        foreach (var risk in new[] { RiskLevel.Low, RiskLevel.Moderate, RiskLevel.High, RiskLevel.Squawk7700 }) {
+            var profile = RealisticProfileCatalog.Resolve(mode, risk);
+            var wearFactor = RealisticFailurePolicy.WearFactor(profile, wearPct);
+
+            var groundSeeds = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(physics, profile, minorCount, majorCount, wearPct);
+
+            var inFlight = 0.0;
+            foreach (var preset in presets) {
+                if (!PhaseMinutes.TryGetValue(preset.FlightPhase, out var minutes)) continue;
+                var phaseHours = minutes / TotalPhaseMinutes * hours;
+                inFlight += SumPresetLambda(preset, profile, physics, wearFactor, risk) * phaseHours;
+            }
+
+            results.Add(new ProfileExpectationDto {
+                Risk = risk,
+                Profile = profile,
+                GroundSeedsPerFlight = groundSeeds,
+                InFlightPerFlight = inFlight,
+            });
+        }
+        return results;
+    }
+
+    private static double SumPresetLambda(
+        FailurePreset preset,
+        RealisticProfileSettings profile,
+        RealisticPhysicsSettings physics,
+        double wearFactor,
+        RiskLevel risk) {
+        var sum = 0.0;
+        foreach (var definition in preset.PresetFailureDefinitions) {
+            var severity = definition.FenixFailure?.Severity ?? FailureSeverity.Minor;
+            if (risk == RiskLevel.Low && severity == FailureSeverity.Critical) continue;
+            sum += RealisticFailurePolicy.FlightFailureLambda(severity, definition.Probability, profile, physics, wearFactor);
+        }
+        return sum;
+    }
+
+    private async Task<IReadOnlyList<FailurePreset>> SafeGetRealisticPresetsAsync(CancellationToken ct) {
+        if (_presetService is null) return [];
+        try {
+            return await _presetService.GetRealisticPresetsAsync(ct);
+        } catch (Exception) {
+            return [];
+        }
     }
 }

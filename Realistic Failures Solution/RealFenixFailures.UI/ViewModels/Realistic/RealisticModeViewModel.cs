@@ -782,6 +782,16 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Crea el ViewModel del modal de perfiles de riesgo, conectado a este panel (selección vigente,
+    /// desgaste medio y duración del OFP) y al servicio de expectativa para calcular con la config vigente.
+    /// </summary>
+    public RiskProfileWindowViewModel CreateRiskProfileDialog() => new(
+        this,
+        _expectationService,
+        () => WearSystems.Count == 0 ? null : WearSystems.Average(w => (double)w.WearPercentage),
+        () => _ofpPlanForUi?.EstimatedDurationMinutes is > 0 ? _ofpPlanForUi.EstimatedDurationMinutes / 60.0 : null);
+
     /// <summary>Recalcula la expectativa de fallas (spec §8.7) con el desgaste medio, la duración del OFP y el perfil vigente.</summary>
     private void RefreshExpectation() {
         if (_expectationService is null) return;

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+### 2026-10-26 — Tregua tras falla crítica del perfil Alto: 10 → 20 min
+
+- `RealisticProfileCatalog.DefaultsFor(High)`: `CriticalRespiteSeconds` 600 → 1200. Moderado sigue sin tregua y 7700 conserva 600 s. La ventana de perfiles rediseñada muestra el valor vigente dinámicamente (chip «20 min de tregua tras cada falla crítica»), sin cambios de código adicionales. Test de defaults del fallback actualizado.
+
+### 2026-10-26 — Pantalla de perfiles de riesgo: rediseño dinámico (mock aprobado)
+
+- **Rediseño del modal `RealisticRiskProfileWindow`** según el mock aprobado: cuatro tarjetas seleccionables de intensidad creciente (Bajo, Moderado, Alto, 7700 — todas seleccionables como ya lo permitía `SelectRiskCommand`), píldora de compatibilidad VATSIM, una descripción corta por perfil y detalle expandible con medidores (frecuencia, efecto del desgaste) y chips (tope de semillas de tierra, tregua tras falla crítica, sugerencia VATSIM). Se elimina la dualidad «diseño objetivo / comportamiento actual» y los knobs que el motor v2 ya no tiene (topes por severidad, escala temporal, público).
+- **Dinámica desde la config vigente**: nuevo `ComputePerProfileAsync` en `IRealisticExpectationService` resuelve cada perfil con `RealisticProfileCatalog.Resolve`, la física de `FailureEngineSettings` y los presets realistas de `IPresetService`; nuevo `RealisticProfileExpectation` (Application/Session) con la esperanza de la semilla de tierra `E[min(Poisson(λ), cap)]` y `FailureCatalogStats` (Domain) que cuenta severidades del `failures.json` embebido. La referencia «≈ N fallas cada 10 vuelos» y todos los mensajes se recalculan en cada apertura con desgaste medio y duración del OFP (defaults 25 % y 1,5 h): ajustar perfiles o cadencias en `FailureEngine:RealisticMode` no requiere tocar la ventana. La confirmación sigue vía `SelectRiskCommand` con bloqueo de sesión activa.
+- UI: nuevos `RiskProfileWindowViewModel`/`RiskProfileOptionViewModel`; el panel abre el modal con `CreateRiskProfileDialog()` (ya no pasa el `RealisticModeViewModel` como DataContext). El `Compute` anterior (panel, §8.7) queda igual.
+- **Verificación**: build Debug OK; suite **246/246** (los tests nuevos de `RealisticProfileExpectationTests` incluidos). El test de defaults del catálogo se ajustó al respiro nuevo de 1200 s del perfil Alto (cambio concurrente en `RealisticProfileCatalog.cs`, entrado en este mismo estado de árbol). **No verificado en la app corriendo ni en sesión real MSFS/Fenix.**
+
 ### 2026-10-25 — Definido el próximo release: 0.3.0-beta.1 con todas las novedades desde v0.2.0-beta.1
 
 - El número del próximo release vuelve a **0.3.0-beta.1** (el bump a 0.4.0-beta.1 se definió antes de cerrar el alcance; el tag nunca se publicó — último publicado: v0.2.0-beta.1, verificado local y remoto). `docs/releases/v0.3.0-beta.1.md` reescrito para cubrir **todos** los cambios desde v0.2.0-beta.1: desgaste desde motores, escala por duración, tasas rebalanceadas con migración, cierre protegido con sesión activa, versión clickeable + pill + chequeo al arrancar, versión en logs y crash reports, crashes junto a los logs, telemetría anónima con opt-out y README en el ZIP.
