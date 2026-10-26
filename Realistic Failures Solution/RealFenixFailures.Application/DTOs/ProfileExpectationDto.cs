@@ -16,5 +16,7 @@ public sealed record ProfileExpectationDto {
     public double GroundSeedsPerFlight { get; init; }
     /// <summary>Fallas esperadas en vuelo (Σλ por fase × duración de fase sobre la duración usada).</summary>
     public double InFlightPerFlight { get; init; }
+    /// <summary>Solo fallas graves (Critical): la semilla de tierra del motor es Minor y no suma; cuentan las Critical en vuelo.</summary>
+    public double CriticalPerFlight { get; init; }
     public double TotalPerFlight => GroundSeedsPerFlight + InFlightPerFlight;
 }

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-10-26 — Referencia de la pantalla de perfiles: solo fallas graves (Critical) en el aire
+
+- La estimación por perfil ahora cuenta **únicamente fallas Critical en vuelo** (`ProfileExpectationDto.CriticalPerFlight`) y la tarjeta la muestra como «Fallas graves aproximadas cada 10 vuelos: ≈ N» (entero a partir de 10, un decimal por debajo). La semilla de tierra queda fuera de la métrica: el motor arma solo fallas Minor en tierra (`BuildGroundCandidatesAsync`), así que no aporta críticas; Low da 0 porque `FailureRuleEvaluator` las descarta en ese perfil.
+- Con la calibración vigente (`FailureRatePerHourBase` 0,01 × `SeverityRateMultiplier.Critical` 0,15 y 3 definiciones Critical en los 6 presets realistas) el valor esperado es ≈ 0 cada 10 vuelos en todos los perfiles; la cifra responde dinámicamente a los ajustes de cadencia/perfiles sin cambios de código.
+- Tests nuevos con `IPresetService` stub: solo Critical suma al conteo, Low = 0 y 7700 escala ×2,5. Suite **248/248**.
+
 ### 2026-10-26 — Tregua tras falla crítica del perfil Alto: 10 → 20 min
 
 - `RealisticProfileCatalog.DefaultsFor(High)`: `CriticalRespiteSeconds` 600 → 1200. Moderado sigue sin tregua y 7700 conserva 600 s. La ventana de perfiles rediseñada muestra el valor vigente dinámicamente (chip «20 min de tregua tras cada falla crítica»), sin cambios de código adicionales. Test de defaults del fallback actualizado.

@@ -73,8 +73,8 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
             }
 
             var wearDisplay = wear is null ? "sin datos de desgaste" : $"desgaste medio {Math.Round(wear.Value):0} %";
-            EstimateFootNote = $"* Estimación de presentación con la configuración vigente del motor: vuelo de {hours:0.#} h, {wearDisplay}, "
-                + "incluye las fallas con las que la aeronave puede arrancar en tierra. La cadencia real la decide el motor tick a tick.";
+            EstimateFootNote = $"* Estimación de presentación con la configuración vigente del motor: vuelo de {hours:0.#} h, {wearDisplay}. "
+                + "Cuenta solo fallas graves (Critical) en vuelo: la semilla de tierra del motor arma solo fallas leves. La cadencia real la decide el motor tick a tick.";
 
             Preselect(_owner.SelectedRiskLevel);
         } catch (Exception) {

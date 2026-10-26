@@ -80,10 +80,14 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
             var groundSeeds = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(physics, profile, minorCount, majorCount, wearPct);
 
             var inFlight = 0.0;
+            var criticals = 0.0;
             foreach (var preset in presets) {
                 if (!PhaseMinutes.TryGetValue(preset.FlightPhase, out var minutes)) continue;
                 var phaseHours = minutes / TotalPhaseMinutes * hours;
-                inFlight += SumPresetLambda(preset, profile, physics, wearFactor, risk) * phaseHours;
+                inFlight += SumPresetLambda(preset, profile, physics, wearFactor, risk, criticalOnly: false) * phaseHours;
+                // Fallas graves (Critical): la semilla de tierra del motor arma solo Minor, así que las
+                // Critical esperadas provienen exclusivamente de los sorteos en vuelo (y Low nunca las dispara).
+                criticals += SumPresetLambda(preset, profile, physics, wearFactor, risk, criticalOnly: true) * phaseHours;
             }
 
             results.Add(new ProfileExpectationDto {
@@ -91,6 +95,7 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
                 Profile = profile,
                 GroundSeedsPerFlight = groundSeeds,
                 InFlightPerFlight = inFlight,
+                CriticalPerFlight = criticals,
             });
         }
         return results;
@@ -101,10 +106,12 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
         RealisticProfileSettings profile,
         RealisticPhysicsSettings physics,
         double wearFactor,
-        RiskLevel risk) {
+        RiskLevel risk,
+        bool criticalOnly = false) {
         var sum = 0.0;
         foreach (var definition in preset.PresetFailureDefinitions) {
             var severity = definition.FenixFailure?.Severity ?? FailureSeverity.Minor;
+            if (criticalOnly && severity != FailureSeverity.Critical) continue;
             if (risk == RiskLevel.Low && severity == FailureSeverity.Critical) continue;
             sum += RealisticFailurePolicy.FlightFailureLambda(severity, definition.Probability, profile, physics, wearFactor);
         }

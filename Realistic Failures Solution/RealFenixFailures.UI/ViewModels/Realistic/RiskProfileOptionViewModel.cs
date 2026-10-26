@@ -2,6 +2,7 @@ using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.ViewModels.Base;
+using System.Globalization;
 using System.Windows.Media;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
@@ -17,7 +18,7 @@ public sealed record IntensitySegment(Brush Fill);
 /// dinámicos (medidores, chips y estimación) recalculados desde la configuración vigente del motor.
 /// </summary>
 public sealed class RiskProfileOptionViewModel : ObservableObject {
-    private string _estimateDisplay = "≈ … fallas cada 10 vuelos*";
+    private string _estimateDisplay = "Fallas graves aproximadas cada 10 vuelos: ≈ …*";
     private string _frequencyLabel = "×…";
     private double _frequencyBar;
     private string _wearLabel = "hasta ×…";
@@ -92,7 +93,7 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
         FrequencyBar = maxMultiplier > 0 ? multiplier / maxMultiplier * 100 : 0;
         WearLabel = $"hasta ×{wearMax:0.##}";
         WearBar = maxWearMultiplier > 1 ? (wearMax - 1) / (maxWearMultiplier - 1) * 100 : 100;
-        EstimateDisplay = $"≈ {Math.Round(dto.TotalPerFlight * 10):0} fallas cada 10 vuelos*";
+        EstimateDisplay = $"Fallas graves aproximadas cada 10 vuelos: ≈ {FormatCount(dto.CriticalPerFlight * 10)}*";
 
         var chips = new List<RiskProfileChip>();
         if (profile.GroundFailuresCap > 0)
@@ -109,6 +110,14 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
             var percentage = Math.Round((value < 1 ? 1 - value : value - 1) * 100);
             return $"×{value:0.##} · {percentage} % {(value < 1 ? "menos" : "más")}";
         }
+    }
+
+    /// <summary>Entero a partir de 10, un decimal (coma) por debajo; críticas suelen ser &lt; 1 cada 10 vuelos.</summary>
+    private static string FormatCount(double value) {
+        var text = value >= 9.95
+            ? Math.Round(value).ToString("0", CultureInfo.InvariantCulture)
+            : value.ToString("0.#", CultureInfo.InvariantCulture);
+        return text.Replace('.', ',');
     }
 
     private static SolidColorBrush FrozenBrush(string hex) {

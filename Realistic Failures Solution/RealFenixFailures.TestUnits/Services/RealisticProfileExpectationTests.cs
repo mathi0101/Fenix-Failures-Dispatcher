@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
+using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Services;
 using RealFenixFailures.Application.Session;
+using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
 using Xunit;
@@ -90,5 +92,56 @@ public class RealisticProfileExpectationTests {
         var (minor, major, _) = FailureCatalogStats.SeverityCounts();
         var lambda = 0.01 * (minor + major * 0.4) * 1.25;
         Assert.Equal(RealisticProfileExpectation.MeanTruncatedPoisson(lambda, 2), moderate.TotalPerFlight, precision: 6);
+    }
+
+    [Fact]
+    public void ComputePerProfileAsync_WithoutPresets_CriticalsAreZeroBecauseGroundSeedIsMinorOnly() {
+        var service = new RealisticExpectationService(Options.Create(new FailureEngineSettings()));
+
+        var results = service.ComputePerProfileAsync(averageWearPct: 0, flightHours: 1.5).GetAwaiter().GetResult();
+
+        Assert.All(results, r => Assert.Equal(0, r.CriticalPerFlight, precision: 12));
+    }
+
+    [Fact]
+    public void ComputePerProfileAsync_WithPresets_CriticalCountIncludesOnlyCriticalInFlight() {
+        var preset = new FailurePreset {
+            Name = "Test", FlightPhase = ComplexFlightPhaseEnum.Cruise,
+            PresetFailureDefinitions = [
+                new() { FenixFailureId = "MINOR", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "MINOR", Severity = FailureSeverity.Minor, Group = null! } },
+                new() { FenixFailureId = "MAJOR", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "MAJOR", Severity = FailureSeverity.Major, Group = null! } },
+                new() { FenixFailureId = "CRIT", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "CRIT", Severity = FailureSeverity.Critical, Group = null! } },
+            ]
+        };
+        var service = new RealisticExpectationService(
+            Options.Create(new FailureEngineSettings()),
+            new StubPresetService([preset]));
+
+        var results = service.ComputePerProfileAsync(averageWearPct: 0, flightHours: 1.5).GetAwaiter().GetResult();
+
+        // Crucero: 40/90 min de 1,5 h. λ crítica Moderate = 0,01 × 0,15 × 1,0 × 1,0 × (2/3 · 1,5).
+        var cruiseHours = 40.0 / PhaseTotalMinutes * 1.5;
+        var expectedCritical = 0.01 * 0.15 * 1.0 * 1.0 * cruiseHours;
+        var moderate = results.First(r => r.Risk == RiskLevel.Moderate);
+        Assert.Equal(expectedCritical, moderate.CriticalPerFlight, precision: 12);
+        Assert.True(moderate.InFlightPerFlight > moderate.CriticalPerFlight, "InFlight debe incluir también Minor y Major.");
+
+        // Low nunca dispara Critical (FailureRuleEvaluator las descarta).
+        Assert.Equal(0, results.First(r => r.Risk == RiskLevel.Low).CriticalPerFlight, precision: 12);
+
+        // 7700: λ crítica × 2,5.
+        Assert.Equal(expectedCritical * 2.5, results.First(r => r.Risk == RiskLevel.Squawk7700).CriticalPerFlight, precision: 12);
+    }
+
+    private const double PhaseTotalMinutes = 10 + 8 + 2 + 18 + 40 + 8 + 10 + 2;
+
+    private sealed class StubPresetService(IReadOnlyList<FailurePreset> realistic) : IPresetService {
+        public Task InitializeAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task DeletePresetAsync(int id, CancellationToken ct) => Task.CompletedTask;
+        public Task<IReadOnlyList<FailurePreset>> GetTrainingPresetsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<FailurePreset>>([]);
+        public Task<IReadOnlyList<FailurePreset>> GetRealisticPresetsAsync(CancellationToken ct) => Task.FromResult(realistic);
+        public Task<IReadOnlyList<FailurePreset>> GetCustomPresetsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<FailurePreset>>([]);
+        public Task<FailurePreset?> GetByIdAsync(int presetId, CancellationToken ct) => Task.FromResult<FailurePreset?>(null);
+        public Task<FailurePreset> CreateEmptyCustomPresetAsync(CancellationToken ct) => throw new NotSupportedException();
     }
 }
