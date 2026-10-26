@@ -16,8 +16,8 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
     /// </summary>
     public const double ReferenceRatePerHour = 0.22;
 
-    /// <summary>Duración de vuelo de referencia para estimar cuando no hay OFP cargado.</summary>
-    public const double DefaultFlightHours = 1.5;
+    /// <summary>Duración de vuelo típica de referencia (3 h) para estimar cuando no hay OFP cargado.</summary>
+    public const double DefaultFlightHours = 3.0;
 
     /// <summary>Desgaste medio de referencia cuando la aeronave todavía no registra desgaste.</summary>
     public const double DefaultAverageWearPct = 25;

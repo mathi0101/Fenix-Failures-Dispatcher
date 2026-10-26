@@ -46,17 +46,17 @@ public class RealisticModeSettings {
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0,
+        RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 120 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
     public RealisticProfileSettings High { get; set; } = new() {
-        RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 4.0,
+        RiskLevel = 3, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4,
         AggravationCap = 8, GroundFailuresCap = 3, CriticalRespiteSeconds = 60 * 60
     };
     /// <summary>Perfil Squawk 7700 (nivel 4): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Squawk7700</c>).</summary>
     public RealisticProfileSettings Squawk7700 { get; set; } = new() {
-        RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 5.5,
+        RiskLevel = 4, ProbabilityMultiplier = 5, WearMaxMultiplier = 5,
         AggravationCap = 10, GroundFailuresCap = 5, CriticalRespiteSeconds = 30 * 60
     };
 

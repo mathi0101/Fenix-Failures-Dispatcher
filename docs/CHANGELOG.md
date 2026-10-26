@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### 2026-10-26 — Reporte de balance orientado a experiencia y layout 16:9; recalibración de perfiles
+
+- **Vuelo típico 3 h**: `RealisticExpectationService.DefaultFlightHours` 1,5 → 3,0. Toda estimación «por vuelo» (reporte y fallback de la ventana de perfiles sin OFP) usa 3 h.
+- **Experiencia por vuelo con comparación de desgaste 0/25/100 %**: tabla nueva en el Resumen (12 filas: E[fallas], P(≥1) total/por severidad y «1 crítica cada N vuelos»).
+- **Cada hoja de perfil suma** su tabla «Experiencia por vuelo (3 h)» (desgaste 0–100 %, fila 25 % destacada) y su **gráfica propia** — E[fallas por vuelo] según desgaste con una serie por severidad (leves verde `4CAF50` / graves ámbar `F59E0B` / críticas rojo `EF4444`), alimentada por un bloque de datos por severidad propio (la tabla de experiencia solo lleva el total; con el mapeo anterior la gráfica mezclaba conteos con porcentajes).
+- **Hoja Gráficas en grilla 2×2** (separadas, sin apilarse): tendencias de graves y críticas por desgaste, barras comparativas y gráfica nueva de experiencia general (E[fallas por vuelo de 3 h] según desgaste, una serie por perfil con su color).
+- **Layout 16:9 en 2 columnas**: Resumen (referencia+estadísticas+ancla | experiencia), hojas de perfil (escalas 1/10/100 h | semilla+experiencia+datos+gráfica), Configuración (parámetros | perfiles) y bloque de datos de Gráficas debajo de la grilla. Todo visible sin scroll horizontal en monitor 16:9.
+- **Recalibración de perfiles** (`FailureEngineSettings`): Alto `ProbabilityMultiplier` 1,5 → **2,5** y 7700 2,5 → **5**; desgaste máx Moderado 3 → 2,5, Alto 4 → 3, 7700 5,5 → 5. Los tests de `RealisticExpectationServiceTests` quedan **derivados de la config** (fórmula y proporciones contra `FailureEngineSettings`, sin cifras hardcodeadas): ajustar calibración ya no rompe la suite.
+- Verificación: build 0 errores (los 8 warnings `NU1904` son `System.Drawing.Common 4.7.0`, dependencia transitiva de EPPlus solo en el proyecto de test); suite **247/247**; reporte regenerado con `balance.cmd`, gráficas y datos verificados dentro del `.xlsx` (series `$B/$C/$D` con los 3 colores; grilla sin solapamientos).
+
 ### 2026-10-26 — Demos navegables de la interfaz en `docs/demos/` (para GitHub Pages)
 
 - **Nuevo `docs/demos/` con 4 mocks HTML autocontenidos** de la interfaz, para mostrar a usuarios que llegan al repo: `demo-app-modo-realista.html` (app principal con el modo Realista abierto, paso 3 · Preparación completo: aeronave con desgaste, OFP SimBrief, requisitos en verde y botón ACTIVAR MODO REALISTA), `demo-app-modo-entrenamiento.html` (app principal con el modo Entrenamiento y los 6 escenarios de `training_presets.json` con sus dificultades y fases), `mock-perfiles-riesgo.html` (modal de perfiles con selección navegable) y `mock-resultados-sesion.html` (modal de resultados completo), más `index.html` como landing.
@@ -8,12 +18,13 @@
 - **README raíz**: sección nueva «Demos de la interfaz» linkeando la landing de Pages (`https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/`) y cada demo, con aclaración de que son simulaciones y nota de que el link requiere activar Pages. `docs/README.md` indexa la carpeta.
 - **GitHub Pages no activado todavía**: se activa manual en Settings → Pages → «Deploy from a branch» → rama `dev` → carpeta `/docs` (queda servido `docs/demos/` en `/demos/`). Verificación: build no aplica (HTML estático); páginas revisadas visualmente en navegador (4 mocks + landing renderizan y navegan). Pendiente: activar Pages y confirmar el enlace público tras el push.
 
-### 2026-10-26 — Recalibración de severidades (0,4/0,12) y reporte de balance orientado a experiencia
+### 2026-10-26 — Reporte de balance orientado a experiencia de vuelo (3 h)
 
-- **Recalibración** (`PhysicsSeverityRateMultiplier`): Major 0,6 → **0,4** y Critical 0,3 → **0,12** (Minor queda 1,2). Con el cálculo global por severidad, en vuelo típico de 1,5 h con desgaste 25 % queda: Moderado 1 crítica cada **19 vuelos** (antes 1 cada 8), Alto cada **11**, 7700 cada **5**; graves 1 cada ~6 vuelos en Moderado. Motivo: la cadencia de críticas era de gameplay denso (2-3 emergencias por carrera de 20 vuelos), demasiado para el modo Realistic.
-- **Reporte de balance** (`.md` y hoja Resumen del `.xlsx`): nueva sección **«Experiencia por vuelo (1,5 h, desgaste 25 %)»** — E[fallas], P(≥1 falla), P(≥1 grave), P(≥1 crítica) y «1 crítica cada N vuelos» por perfil (el puente entre los números y lo que se siente volando); nuevo **«Ancla temporal del desgaste»** — vuelos de 1,5 h que tarda un sistema en llegar a 25/50/80 % según su tasa (ejemplos 0,1/0,3/0,6 %/h, rango del seed); `GroundSeedBaseProbability` se muestra con 3 decimales (antes redondeaba 0,001 a «0» y parecía apagado); bullet de supuestos actualizado al cálculo global (sin fases ni presets).
-- **Tests**: `RealisticExpectationServiceTests` actualizados a los valores vigentes (Bajo 0,132 con el multiplicador 0,6 actual; desgaste completo del Moderado ×3 → 0,66) — **suite 247/247, completamente verde**.
-- Spec §4 y tabla de parámetros alineados con la calibración vigente (1,2/0,4/0,12).
+- **Vuelo típico de referencia 3 h** (`RealisticExpectationService.DefaultFlightHours` 1,5 → 3,0): todas las secciones de experiencia —del reporte y del fallback de la ventana de perfiles sin OFP— usan un vuelo de 3 h.
+- **Experiencia por vuelo con comparación por desgaste**: la tabla de la hoja Resumen y su espejo en el `.md` ahora cubren desgaste 0 / 25 / 100 % (12 filas) — antes solo 25 %.
+- **Cada hoja de perfil agrega** tabla «Experiencia por vuelo (3 h)» (desgaste 0–100 % en pasos de 25) y su **gráfica propia** de fallas esperadas por vuelo según desgaste, una serie por severidad (leves/graves/críticas con color propio).
+- **Hoja Gráficas en grilla 2×2** (antes apiladas en columna): graves por desgaste y críticas por desgaste arriba; barras comparativas de graves por perfil y **nueva gráfica de experiencia general** (E[fallas por vuelo de 3 h] según desgaste, una serie por perfil) abajo, con su bloque de datos visible en la misma hoja.
+- Verificación: build 0 errores; suite **247/247**; reporte regenerado con `balance.cmd` (`.md` con tabla de 12 filas y `.xlsx` verificado por dentro: 4 gráficas de perfil + 4 en grilla, anchors sin solapamiento). No verificado en sesión real MSFS/Fenix (el reporte no afecta al motor).
 
 ### 2026-10-26 — Desgaste: `AmplificationFactor` eliminado y `ThresholdNoticePct` cableado de verdad
 

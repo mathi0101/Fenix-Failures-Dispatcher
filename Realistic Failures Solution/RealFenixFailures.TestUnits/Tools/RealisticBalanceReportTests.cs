@@ -16,11 +16,12 @@ namespace RealFenixFailures.TestUnits.Tools;
 
 /// <summary>
 /// Herramienta de balance (correrla regenera el reporte; no verifica calibración): genera
-/// docs/balance/balance-realistic.xlsx con hojas Resumen (KPIs + estadísticas), Gráficas (tendencias
-/// por desgaste y comparativa), Configuración (parámetros del código con los que se generó el archivo)
-/// y una hoja cruda por perfil (1/10/100 h × desgaste 0–100 %, semilla de tierra), más su versión .md
-/// diffable. Estimación global por severidad con el código real del motor (física, perfiles, conteos
-/// del catálogo curado); sin presets ni fases de vuelo.
+/// docs/balance/balance-realistic.xlsx con hojas Resumen (KPIs, estadísticas, experiencia por vuelo y
+/// ancla de desgaste), Gráficas (grilla 2×2: tendencias por desgaste, comparativa y experiencia), Configuración
+/// (parámetros del código con los que se generó el archivo) y una hoja por perfil (1/10/100 h × desgaste
+/// 0–100 %, semilla de tierra, experiencia por vuelo de 3 h y gráfica propia), más su versión .md diffable.
+/// Estimación global por severidad con el código real del motor (física, perfiles, conteos del catálogo
+/// curado); sin presets ni fases de vuelo.
 /// Ejecución: docs/balance/balance.cmd (define RFF_BALANCE=1 y corre el filtro BalanceReport); sin esa variable el
 /// test no hace nada, así que ninguna corrida automatizada (CI o suite completa) regenera el reporte.
 /// El detalle aparece en consola con --logger "console;verbosity=detailed".
@@ -32,7 +33,10 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
 
     private const int ChartWidth = 620;
     private const int ChartHeight = 320;
-    private const int ChartGap = 60;
+    private const int ChartColStride = 10;   // columnas entre gráficas del layout en grilla
+    private const int ChartRowStride = 22;   // filas entre filas de gráficas (~330 px por gráfica de 320)
+    /// <summary>Vuelo típico de referencia para las secciones de experiencia (sincronizado con el default de la app).</summary>
+    private static readonly double FlightHours = RealisticExpectationService.DefaultFlightHours;
 
     private static string ProfileName(RiskLevel risk) => risk switch {
         RiskLevel.Low => "Bajo",
@@ -46,6 +50,13 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         RiskLevel.Moderate => Color.FromArgb(0xF5, 0x9E, 0x0B),
         RiskLevel.High => Color.FromArgb(0xEF, 0x44, 0x44),
         _ => Color.FromArgb(0x8B, 0x5C, 0xF6),
+    };
+
+    /// <summary>Color de serie por severidad: 0 = leves, 1 = graves, 2 = críticas.</summary>
+    private static Color SeverityColor(int severity) => severity switch {
+        0 => Color.FromArgb(0x4C, 0xAF, 0x50),
+        1 => Color.FromArgb(0xF5, 0x9E, 0x0B),
+        _ => Color.FromArgb(0xEF, 0x44, 0x44),
     };
 
     [Fact]
@@ -92,14 +103,14 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         foreach (var risk in Risks)
             BuildProfileSheet(package, risk, wearByProfile[risk]);
         BuildSummaryContent(summary, wearByProfile, counts);
-        BuildChartsSheet(package);
+        BuildChartsSheet(package, wearByProfile);
         BuildConfigSheet(package, settings, wearByProfile);
     }
 
     private static void BuildSummaryContent(ExcelWorksheet sheet, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile, (int Minor, int Major, int Critical) counts) {
-        WriteTitle(sheet, "Balance del modo Realistic — generado automáticamente con el motor vigente", 1, 8);
+        WriteTitle(sheet, "Balance del modo Realistic — generado automáticamente con el motor vigente", 1, 16);
         WriteSubtitle(sheet, $"Fallas en vuelo por perfil y severidad; semilla de tierra (arranque de sesión) aparte. "
-            + $"catálogo curado: {counts.Minor} leves / {counts.Major} graves / {counts.Critical} críticas. Estimación global por severidad (sin presets ni fases). Regenerar: docs/balance/balance.cmd", 2, 8);
+            + $"catálogo curado: {counts.Minor} leves / {counts.Major} graves / {counts.Critical} críticas. Estimación global por severidad (sin presets ni fases). Regenerar: docs/balance/balance.cmd", 2, 16);
 
         // KPIs al desgaste de referencia (25 %), la vista que refleja la pantalla de perfiles.
         sheet.Cells[4, 1].Value = "Referencia con desgaste medio (25 %) — cada 10 horas de vuelo";
@@ -150,45 +161,46 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         }
         FormatTable(sheet, statsHeader, row - 1, columns: 6);
 
-        // Experiencia por vuelo de referencia (1,5 h al 25 %): lo que siente el jugador, no tasas por hora.
-        row += 2;
-        sheet.Cells[row, 1].Value = "Experiencia por vuelo (1,5 h, desgaste 25 %)";
-        sheet.Cells[row, 1].Style.Font.Bold = true;
-        row++;
-        var expHeader = row;
-        WriteHeaderRow(sheet, row, "Perfil", "E[fallas]", "P(≥1 falla)", "P(≥1 grave)", "P(≥1 crítica)", "1 crítica cada");
-        row++;
-        foreach (var risk in Risks) {
-            var e = wearByProfile[risk].First(r => r.WearPct == 25).Expectation;
-            var total = e.TotalPerHour * 1.5;
-            var nameCell = sheet.Cells[row, 1];
-            nameCell.Value = ProfileName(risk);
-            nameCell.Style.Font.Bold = true;
-            nameCell.Style.Font.Color.SetColor(Accent(risk));
-            WriteRate(sheet.Cells[row, 2], total);
-            var anyCell = sheet.Cells[row, 3];
-            anyCell.Value = (1 - Math.Exp(-total)) * 100;
-            anyCell.Style.Numberformat.Format = "0.0 \" %\"";
-            var majorCell = sheet.Cells[row, 4];
-            majorCell.Value = (1 - Math.Exp(-e.MajorPerHour * 1.5)) * 100;
-            majorCell.Style.Numberformat.Format = "0.0 \" %\"";
-            if (risk == RiskLevel.Low) {
-                sheet.Cells[row, 5].Value = "—";
-                sheet.Cells[row, 6].Value = "—";
-            } else {
-                var criticalCell = sheet.Cells[row, 5];
-                criticalCell.Value = (1 - Math.Exp(-e.CriticalPerHour * 1.5)) * 100;
-                criticalCell.Style.Numberformat.Format = "0.0 \" %\"";
-                sheet.Cells[row, 6].Value = Math.Round(1 / (e.CriticalPerHour * 1.5));
-                sheet.Cells[row, 6].Style.Numberformat.Format = "0 \"vuelos\"";
+        // Experiencia por vuelo (centro, col I): lo que siente el jugador, a 3 h con desgaste 0/25/100 %.
+        const int expCol = 9;
+        sheet.Cells[4, expCol].Value = $"Experiencia por vuelo ({FlightHours:0.#} h; desgaste 0 / 25 / 100 %)";
+        sheet.Cells[4, expCol].Style.Font.Bold = true;
+        WriteHeaderRow(sheet, 5, expCol, "Perfil", "Desgaste", "E[fallas]", "P(≥1 falla)", "P(≥1 grave)", "P(≥1 crítica)", "1 crítica cada");
+        var expRow = 6;
+        foreach (var risk in Risks)
+            foreach (var wear in new[] { 0.0, 25.0, 100.0 }) {
+                var e = wearByProfile[risk].First(r => r.WearPct == wear).Expectation;
+                var total = e.TotalPerHour * FlightHours;
+                var nameCell = sheet.Cells[expRow, expCol];
+                nameCell.Value = ProfileName(risk);
+                nameCell.Style.Font.Bold = true;
+                nameCell.Style.Font.Color.SetColor(Accent(risk));
+                WriteWear(sheet.Cells[expRow, expCol + 1], wear);
+                WriteRate(sheet.Cells[expRow, expCol + 2], total);
+                var anyCell = sheet.Cells[expRow, expCol + 3];
+                anyCell.Value = (1 - Math.Exp(-total)) * 100;
+                anyCell.Style.Numberformat.Format = "0.0 \" %\"";
+                var majorCell = sheet.Cells[expRow, expCol + 4];
+                majorCell.Value = (1 - Math.Exp(-e.MajorPerHour * FlightHours)) * 100;
+                majorCell.Style.Numberformat.Format = "0.0 \" %\"";
+                if (risk == RiskLevel.Low) {
+                    sheet.Cells[expRow, expCol + 5].Value = "—";
+                    sheet.Cells[expRow, expCol + 6].Value = "—";
+                } else {
+                    var criticalCell = sheet.Cells[expRow, expCol + 5];
+                    criticalCell.Value = (1 - Math.Exp(-e.CriticalPerHour * FlightHours)) * 100;
+                    criticalCell.Style.Numberformat.Format = "0.0 \" %\"";
+                    sheet.Cells[expRow, expCol + 6].Value = Math.Round(1 / (e.CriticalPerHour * FlightHours));
+                    sheet.Cells[expRow, expCol + 6].Style.Numberformat.Format = "0 \"vuelos\"";
+                }
+                if (wear == 25) HighlightRow(sheet, expRow, 7, expCol);
+                expRow++;
             }
-            row++;
-        }
-        FormatTable(sheet, expHeader, row - 1, columns: 6);
+        FormatTable(sheet, 5, expRow - 1, 7, expCol);
 
-        // Ancla temporal: cuántos vuelos de 1,5 h tarda un sistema en acumular cada nivel de desgaste.
+        // Ancla temporal (columna izquierda, bajo las estadísticas): vuelos hasta cada nivel de desgaste.
         row += 2;
-        sheet.Cells[row, 1].Value = "Ancla temporal del desgaste (vuelos de 1,5 h hasta cada nivel; el seed va de 0,1 a 0,6 %/h)";
+        sheet.Cells[row, 1].Value = $"Ancla temporal del desgaste (vuelos de {FlightHours:0.#} h; el seed va de 0,1 a 0,6 %/h)";
         sheet.Cells[row, 1].Style.Font.Bold = true;
         row++;
         var anchorHeader = row;
@@ -198,7 +210,7 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             sheet.Cells[row, 1].Value = $"{rate:0.##} %/h";
             for (var i = 0; i < 3; i++) {
                 var cell = sheet.Cells[row, 2 + i];
-                cell.Value = Math.Ceiling(new[] { 25.0, 50.0, 80.0 }[i] / (rate * 1.5));
+                cell.Value = Math.Ceiling(new[] { 25.0, 50.0, 80.0 }[i] / (rate * FlightHours));
                 cell.Style.Numberformat.Format = "0";
             }
             row++;
@@ -212,10 +224,10 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
     private static void BuildProfileSheet(ExcelPackage package, RiskLevel risk, List<ProfileExpectationRow> rows) {
         var sheet = package.Workbook.Worksheets.Add(ProfileName(risk));
         var profile = rows[0].Expectation.Profile;
-        WriteTitle(sheet, $"Perfil {ProfileName(risk)} (nivel {profile.RiskLevel})", 1, 5);
+        WriteTitle(sheet, $"Perfil {ProfileName(risk)} (nivel {profile.RiskLevel})", 1, 16);
         WriteSubtitle(sheet, $"Multiplicador ×{profile.ProbabilityMultiplier:0.##} · desgaste máx ×{profile.WearMaxMultiplier:0.##} · "
             + $"tope agravación {profile.AggravationCap} · tope tierra {profile.GroundFailuresCap} · tregua crítica "
-            + (profile.CriticalRespiteSeconds == 0 ? "—" : $"{profile.CriticalRespiteSeconds / 60:0} min"), 2, 5);
+            + (profile.CriticalRespiteSeconds == 0 ? "—" : $"{profile.CriticalRespiteSeconds / 60:0} min"), 2, 16);
 
         var accent = Accent(risk);
         var currentRow = 4;
@@ -244,19 +256,86 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             currentRow++;
         }
 
-        sheet.Cells[currentRow, 1].Value = "Semilla de tierra (fallas esperadas al iniciar cada vuelo)";
-        sheet.Cells[currentRow, 1].Style.Font.Bold = true;
-        currentRow++;
-        WriteHeaderRow(sheet, currentRow, "Desgaste", "Fallas al inicio");
-        currentRow++;
-        var seedStart = currentRow;
+        // Columna derecha (I): semilla de tierra y experiencia por vuelo, al costado de las tablas de escalas.
+        const int sideCol = 9;
+        sheet.Cells[4, sideCol].Value = "Semilla de tierra (fallas esperadas al iniciar cada vuelo)";
+        sheet.Cells[4, sideCol].Style.Font.Bold = true;
+        WriteHeaderRow(sheet, 5, sideCol, "Desgaste", "Fallas al inicio");
+        var seedStart = 6;
+        var seedRow = seedStart;
         foreach (var row in rows) {
-            WriteWear(sheet.Cells[currentRow, 1], row.WearPct);
-            sheet.Cells[currentRow, 2].Value = row.Expectation.GroundSeedsPerFlight;
-            sheet.Cells[currentRow, 2].Style.Numberformat.Format = "0.00";
-            currentRow++;
+            WriteWear(sheet.Cells[seedRow, sideCol], row.WearPct);
+            var cell = sheet.Cells[seedRow, sideCol + 1];
+            cell.Value = row.Expectation.GroundSeedsPerFlight;
+            cell.Style.Numberformat.Format = "0.00";
+            seedRow++;
         }
-        FormatTable(sheet, seedStart, currentRow - 1, columns: 2);
+        FormatTable(sheet, seedStart, seedRow - 1, 2, sideCol);
+
+        // Experiencia por vuelo (3 h de referencia): desgaste 0–100 % en pasos de 25.
+        const int expCol = 9;
+        var expTitleRow = seedRow + 1;
+        sheet.Cells[expTitleRow, expCol].Value = $"Experiencia por vuelo ({FlightHours:0.#} h)";
+        sheet.Cells[expTitleRow, expCol].Style.Font.Bold = true;
+        var expHeader = expTitleRow + 1;
+        WriteHeaderRow(sheet, expHeader, expCol, "Desgaste", "E[fallas]", "P(≥1 falla)", "P(≥1 grave)", "P(≥1 crítica)", "1 crítica cada");
+        var expStart = expHeader + 1;
+        var expRow = expStart;
+        foreach (var row in rows) {
+            var e = row.Expectation;
+            var total = e.TotalPerHour * FlightHours;
+            WriteWear(sheet.Cells[expRow, expCol], row.WearPct);
+            WriteRate(sheet.Cells[expRow, expCol + 1], total);
+            var anyCell = sheet.Cells[expRow, expCol + 2];
+            anyCell.Value = (1 - Math.Exp(-total)) * 100;
+            anyCell.Style.Numberformat.Format = "0.0 \" %\"";
+            var majorCell = sheet.Cells[expRow, expCol + 3];
+            majorCell.Value = (1 - Math.Exp(-e.MajorPerHour * FlightHours)) * 100;
+            majorCell.Style.Numberformat.Format = "0.0 \" %\"";
+            if (risk == RiskLevel.Low) {
+                sheet.Cells[expRow, expCol + 4].Value = "—";
+                sheet.Cells[expRow, expCol + 5].Value = "—";
+            } else {
+                var criticalCell = sheet.Cells[expRow, expCol + 4];
+                criticalCell.Value = (1 - Math.Exp(-e.CriticalPerHour * FlightHours)) * 100;
+                criticalCell.Style.Numberformat.Format = "0.0 \" %\"";
+                sheet.Cells[expRow, expCol + 5].Value = Math.Round(1 / (e.CriticalPerHour * FlightHours));
+                sheet.Cells[expRow, expCol + 5].Style.Numberformat.Format = "0 \"vuelos\"";
+            }
+            if (row.WearPct == 25) HighlightRow(sheet, expRow, 6, expCol);
+            expRow++;
+        }
+        FormatTable(sheet, expHeader, expRow - 1, 6, expCol);
+
+        // Datos de la gráfica y gráfica del perfil: bajo la experiencia, en la misma columna derecha.
+        sheet.Cells[expRow + 1, sideCol].Value = $"Datos de la gráfica: E[fallas por vuelo de {FlightHours:0.#} h] por severidad";
+        sheet.Cells[expRow + 1, sideCol].Style.Font.Bold = true;
+        WriteHeaderRow(sheet, expRow + 2, sideCol, "Desgaste", "Leves", "Graves", "Críticas");
+        var chartDataStart = expRow + 3;
+        var chartDataRow = chartDataStart;
+        foreach (var row in rows) {
+            var e = row.Expectation;
+            WriteWear(sheet.Cells[chartDataRow, sideCol], row.WearPct);
+            WriteRate(sheet.Cells[chartDataRow, sideCol + 1], e.MinorPerHour * FlightHours);
+            WriteRate(sheet.Cells[chartDataRow, sideCol + 2], e.MajorPerHour * FlightHours);
+            WriteRate(sheet.Cells[chartDataRow, sideCol + 3], e.CriticalPerHour * FlightHours);
+            chartDataRow++;
+        }
+        FormatTable(sheet, expRow + 2, chartDataRow - 1, 4, sideCol);
+
+        // Gráfica del perfil: fallas esperadas por vuelo (3 h) según desgaste, una serie por severidad.
+        var wearRange = sheet.Cells[chartDataStart, sideCol, chartDataRow - 1, sideCol];
+        var profileChart = (ExcelLineChart)sheet.Drawings.AddChart($"Experiencia_{ProfileName(risk)}", eChartType.LineMarkers);
+        profileChart.Title.Text = $"Perfil {ProfileName(risk)}: fallas esperadas por vuelo de {FlightHours:0.#} h, según desgaste";
+        profileChart.Legend.Position = eLegendPosition.Bottom;
+        profileChart.SetPosition(chartDataRow + 1, 0, sideCol - 1, 0);
+        profileChart.SetSize(ChartWidth, ChartHeight);
+        for (var s = 0; s < 3; s++) {
+            var serie = profileChart.Series.Add(sheet.Cells[chartDataStart, sideCol + 1 + s, chartDataRow - 1, sideCol + 1 + s], wearRange);
+            serie.Header = new[] { "Leves", "Graves", "Críticas" }[s];
+            serie.Border.LineStyle = OfficeOpenXml.Drawing.eLineStyle.Solid;
+            serie.Border.Fill.Color = SeverityColor(s);
+        }
 
         sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
         // Rango de la tabla de 10 h, lo usan las gráficas (A = desgaste, C = graves, D = críticas).
@@ -266,10 +345,30 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             Criticals: sheet.Cells[tenHoursHeader + 1, 4, tenHoursHeader + rows.Count, 4]);
     }
 
-    /// <summary>Hoja Gráficas: tendencias por desgaste (serie por perfil con su color) y comparativa entre perfiles.</summary>
-    private static void BuildChartsSheet(ExcelPackage package) {
+    /// <summary>Hoja Gráficas: grilla 2×2 — tendencias por desgaste, comparativa por perfil y experiencia de vuelo.</summary>
+    private static void BuildChartsSheet(ExcelPackage package, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile) {
         var sheet = package.Workbook.Worksheets.Add("Gráficas");
         WriteTitle(sheet, "Tendencias del balance", 1, 10);
+
+        // Bloque de datos para la gráfica de experiencia general (bajo la grilla 2×2, col A).
+        var dataHeader = 2 + 2 * ChartRowStride + 2;
+        sheet.Cells[dataHeader - 1, 1].Value = $"Datos: E[fallas por vuelo de {FlightHours:0.#} h] según desgaste (fuente de la gráfica de experiencia)";
+        sheet.Cells[dataHeader - 1, 1].Style.Font.Bold = true;
+        WriteHeaderRow(sheet, dataHeader, "Desgaste", "Bajo", "Moderado", "Alto", "7700");
+        var dataStart = dataHeader + 1;
+        var dataRow = dataStart;
+        foreach (var wear in WearLevels) {
+            WriteWear(sheet.Cells[dataRow, 1], wear);
+            for (var i = 0; i < Risks.Length; i++) {
+                var e = wearByProfile[Risks[i]].First(r => r.WearPct == wear).Expectation;
+                WriteRate(sheet.Cells[dataRow, 2 + i], e.TotalPerHour * FlightHours);
+            }
+            dataRow++;
+        }
+        FormatTable(sheet, dataHeader, dataRow - 1, columns: 5);
+
+        // Grilla 2×2: (arriba-izq) graves por desgaste · (arriba-der) críticas por desgaste
+        //             (abajo-izq) barras graves por perfil · (abajo-der) experiencia por vuelo por perfil.
 
         // Línea 1: graves cada 10 h según desgaste, una serie por perfil con el color del perfil.
         var majors = (ExcelLineChart)sheet.Drawings.AddChart("GravesPorDesgaste", eChartType.LineMarkers);
@@ -289,7 +388,7 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         var criticals = (ExcelLineChart)sheet.Drawings.AddChart("CriticasPorDesgaste", eChartType.LineMarkers);
         criticals.Title.Text = "Fallas críticas (Critical) cada 100 h de vuelo, según desgaste";
         criticals.Legend.Position = eLegendPosition.Bottom;
-        criticals.SetPosition(2, ChartHeight + ChartGap, 0, 0);
+        criticals.SetPosition(2, 0, ChartColStride, 0);
         criticals.SetSize(ChartWidth, ChartHeight);
         foreach (var risk in Risks) {
             var (wear, _, criticalRange) = TenHoursRange[ProfileName(risk)];
@@ -304,11 +403,25 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         var bars = (ExcelBarChart)sheet.Drawings.AddChart("GravesPorPerfil", eChartType.ColumnClustered);
         bars.Title.Text = "Graves cada 10 h por perfil (desgaste 25 %)";
         bars.Legend.Position = eLegendPosition.Bottom;
-        bars.SetPosition(2, 2 * (ChartHeight + ChartGap), 0, 0);
+        bars.SetPosition(2 + ChartRowStride, 0, 0, 0);
         bars.SetSize(ChartWidth, ChartHeight);
         var barSerie = bars.Series.Add(summary.Cells[6, 3, 9, 3], summary.Cells[6, 1, 9, 1]);
         barSerie.Header = "Graves / 10 h";
         barSerie.Fill.Color = Color.FromArgb(0x3B, 0x82, 0xF6);
+
+        // Experiencia general: E[fallas por vuelo (3 h)] según desgaste, una serie por perfil con su color.
+        var experience = (ExcelLineChart)sheet.Drawings.AddChart("ExperienciaPorDesgaste", eChartType.LineMarkers);
+        experience.Title.Text = $"Experiencia por vuelo: fallas esperadas en {FlightHours:0.#} h, según desgaste";
+        experience.Legend.Position = eLegendPosition.Bottom;
+        experience.SetPosition(2 + ChartRowStride, 0, ChartColStride, 0);
+        experience.SetSize(ChartWidth, ChartHeight);
+        var wearColumn = sheet.Cells[dataStart, 1, dataRow - 1, 1];
+        for (var i = 0; i < Risks.Length; i++) {
+            var serie = experience.Series.Add(sheet.Cells[dataStart, 2 + i, dataRow - 1, 2 + i], wearColumn);
+            serie.Header = ProfileName(Risks[i]);
+            serie.Border.LineStyle = OfficeOpenXml.Drawing.eLineStyle.Solid;
+            serie.Border.Fill.Color = Accent(Risks[i]);
+        }
     }
 
     /// <summary>Hoja Configuración: parámetros vigentes del código con los que se generó el reporte.</summary>
@@ -368,28 +481,34 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         ParamNum("Ventana posterior al arribo, h (PostArrivalWindowHours)", mode.Ofp.PostArrivalWindowHours);
         FormatTable(sheet, currentRow - 4, currentRow - 1, columns: 2);
 
-        Section("Perfiles vigentes (defaults de código)");
-        WriteHeaderRow(sheet, currentRow, "Perfil", "Multiplicador", "Desgaste máx", "Tope agravación", "Tope tierra", "Tregua crítica");
-        var profileHeader = currentRow;
-        currentRow++;
+        // Tabla de perfiles al costado (col D), a la derecha de las secciones de parámetros.
+        const int profCol = 4;
+        sheet.Cells[4, profCol].Value = "Perfiles vigentes (defaults de código)";
+        sheet.Cells[4, profCol].Style.Font.Bold = true;
+        WriteHeaderRow(sheet, 5, profCol, "Perfil", "Multiplicador", "Desgaste máx", "Tope agravación", "Tope tierra", "Tregua crítica");
+        var profileRow = 6;
         foreach (var risk in Risks) {
             var profile = wearByProfile[risk][0].Expectation.Profile;
-            var nameCell = sheet.Cells[currentRow, 1];
+            var nameCell = sheet.Cells[profileRow, profCol];
             nameCell.Value = ProfileName(risk);
             nameCell.Style.Font.Bold = true;
             nameCell.Style.Font.Color.SetColor(Accent(risk));
-            sheet.Cells[currentRow, 2].Value = profile.ProbabilityMultiplier;
-            sheet.Cells[currentRow, 2].Style.Numberformat.Format = "0.00";
-            sheet.Cells[currentRow, 3].Value = profile.WearMaxMultiplier;
-            sheet.Cells[currentRow, 3].Style.Numberformat.Format = "0.00";
-            sheet.Cells[currentRow, 4].Value = profile.AggravationCap;
-            sheet.Cells[currentRow, 4].Style.Numberformat.Format = "0";
-            sheet.Cells[currentRow, 5].Value = profile.GroundFailuresCap;
-            sheet.Cells[currentRow, 5].Style.Numberformat.Format = "0";
-            sheet.Cells[currentRow, 6].Value = profile.CriticalRespiteSeconds == 0 ? "—" : $"{profile.CriticalRespiteSeconds / 60:0} min";
-            currentRow++;
+            var multCell = sheet.Cells[profileRow, profCol + 1];
+            multCell.Value = profile.ProbabilityMultiplier;
+            multCell.Style.Numberformat.Format = "0.00";
+            var wearCell = sheet.Cells[profileRow, profCol + 2];
+            wearCell.Value = profile.WearMaxMultiplier;
+            wearCell.Style.Numberformat.Format = "0.00";
+            var aggrCell = sheet.Cells[profileRow, profCol + 3];
+            aggrCell.Value = profile.AggravationCap;
+            aggrCell.Style.Numberformat.Format = "0";
+            var groundCell = sheet.Cells[profileRow, profCol + 4];
+            groundCell.Value = profile.GroundFailuresCap;
+            groundCell.Style.Numberformat.Format = "0";
+            sheet.Cells[profileRow, profCol + 5].Value = profile.CriticalRespiteSeconds == 0 ? "—" : $"{profile.CriticalRespiteSeconds / 60:0} min";
+            profileRow++;
         }
-        FormatTable(sheet, profileHeader, currentRow - 1, columns: 6);
+        FormatTable(sheet, 5, profileRow - 1, 6, profCol);
 
         sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
     }
@@ -440,28 +559,29 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         }
         report.AppendLine();
 
-        report.AppendLine("## Experiencia por vuelo (1,5 h, desgaste 25 %)");
+        report.AppendLine($"## Experiencia por vuelo ({FlightHours:0.#} h; desgaste 0 / 25 / 100 %)");
         report.AppendLine();
-        report.AppendLine("_Lo que siente el jugador por vuelo típico (la vista de 10 h de las tablas de abajo es para comparar perfiles)._");
+        report.AppendLine("_Lo que siente el jugador por vuelo típico —la vista de 10 h de las tablas de abajo es para comparar perfiles—. Tres niveles de desgaste para comparar cómo empeora con el uso._");
         report.AppendLine();
-        report.AppendLine("| Perfil | E[fallas] | P(≥1 falla) | P(≥1 grave) | P(≥1 crítica) | 1 crítica cada |");
-        report.AppendLine("|---|---:|---:|---:|---:|---:|");
-        foreach (var risk in Risks) {
-            var e = wearByProfile[risk].First(r => r.WearPct == 25).Expectation;
-            var total = e.TotalPerHour * 1.5;
-            report.AppendLine($"| **{ProfileName(risk)}** | {Fmt(total)} | {(1 - Math.Exp(-total)) * 100:0.0} % | {(1 - Math.Exp(-e.MajorPerHour * 1.5)) * 100:0.0} % | "
-                + (risk == RiskLevel.Low ? "—" : $"{(1 - Math.Exp(-e.CriticalPerHour * 1.5)) * 100:0.0} %") + " | "
-                + (risk == RiskLevel.Low ? "—" : $"**{Math.Round(1 / (e.CriticalPerHour * 1.5)):0} vuelos**") + " |");
-        }
+        report.AppendLine("| Perfil | Desgaste | E[fallas] | P(≥1 falla) | P(≥1 grave) | P(≥1 crítica) | 1 crítica cada |");
+        report.AppendLine("|---|---|---:|---:|---:|---:|---:|");
+        foreach (var risk in Risks)
+            foreach (var wear in new[] { 0.0, 25.0, 100.0 }) {
+                var e = wearByProfile[risk].First(r => r.WearPct == wear).Expectation;
+                var total = e.TotalPerHour * FlightHours;
+                report.AppendLine($"| **{ProfileName(risk)}** | {wear:0} % | {Fmt(total)} | {(1 - Math.Exp(-total)) * 100:0.0} % | {(1 - Math.Exp(-e.MajorPerHour * FlightHours)) * 100:0.0} % | "
+                    + (risk == RiskLevel.Low ? "—" : $"{(1 - Math.Exp(-e.CriticalPerHour * FlightHours)) * 100:0.0} %") + " | "
+                    + (risk == RiskLevel.Low ? "—" : $"**{Math.Round(1 / (e.CriticalPerHour * FlightHours)):0} vuelos**") + " |");
+            }
         report.AppendLine();
         report.AppendLine("### Ancla temporal del desgaste");
         report.AppendLine();
-        report.AppendLine("Vuelos de 1,5 h que tarda un sistema en acumular cada nivel de desgaste, según su tasa (`WearPerFlightHour`; el seed va de 0,1 a 0,6 %/h):");
+        report.AppendLine($"Vuelos de {FlightHours:0.#} h que tarda un sistema en acumular cada nivel de desgaste, según su tasa (`WearPerFlightHour`; el seed va de 0,1 a 0,6 %/h):");
         report.AppendLine();
         report.AppendLine("| Tasa del sistema | Hasta 25 % | Hasta 50 % | Hasta 80 % (aviso) |");
         report.AppendLine("|---|---:|---:|---:|");
         foreach (var rate in new[] { 0.1, 0.3, 0.6 })
-            report.AppendLine($"| {rate:0.##} %/h | {Math.Ceiling(25 / (rate * 1.5)):0} | {Math.Ceiling(50 / (rate * 1.5)):0} | {Math.Ceiling(80 / (rate * 1.5)):0} |");
+            report.AppendLine($"| {rate:0.##} %/h | {Math.Ceiling(25 / (rate * FlightHours)):0} | {Math.Ceiling(50 / (rate * FlightHours)):0} | {Math.Ceiling(80 / (rate * FlightHours)):0} |");
         report.AppendLine();
 
         foreach (var risk in Risks) {
@@ -490,6 +610,18 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             foreach (var row in rows)
                 report.AppendLine($"| {row.WearPct:0} % | {row.Expectation.GroundSeedsPerFlight:0.00} |");
             report.AppendLine();
+            report.AppendLine($"### Experiencia por vuelo ({FlightHours:0.#} h)");
+            report.AppendLine();
+            report.AppendLine("| Desgaste | E[fallas] | P(≥1 falla) | P(≥1 grave) | P(≥1 crítica) | 1 crítica cada |");
+            report.AppendLine("|---|---:|---:|---:|---:|---:|");
+            foreach (var row in rows) {
+                var e = row.Expectation;
+                var total = e.TotalPerHour * FlightHours;
+                report.AppendLine($"| {row.WearPct:0} % | {Fmt(total)} | {(1 - Math.Exp(-total)) * 100:0.0} % | {(1 - Math.Exp(-e.MajorPerHour * FlightHours)) * 100:0.0} % | "
+                    + (risk == RiskLevel.Low ? "—" : $"{(1 - Math.Exp(-e.CriticalPerHour * FlightHours)) * 100:0.0} %") + " | "
+                    + (risk == RiskLevel.Low ? "—" : $"**{Math.Round(1 / (e.CriticalPerHour * FlightHours)):0} vuelos**") + " |");
+            }
+            report.AppendLine();
         }
 
         return report.ToString();
@@ -512,9 +644,9 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         sheet.Cells[row, 1, row, lastColumn].Merge = true;
     }
 
-    private static void WriteHeaderRow(ExcelWorksheet sheet, int row, params string[] headers) {
+    private static void WriteHeaderRow(ExcelWorksheet sheet, int row, int startCol, params string[] headers) {
         for (var i = 0; i < headers.Length; i++) {
-            var cell = sheet.Cells[row, i + 1];
+            var cell = sheet.Cells[row, startCol + i];
             cell.Value = headers[i];
             cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
             cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(0x23, 0x2A, 0x38));
@@ -522,6 +654,8 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             cell.Style.Font.Bold = true;
         }
     }
+
+    private static void WriteHeaderRow(ExcelWorksheet sheet, int row, params string[] headers) => WriteHeaderRow(sheet, row, 1, headers);
 
     private static void WriteRate(ExcelRangeBase cell, double value) {
         cell.Value = value;
@@ -534,17 +668,17 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         cell.Style.Numberformat.Format = "0 %";
     }
 
-    private static void HighlightRow(ExcelWorksheet sheet, int row, int columns) {
-        for (var c = 1; c <= columns; c++) {
+    private static void HighlightRow(ExcelWorksheet sheet, int row, int columns, int startCol = 1) {
+        for (var c = startCol; c < startCol + columns; c++) {
             sheet.Cells[row, c].Style.Fill.PatternType = ExcelFillStyle.Solid;
             sheet.Cells[row, c].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(0xEF, 0xF6, 0xFF));
         }
     }
 
     /// <summary>Bordes suaves para el rango completo de la tabla.</summary>
-    private static void FormatTable(ExcelWorksheet sheet, int firstRow, int lastRow, int columns) {
+    private static void FormatTable(ExcelWorksheet sheet, int firstRow, int lastRow, int columns, int startCol = 1) {
         if (lastRow <= firstRow) return;
-        var range = sheet.Cells[firstRow, 1, lastRow, columns];
+        var range = sheet.Cells[firstRow, startCol, lastRow, startCol + columns - 1];
         range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
         range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
         range.Style.Border.Top.Color.SetColor(Color.FromArgb(0x1A, 0x20, 0x29));

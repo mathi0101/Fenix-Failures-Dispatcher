@@ -66,10 +66,10 @@ La estimación de presentación es **global por severidad** (§8.7): λ = `Failu
 |---|---|---|---|
 | Low | 0.6 | 0,14 / 0,05 / 0 (política: sin críticas) | 0,18 / 0,06 / 0 |
 | Moderate | 1.0 | 0,24 / 0,08 / 0,024 | 0,36 / 0,12 / 0,036 |
-| High | 1.5 | 0,36 / 0,12 / 0,036 | 0,63 / 0,21 / 0,063 |
-| 7700 | 2.5 | 0,60 / 0,20 / 0,060 | 1,28 / 0,43 / 0,13 |
+| High | 2.5 | 0,60 / 0,20 / 0,060 | 0,75 / 0,25 / 0,075 |
+| 7700 | 5.0 | 1,20 / 0,40 / 0,120 | 1,50 / 0,50 / 0,150 |
 
-La lectura que importa es por vuelo típico (1,5 h, 25 % de desgaste): Moderado ≈ 0,77 fallas con 1 crítica cada ~19 vuelos, Alto 1 crítica cada ~11 y 7700 cada ~5 (`docs/balance/balance-realistic.md`, sección «Experiencia por vuelo»). El bloqueo de Critical en Low sigue siendo política, no física (ver §2.3).
+La lectura que importa es por vuelo típico (3 h, 25 % de desgaste, calibración vigente: Moderado ≈ 1,42 fallas con 1 crítica cada ~10 vuelos, Alto ≈ 3,87 con 1 crítica cada ~4, 7700 ≈ 6,45 con 1 crítica cada ~2,5 — `docs/balance/balance-realistic.md`, sección «Experiencia por vuelo», que compara además desgaste 0/25/100 %). El bloqueo de Critical en Low sigue siendo política, no física (ver §2.3).
 
 ### 1.2 El `Probability` del preset se conserva
 
