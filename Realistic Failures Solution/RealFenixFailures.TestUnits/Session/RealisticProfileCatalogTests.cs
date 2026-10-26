@@ -52,7 +52,7 @@ public class RealisticProfileCatalogTests {
         var high = RealisticProfileCatalog.Resolve(settings, RiskLevel.High);
 
         Assert.Equal(7, high.AggravationCap);
-        Assert.Equal(600, high.CriticalRespiteSeconds);
+        Assert.Equal(1200, high.CriticalRespiteSeconds);
     }
 
     [Theory]

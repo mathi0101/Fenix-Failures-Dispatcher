@@ -14,7 +14,7 @@ public static class RealisticProfileCatalog {
         },
         RiskLevel.High => new RealisticProfileSettings {
             RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 2.5,
-            AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 600
+            AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 1200
         },
         RiskLevel.Squawk7700 => new RealisticProfileSettings {
             RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0,
