@@ -134,7 +134,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         if (newSession.FlightPlan == null)
             return new StartSessionResult(false, "Flight Plan data not loaded");
 
-        Session = new RealisticSession(newSession, context.Aircraft, RealisticProfileCatalog.Resolve(_settings, newSession.RiskLevel)) {
+        Session = new RealisticSession(newSession, context.Aircraft, _settings.ProfileFor(newSession.RiskLevel)) {
             AvailablePresets = presets
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
@@ -523,9 +523,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         session.RecordTriggeredFailure(now);
         if (chosen.FenixFailure?.Severity == FailureSeverity.Critical) {
-            session.CriticalRespiteUntilUtc = now + _policy.EffectiveRespite(session.RiskProfile, _settings.RespiteClampSeconds);
-            _logger.LogDebug("Realistic sesión {SessionId}: tregua crítica establecida hasta escenario {UntilUtc}, duración configurada {Seconds}s, clamp {ClampSeconds}s",
-                session.Session.Id, session.CriticalRespiteUntilUtc, session.RiskProfile.CriticalRespiteSeconds, _settings.RespiteClampSeconds);
+            session.CriticalRespiteUntilUtc = now + _policy.EffectiveRespite(session.RiskProfile);
+            _logger.LogDebug("Realistic sesión {SessionId}: tregua crítica establecida hasta {UntilUtc}, duración configurada {Seconds}s",
+                session.Session.Id, session.CriticalRespiteUntilUtc, session.RiskProfile.CriticalRespiteSeconds);
         }
 
         _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
@@ -640,6 +640,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             if (count < eligibleCount)
                 _logger.LogDebug("Realistic sesión {SessionId}: acumulan {Count} de {Total} sistemas elegibles por {Hours:F1} h de vuelo (tope {Cap})",
                     session.Session.Id, count, eligibleCount, hours, cap);
+            var noticeThreshold = _settings.Wear.ThresholdNoticePct;
             var deltas = new List<SystemWearDeltaDto>();
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
@@ -663,6 +664,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: desgaste guardado para aeronave {AircraftId}, sistemas {Count}, UTC {StoppedAtUtc}", session.Session.Id, session.Aircraft.Id, deltas.Count, stoppedAtUtc);
             _logger.LogInformation("Desgaste acumulado por {Hours:F2} h de vuelo en {Count} sistemas (aeronave {AircraftId})",
                 hours, deltas.Count, session.Aircraft.Id);
+            var castigated = deltas.Where(d => d.TotalPercentage >= noticeThreshold).ToList();
+            if (castigated.Count > 0)
+                _logger.LogInformation("Realistic sesión {SessionId}: sistemas que quedan por encima del umbral de mantenimiento ({Threshold}%): {Systems}",
+                    session.Session.Id, noticeThreshold, string.Join(", ", castigated.Select(d => $"{d.SystemName} (ATA {d.AtaId}, {d.TotalPercentage:0.#}%)")));
             return deltas;
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo acumular el desgaste por horas de vuelo al cerrar la sesión {SessionId}", session.Session.Id);

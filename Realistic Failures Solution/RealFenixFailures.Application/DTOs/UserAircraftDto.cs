@@ -103,14 +103,12 @@ public sealed record FailureResultDto {
     public DateTime? ResolvedAtUtc { get; init; }
 }
 
-/// <summary>Delta de desgaste aplicado a un sistema por la sesión (diseño §12/§13, columna «Δ sesión» del modal).</summary>
+/// <summary>Delta de desgaste aplicado a un sistema por la sesión (diseño §12/§13, columna «Δ sesión» del modal). El aviso de mantenimiento lo calcula la UI contra el umbral configurado (<c>Wear:ThresholdNoticePct</c>).</summary>
 public sealed record SystemWearDeltaDto {
     public required int AtaId { get; init; }
     public required string SystemName { get; init; }
     public double DeltaPercentage { get; init; }
     public double TotalPercentage { get; init; }
-    /// <summary>El sistema quedó sobre el umbral de mantenimiento (80 %).</summary>
-    public bool RequiresMaintenance => TotalPercentage >= 80.0;
 }
 
 /// <summary>Resultado completo de una sesión para el modal (diseño objetivo §13).</summary>

@@ -8,14 +8,13 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 
 /// <summary>
 /// ViewModel del modal de selección de perfil de riesgo: siempre refleja la configuración leída vigente
-/// (perfiles resueltos por <see cref="RealisticProfileCatalog.Resolve"/> y física del motor) y recalcula
-/// los mensajes y la estimación por 10 vuelos cada vez que se abre la ventana.
+/// (perfiles resueltos por <see cref="RealisticModeSettings.ProfileFor"/> y física del motor) y recalcula
+/// los mensajes y las tasas por hora de vuelo cada vez que se abre la ventana.
 /// </summary>
 public sealed class RiskProfileWindowViewModel : ObservableObject {
     private readonly RealisticModeViewModel _owner;
     private readonly IRealisticExpectationService? _expectationService;
     private readonly Func<double?> _averageWear;
-    private readonly Func<double?> _ofpHours;
     private RiskProfileOptionViewModel? _selected;
     private string _footNote = FootNoteBase;
     private string _estimateFootNote = string.Empty;
@@ -25,12 +24,10 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
     public RiskProfileWindowViewModel(
         RealisticModeViewModel owner,
         IRealisticExpectationService? expectationService,
-        Func<double?> averageWear,
-        Func<double?> ofpHours) {
+        Func<double?> averageWear) {
         _owner = owner;
         _expectationService = expectationService;
         _averageWear = averageWear;
-        _ofpHours = ofpHours;
         Profiles = RiskProfileOptionViewModel.CreateDefaults();
         foreach (var option in Profiles)
             option.SelectedChanged += (_, _) => Selected = option;
@@ -62,8 +59,7 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
 
         try {
             var wear = _averageWear();
-            var hours = _ofpHours() is { } h && h > 0 ? h : RealisticExpectationService.DefaultFlightHours;
-            var expectations = await _expectationService.ComputePerProfileAsync(wear, hours);
+            var expectations = await _expectationService.ComputePerProfileAsync(wear);
 
             var maxMultiplier = expectations.Max(e => Math.Max(0, e.Profile.ProbabilityMultiplier));
             var maxWear = expectations.Max(e => Math.Max(1, e.Profile.WearMaxMultiplier));
@@ -73,8 +69,9 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
             }
 
             var wearDisplay = wear is null ? "sin datos de desgaste" : $"desgaste medio {Math.Round(wear.Value):0} %";
-            EstimateFootNote = $"* Estimación de presentación con la configuración vigente del motor: vuelo de {hours:0.#} h, {wearDisplay}. "
-                + "Cuenta solo fallas graves (Critical) en vuelo: la semilla de tierra del motor arma solo fallas leves. La cadencia real la decide el motor tick a tick.";
+            EstimateFootNote = $"* Fallas graves (Major) y críticas (Critical) en vuelo, aproximadas por cada 10 horas de vuelo con la "
+                + $"configuración vigente del motor y {wearDisplay}. La semilla de tierra (fallas del arranque) se describe en los chips. "
+                + "La cadencia real la decide el motor tick a tick.";
 
             Preselect(_owner.SelectedRiskLevel);
         } catch (Exception) {

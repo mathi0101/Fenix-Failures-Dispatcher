@@ -60,7 +60,6 @@ public class RealisticModeFlowSchemaTests {
         Assert.Equal(50, settings.RealisticMode.ThinkingLinesCap);
         Assert.Equal(2, settings.RealisticMode.Ofp.PreStartWindowHours);
         Assert.Equal(0.5, settings.RealisticMode.Ofp.PostArrivalWindowHours);
-        Assert.Equal(0.5, settings.RealisticMode.Wear.AmplificationFactor);
         Assert.Equal(80, settings.RealisticMode.Wear.ThresholdNoticePct);
         Assert.Equal(0, settings.RealisticMode.Wear.SessionSystemsCap);
     }

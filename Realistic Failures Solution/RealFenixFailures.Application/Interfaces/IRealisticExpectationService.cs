@@ -16,9 +16,8 @@ public interface IRealisticExpectationService {
 
     /// <summary>
     /// Estimación por perfil para la pantalla de perfiles: resuelve cada perfil con la configuración
-    /// vigente y devuelve su semilla de tierra + cadencia en vuelo esperadas por vuelo.
+    /// vigente y devuelve sus tasas en vuelo por hora (por severidad) más la semilla de tierra por vuelo.
     /// </summary>
-    /// <param name="averageWearPct">Desgaste medio de la aeronave (0–100); null = sin datos.</param>
-    /// <param name="flightHours">Duración estimada de la sesión en horas (del OFP); null usa una referencia de 1,5 h.</param>
-    Task<IReadOnlyList<ProfileExpectationDto>> ComputePerProfileAsync(double? averageWearPct, double? flightHours, CancellationToken ct = default);
+    /// <param name="averageWearPct">Desgaste medio de la aeronave (0–100); null usa una referencia de 25 %.</param>
+    Task<IReadOnlyList<ProfileExpectationDto>> ComputePerProfileAsync(double? averageWearPct, CancellationToken ct = default);
 }

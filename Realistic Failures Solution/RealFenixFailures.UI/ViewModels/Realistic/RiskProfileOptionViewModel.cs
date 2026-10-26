@@ -18,7 +18,7 @@ public sealed record IntensitySegment(Brush Fill);
 /// dinámicos (medidores, chips y estimación) recalculados desde la configuración vigente del motor.
 /// </summary>
 public sealed class RiskProfileOptionViewModel : ObservableObject {
-    private string _estimateDisplay = "Fallas graves aproximadas cada 10 vuelos: ≈ …*";
+    private string _estimateDisplay = "≈ … fallas graves cada 10 h de vuelo*";
     private string _frequencyLabel = "×…";
     private double _frequencyBar;
     private string _wearLabel = "hasta ×…";
@@ -93,7 +93,12 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
         FrequencyBar = maxMultiplier > 0 ? multiplier / maxMultiplier * 100 : 0;
         WearLabel = $"hasta ×{wearMax:0.##}";
         WearBar = maxWearMultiplier > 1 ? (wearMax - 1) / (maxWearMultiplier - 1) * 100 : 100;
-        EstimateDisplay = $"Fallas graves aproximadas cada 10 vuelos: ≈ {FormatCount(dto.CriticalPerFlight * 10)}*";
+        // Regla de producto: Bajo solo menciona graves (el motor le descarta las críticas); el resto,
+        // graves y críticas, ambas por cada 10 horas de vuelo.
+        var majorTen = FormatRate(dto.MajorPerHour * 10);
+        EstimateDisplay = Risk == RiskLevel.Low
+            ? $"≈ {majorTen} fallas graves cada 10 h de vuelo*"
+            : $"≈ {majorTen} fallas graves y {FormatRate(dto.CriticalPerHour * 10)} críticas cada 10 h de vuelo*";
 
         var chips = new List<RiskProfileChip>();
         if (profile.GroundFailuresCap > 0)
@@ -112,11 +117,15 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
         }
     }
 
-    /// <summary>Entero a partir de 10, un decimal (coma) por debajo; críticas suelen ser &lt; 1 cada 10 vuelos.</summary>
-    private static string FormatCount(double value) {
-        var text = value >= 9.95
-            ? Math.Round(value).ToString("0", CultureInfo.InvariantCulture)
-            : value.ToString("0.#", CultureInfo.InvariantCulture);
+    /// <summary>Tasa por hora a texto: entero a partir de 10, un decimal desde 1, dos decimales por debajo; coma decimal.</summary>
+    private static string FormatRate(double value) {
+        if (value == 0) return "0";
+        if (value < 0.01) return "< 0,01";
+        var text = value >= 10
+            ? value.ToString("0", CultureInfo.InvariantCulture)
+            : value >= 1
+                ? value.ToString("0.#", CultureInfo.InvariantCulture)
+                : value.ToString("0.00", CultureInfo.InvariantCulture);
         return text.Replace('.', ',');
     }
 

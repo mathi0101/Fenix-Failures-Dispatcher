@@ -68,10 +68,8 @@ public sealed class RealisticFailurePolicy {
     /// <summary>Extra de agravamiento por cada falla previa simultánea del mismo ATA (espec §2.3): 2º hidráulico +1, 3º +2, …</summary>
     public static int SameAtaExtra(RealisticPhysicsSettings physics, int sameAtaCount) => Math.Max(0, physics.SameAtaAggravationExtra) * Math.Max(0, sameAtaCount);
 
-    public TimeSpan EffectiveRespite(RealisticProfileSettings profile, int clampSeconds) {
-        var seconds = Math.Clamp(profile.CriticalRespiteSeconds, 0, Math.Max(0, clampSeconds));
-        return TimeSpan.FromSeconds(seconds);
-    }
+    /// <summary>Tregua tras una falla crítica definida por el perfil, s (0 = sin tregua). No hay techo global: vale el valor del perfil.</summary>
+    public TimeSpan EffectiveRespite(RealisticProfileSettings profile) => TimeSpan.FromSeconds(Math.Max(0, profile.CriticalRespiteSeconds));
 
     public IReadOnlyList<PresetFailureDefinition> EvaluateEligible(
         IEnumerable<PresetFailureDefinition> candidates,

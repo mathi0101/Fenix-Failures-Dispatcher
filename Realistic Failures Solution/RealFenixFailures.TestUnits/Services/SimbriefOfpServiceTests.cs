@@ -18,7 +18,7 @@ public class SimbriefOfpServiceTests {
         GroundFailureEnabled = true,
         ThinkingLinesCap = 50,
         Ofp = new OfpWindowSettings { PreStartWindowHours = 2, PostArrivalWindowHours = 2 },
-        Wear = new WearSettings { AmplificationFactor = 0.5, ThresholdNoticePct = 80 },
+        Wear = new WearSettings { ThresholdNoticePct = 80 },
     };
 
     private static FlightPlan ValidPlan() {

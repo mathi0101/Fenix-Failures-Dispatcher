@@ -218,7 +218,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock TextWrapping="Wrap" Text="Al alcanzar el 80 % se señala que el sistema requiere mantenimiento." Style="{StaticResource Caption}" Margin="4,10,0,2"/>
+                            <TextBlock TextWrapping="Wrap" Text="{Binding WearThresholdDisplay}" Style="{StaticResource Caption}" Margin="4,10,0,2"/>
                         </StackPanel>
                     </Border>
                     <TextBlock TextWrapping="Wrap" Text="{Binding WearEmptyMessage}" Style="{StaticResource Subtitle}" Visibility="{Binding HasWearRows, Converter={StaticResource InverseBoolToVis}}"/>

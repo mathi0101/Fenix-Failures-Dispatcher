@@ -5,16 +5,21 @@ using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
+using RealFenixFailures.TestUnits.Session;
 using Xunit;
 
 namespace RealFenixFailures.TestUnits.Services;
 
 /// <summary>
-/// Tests de la estimación por perfil de la pantalla de perfiles: matemática de la Poisson truncada,
-/// ordenamiento por intensidad y resolución desde la configuración vigente (sin perfiles configurados,
-/// el catálogo resuelve los defaults, así que los valores esperados son estables).
+/// Tests de la estimación por perfil de la pantalla de perfiles. Verifican que el servicio cable
+/// correctamente las piezas del motor (física, perfil resuelto, desgaste, severidades) sin clavar
+/// valores de calibración: los esperados se computan siempre desde los mismos objetos que usa el
+/// motor, así que ajustar el balance no rompe la suite salvo que la fórmula se rompa.
 /// </summary>
 public class RealisticProfileExpectationTests {
+    private static readonly RealisticPhysicsSettings Physics = new();
+    private static readonly RealisticModeSettings Defaults = new();
+
     [Theory]
     [InlineData(0, 5, 0)]
     [InlineData(5, 0, 0)]
@@ -43,105 +48,81 @@ public class RealisticProfileExpectationTests {
     }
 
     [Fact]
+    public void ExpectedGroundSeedsPerFlight_MatchesThePolicysOwnFormula() {
+        var counts = FailureCatalogStats.SeverityCounts();
+        foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
+            var profile = Defaults.ProfileFor(risk);
+            var wearFactor = RealisticFailurePolicy.WearFactor(profile, wearPercentage: 25);
+
+            var lambda = Physics.GroundSeedBaseProbability
+                * (counts.Minor * Physics.SeverityRateMultiplier.Minor + counts.Major * Physics.SeverityRateMultiplier.Major)
+                * profile.ProbabilityMultiplier
+                * wearFactor;
+            var expected = RealisticProfileExpectation.MeanTruncatedPoisson(lambda, profile.GroundFailuresCap);
+
+            var actual = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(
+                Physics, profile, counts.Minor, counts.Major, wearPct: 25);
+            Assert.Equal(expected, actual, precision: 9);
+        }
+    }
+
+    [Fact]
     public void ExpectedGroundSeedsPerFlight_ZeroWear_IsMonotoneAcrossProfiles() {
         var counts = FailureCatalogStats.SeverityCounts();
-        var physics = new RealisticPhysicsSettings();
         var previous = 0.0;
-        foreach (var risk in new[] { RiskLevel.Low, RiskLevel.Moderate, RiskLevel.High, RiskLevel.Squawk7700 }) {
+        foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
             var expected = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(
-                physics, RealisticProfileCatalog.DefaultsFor(risk), counts.Minor, counts.Major, wearPct: 0);
+                Physics, Defaults.ProfileFor(risk), counts.Minor, counts.Major, wearPct: 0);
             Assert.True(expected > previous, $"Se esperaba crecimiento por perfil, pero {risk} dio {expected}.");
             previous = expected;
         }
     }
 
     [Fact]
-    public void ExpectedGroundSeedsPerFlight_ModerateZeroWear_MatchesTruncatedMean() {
-        var physics = new RealisticPhysicsSettings();
-        // λ = 0.01 · (173·1.0 + 179·0.4) · 1.0 · 1.0 = 2.446; cap = 2.
-        var expected = RealisticProfileExpectation.MeanTruncatedPoisson(2.446, 2);
-        var actual = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(
-            physics, RealisticProfileCatalog.DefaultsFor(RiskLevel.Moderate), minorCount: 173, majorCount: 179, wearPct: 0);
-        Assert.Equal(expected, actual, precision: 9);
+    public void ComputePerProfileAsync_MatchesPolicyFormulaPerProfile() {
+        var settings = new FailureEngineSettings();
+        var service = new RealisticExpectationService(Options.Create(settings));
+
+        var results = service.ComputePerProfileAsync(averageWearPct: 25).GetAwaiter().GetResult();
+
+        Assert.Equal(RealisticProfileDefaultsTests.AllRisks, results.Select(r => r.Risk));
+        var baseRate = settings.RealisticMode.Physics.FailureRatePerHourBase;
+        foreach (var result in results) {
+            var profile = settings.RealisticMode.ProfileFor(result.Risk);
+            Assert.Equal(profile.ProbabilityMultiplier, result.Profile.ProbabilityMultiplier, precision: 9);
+
+            // Fórmula global por severidad: λ = base × mult severidad × mult perfil × factor desgaste.
+            var rate = baseRate * profile.ProbabilityMultiplier * RealisticFailurePolicy.WearFactor(profile, 25);
+            Assert.Equal(rate * Physics.SeverityRateMultiplier.Minor, result.MinorPerHour, precision: 12);
+            Assert.Equal(rate * Physics.SeverityRateMultiplier.Major, result.MajorPerHour, precision: 12);
+            var expectedCritical = result.Risk == RiskLevel.Low ? 0 : rate * Physics.SeverityRateMultiplier.Critical;
+            Assert.Equal(expectedCritical, result.CriticalPerHour, precision: 12);
+            Assert.Equal(result.MinorPerHour + result.MajorPerHour + result.CriticalPerHour, result.TotalPerHour, precision: 12);
+        }
     }
 
     [Fact]
-    public void ComputePerProfileAsync_DefaultSettings_ModerateMatchesGroundOnlyEstimate() {
+    public void ComputePerProfileAsync_WearScalesRatesByTheProfileWearMax() {
         var service = new RealisticExpectationService(Options.Create(new FailureEngineSettings()));
 
-        var results = service.ComputePerProfileAsync(averageWearPct: 0, flightHours: 1.5).GetAwaiter().GetResult();
+        var fresh = service.ComputePerProfileAsync(averageWearPct: 0).GetAwaiter().GetResult();
+        var worn = service.ComputePerProfileAsync(averageWearPct: 100).GetAwaiter().GetResult();
 
-        Assert.Equal(4, results.Count);
-        Assert.Equal(new[] { RiskLevel.Low, RiskLevel.Moderate, RiskLevel.High, RiskLevel.Squawk7700 }, results.Select(r => r.Risk));
-
-        var moderate = results.First(r => r.Risk == RiskLevel.Moderate);
-        Assert.Equal(1.0, moderate.Profile.ProbabilityMultiplier);
-        Assert.Equal(2, moderate.Profile.GroundFailuresCap);
-        Assert.Equal(0, moderate.InFlightPerFlight, precision: 9);
-        Assert.Equal(RealisticProfileExpectation.MeanTruncatedPoisson(2.446, 2), moderate.TotalPerFlight, precision: 6);
+        foreach (var (f, w) in fresh.Zip(worn, (f, w) => (f, w))) {
+            var profile = Defaults.ProfileFor(f.Risk);
+            Assert.Equal(profile.WearMaxMultiplier, w.MinorPerHour / f.MinorPerHour, precision: 6);
+        }
     }
 
     [Fact]
-    public void ComputePerProfileAsync_WithoutWearOrHours_UsesReferenceDefaults() {
+    public void ComputePerProfileAsync_WithoutWearOrHours_UsesTheReferenceDefaults() {
         var service = new RealisticExpectationService(Options.Create(new FailureEngineSettings()));
 
-        var results = service.ComputePerProfileAsync(averageWearPct: null, flightHours: null).GetAwaiter().GetResult();
-        var moderate = results.First(r => r.Risk == RiskLevel.Moderate);
+        var withNulls = service.ComputePerProfileAsync(null).GetAwaiter().GetResult();
+        var withReferences = service.ComputePerProfileAsync(RealisticExpectationService.DefaultAverageWearPct).GetAwaiter().GetResult();
 
-        // Sin datos de desgaste el servicio usa el desgaste medio de referencia (25 %), no desgaste cero.
-        var (minor, major, _) = FailureCatalogStats.SeverityCounts();
-        var lambda = 0.01 * (minor + major * 0.4) * 1.25;
-        Assert.Equal(RealisticProfileExpectation.MeanTruncatedPoisson(lambda, 2), moderate.TotalPerFlight, precision: 6);
-    }
-
-    [Fact]
-    public void ComputePerProfileAsync_WithoutPresets_CriticalsAreZeroBecauseGroundSeedIsMinorOnly() {
-        var service = new RealisticExpectationService(Options.Create(new FailureEngineSettings()));
-
-        var results = service.ComputePerProfileAsync(averageWearPct: 0, flightHours: 1.5).GetAwaiter().GetResult();
-
-        Assert.All(results, r => Assert.Equal(0, r.CriticalPerFlight, precision: 12));
-    }
-
-    [Fact]
-    public void ComputePerProfileAsync_WithPresets_CriticalCountIncludesOnlyCriticalInFlight() {
-        var preset = new FailurePreset {
-            Name = "Test", FlightPhase = ComplexFlightPhaseEnum.Cruise,
-            PresetFailureDefinitions = [
-                new() { FenixFailureId = "MINOR", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "MINOR", Severity = FailureSeverity.Minor, Group = null! } },
-                new() { FenixFailureId = "MAJOR", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "MAJOR", Severity = FailureSeverity.Major, Group = null! } },
-                new() { FenixFailureId = "CRIT", Probability = 1.0, FenixFailure = new FenixFailureDefinition { FenixFailureId = "CRIT", Severity = FailureSeverity.Critical, Group = null! } },
-            ]
-        };
-        var service = new RealisticExpectationService(
-            Options.Create(new FailureEngineSettings()),
-            new StubPresetService([preset]));
-
-        var results = service.ComputePerProfileAsync(averageWearPct: 0, flightHours: 1.5).GetAwaiter().GetResult();
-
-        // Crucero: 40/90 min de 1,5 h. λ crítica Moderate = 0,01 × 0,15 × 1,0 × 1,0 × (2/3 · 1,5).
-        var cruiseHours = 40.0 / PhaseTotalMinutes * 1.5;
-        var expectedCritical = 0.01 * 0.15 * 1.0 * 1.0 * cruiseHours;
-        var moderate = results.First(r => r.Risk == RiskLevel.Moderate);
-        Assert.Equal(expectedCritical, moderate.CriticalPerFlight, precision: 12);
-        Assert.True(moderate.InFlightPerFlight > moderate.CriticalPerFlight, "InFlight debe incluir también Minor y Major.");
-
-        // Low nunca dispara Critical (FailureRuleEvaluator las descarta).
-        Assert.Equal(0, results.First(r => r.Risk == RiskLevel.Low).CriticalPerFlight, precision: 12);
-
-        // 7700: λ crítica × 2,5.
-        Assert.Equal(expectedCritical * 2.5, results.First(r => r.Risk == RiskLevel.Squawk7700).CriticalPerFlight, precision: 12);
-    }
-
-    private const double PhaseTotalMinutes = 10 + 8 + 2 + 18 + 40 + 8 + 10 + 2;
-
-    private sealed class StubPresetService(IReadOnlyList<FailurePreset> realistic) : IPresetService {
-        public Task InitializeAsync(CancellationToken ct) => Task.CompletedTask;
-        public Task DeletePresetAsync(int id, CancellationToken ct) => Task.CompletedTask;
-        public Task<IReadOnlyList<FailurePreset>> GetTrainingPresetsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<FailurePreset>>([]);
-        public Task<IReadOnlyList<FailurePreset>> GetRealisticPresetsAsync(CancellationToken ct) => Task.FromResult(realistic);
-        public Task<IReadOnlyList<FailurePreset>> GetCustomPresetsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<FailurePreset>>([]);
-        public Task<FailurePreset?> GetByIdAsync(int presetId, CancellationToken ct) => Task.FromResult<FailurePreset?>(null);
-        public Task<FailurePreset> CreateEmptyCustomPresetAsync(CancellationToken ct) => throw new NotSupportedException();
+        // Sin datos, el servicio debe comportarse exactamente igual que con su constante de referencia.
+        Assert.All(withNulls.Zip(withReferences, (a, b) => (a, b)),
+            pair => Assert.Equal(pair.a.TotalPerHour, pair.b.TotalPerHour, precision: 12));
     }
 }

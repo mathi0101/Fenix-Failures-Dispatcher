@@ -1,3 +1,4 @@
+using RealFenixFailures.Domain.Enums;
 using System.Text.Json;
 
 namespace RealFenixFailures.Domain.Services;
@@ -10,7 +11,33 @@ namespace RealFenixFailures.Domain.Services;
 public static class FailureCatalogStats {
     private static readonly Lazy<(int Minor, int Major, int Critical)> Counts = new(Load);
 
+    private static readonly Lazy<Dictionary<string, FailureSeverity>> SeverityById = new(LoadSeverityById);
+
     public static (int Minor, int Major, int Critical) SeverityCounts() => Counts.Value;
+
+    /// <summary>
+    /// Severidad por id de falla según el catálogo embebido (misma fuente que la base de definiciones);
+    /// ids desconocidos devuelven <see cref="FailureSeverity.Minor"/>.
+    /// </summary>
+    public static FailureSeverity SeverityOf(string fenixFailureId) =>
+        SeverityById.Value.TryGetValue(fenixFailureId, out var severity) ? severity : FailureSeverity.Minor;
+
+    private static Dictionary<string, FailureSeverity> LoadSeverityById() {
+        try {
+            using var stream = EmbeddedJsonLoader.LoadFromEmbeddedJson(EmbeddedResourceNames.FailuresCatalog)
+                ?? throw new FileNotFoundException("Recurso embebido failures.json no encontrado");
+            var catalog = JsonSerializer.Deserialize<CatalogDto>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? throw new InvalidOperationException("failures.json deserializó a null");
+            var byId = new Dictionary<string, FailureSeverity>();
+            foreach (var ata in catalog.Atas)
+                foreach (var group in ata.Groups)
+                    foreach (var failure in group.Failures)
+                        byId[failure.Id] = (FailureSeverity)failure.Severity;
+            return byId;
+        } catch (Exception ex) {
+            throw new InvalidOperationException("No se pudo indexar el catálogo embebido failures.json", ex);
+        }
+    }
 
     private static (int Minor, int Major, int Critical) Load() {
         try {
@@ -39,5 +66,5 @@ public static class FailureCatalogStats {
     private sealed record CatalogDto(List<AtaDto> Atas);
     private sealed record AtaDto(List<GroupDto> Groups);
     private sealed record GroupDto(List<FailureDto> Failures);
-    private sealed record FailureDto(int Severity);
+    private sealed record FailureDto(string Id, int Severity);
 }
