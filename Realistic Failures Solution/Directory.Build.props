@@ -8,7 +8,7 @@
     el InformationalVersion (0.1.0-dev.0), que es lo que muestra la app.
   -->
   <PropertyGroup>
-    <Version>0.4.0-beta.1</Version>
+    <Version>0.4.1-beta.1</Version>
   </PropertyGroup>
 
 </Project>
