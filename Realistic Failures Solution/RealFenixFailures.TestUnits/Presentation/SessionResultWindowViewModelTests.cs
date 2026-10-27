@@ -19,7 +19,7 @@ public class SessionResultWindowViewModelTests {
             WearDeltas = [new() { AtaId = 24, SystemName = "Elec", DeltaPercentage = 1, TotalPercentage = 81 },
                 new() { AtaId = 29, SystemName = "Hyd", DeltaPercentage = 3, TotalPercentage = 20 }]
         };
-        var vm = new SessionResultWindowViewModel(result);
+        var vm = new SessionResultWindowViewModel(result, wearNoticeThresholdPct: 80);
         Assert.Contains("LV-FNX", vm.RegistrationDisplay);
         Assert.Contains("A320", vm.RegistrationDisplay);
         Assert.Contains("SAB1704", vm.OfpDisplay);
@@ -52,7 +52,7 @@ public class SessionResultWindowViewModelTests {
 
     [Fact]
     public void EmptyDiscardedResult_HasExplicitEmptyStates() {
-        var vm = new SessionResultWindowViewModel(new SessionResultDto { SessionId = 1, DiscardedAt = DateTime.UtcNow });
+        var vm = new SessionResultWindowViewModel(new SessionResultDto { SessionId = 1, DiscardedAt = DateTime.UtcNow }, wearNoticeThresholdPct: 80);
         Assert.False(vm.HasFailures);
         Assert.False(vm.HasTimeline);
         Assert.False(vm.HasWearRows);

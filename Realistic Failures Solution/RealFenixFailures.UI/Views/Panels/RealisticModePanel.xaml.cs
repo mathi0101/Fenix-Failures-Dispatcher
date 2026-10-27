@@ -17,7 +17,7 @@ public partial class RealisticModePanel : UserControl {
         if (vm.IsEngineActive || vm.IsOperationPending) return;
         var window = new RealisticRiskProfileWindow {
             Owner = Window.GetWindow(this),
-            DataContext = vm
+            DataContext = vm.CreateRiskProfileDialog()
         };
         window.ShowDialog();
     }

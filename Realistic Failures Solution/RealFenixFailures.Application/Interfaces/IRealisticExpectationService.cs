@@ -13,4 +13,11 @@ public interface IRealisticExpectationService {
     /// <param name="flightHours">Duración estimada de la sesión en horas (del OFP); null = sin OFP.</param>
     /// <param name="profileRisk">Perfil elegido; null = referencia Moderate (antes de elegir perfil).</param>
     RealisticExpectationDto Compute(double? averageWearPct, double? flightHours, RiskLevel? profileRisk);
+
+    /// <summary>
+    /// Estimación por perfil para la pantalla de perfiles: resuelve cada perfil con la configuración
+    /// vigente y devuelve sus tasas en vuelo por hora (por severidad) más la semilla de tierra por vuelo.
+    /// </summary>
+    /// <param name="averageWearPct">Desgaste medio de la aeronave (0–100); null usa una referencia de 25 %.</param>
+    Task<IReadOnlyList<ProfileExpectationDto>> ComputePerProfileAsync(double? averageWearPct, CancellationToken ct = default);
 }

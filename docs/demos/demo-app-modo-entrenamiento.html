@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock · App principal con el modo Entrenamiento — Real Fenix Failures</title>
+<style>
+  :root {
+    --bg: #0D0F14; --card: #13161E; --card-hover: #1A1E28;
+    --titlebar: #0A0C10; --statusbar: #0F1117; --log: #0A0C10;
+    --inner: #0A0C10; --scenario-sel: #1A2540; --warn-bg: #2A1C0A;
+    --blue: #3B82F6; --green: #22C55E; --amber: #F59E0B; --orange: #F97316;
+    --red: #EF4444; --text: #F1F5F9; --text-sec: #64748B;
+    --border: #1E2433; --meta: #94A3B8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060709; color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 12px 48px; }
+  .disclaimer { position: sticky; top: 0; z-index: 50; width: 100%;
+    background: var(--warn-bg); border-bottom: 1px solid var(--amber);
+    color: var(--amber); font-size: 12.5px; font-weight: 600; text-align: center; padding: 9px 16px; }
+  .disclaimer span { opacity: .92; font-weight: 400; }
+  .app { width: 1100px; max-width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); margin-top: 24px; }
+  .titlebar { background: var(--titlebar); padding: 0 16px; height: 48px;
+    display: flex; justify-content: space-between; align-items: center; }
+  .titlebar .brand { display: flex; align-items: center; gap: 10px; }
+  .titlebar .icon { width: 24px; height: 24px; border-radius: 4px; background: var(--border);
+    color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .titlebar b { font-size: 12px; }
+  .titlebar i { font-style: normal; font-size: 12px; color: var(--text-sec); }
+  .winbtns { display: flex; gap: 2px; }
+  .winbtns span { width: 32px; height: 32px; display: flex; align-items: center;
+    justify-content: center; color: var(--text); font-size: 14px; border-radius: 6px; cursor: pointer; }
+  .winbtns span:hover { background: var(--card-hover); }
+  .statusbar { background: var(--statusbar); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 24px; }
+  .statusbar .sep { width: 1px; height: 28px; background: var(--border); }
+  .conn { display: flex; align-items: center; gap: 8px; }
+  .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .conn .label { font-size: 10px; font-weight: 700; color: var(--text-sec); }
+  .conn .value { font-size: 11px; color: var(--green); }
+  .center { flex: 1; display: flex; justify-content: center; align-items: center; gap: 10px; }
+  .phase { background: var(--scenario-sel); border-radius: 20px; padding: 4px 14px; }
+  .phase b { font-size: 10px; color: var(--text-sec); }
+  .phase span { font-size: 11px; font-weight: 600; color: var(--blue); }
+  .clock { border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px;
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; font-weight: 600;
+    color: var(--text-sec); }
+  .right { display: flex; align-items: center; gap: 10px; }
+  .demo-pill { border: 1px dashed var(--amber); color: var(--amber); border-radius: 20px;
+    padding: 3px 10px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px; }
+  .version { font-size: 10px; color: var(--text-sec); cursor: pointer; }
+  .gear { font-size: 14px; color: var(--text); cursor: pointer; }
+  .main { display: grid; grid-template-columns: 260px 1fr; gap: 16px; padding: 16px 20px 20px; }
+  .modes-label { font-size: 10px; font-weight: 700; color: var(--text-sec); margin-bottom: 12px; }
+  .modecard { display: flex; align-items: center; gap: 10px; padding: 10px;
+    border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+  .modecard .micon { width: 32px; height: 32px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-size: 16px; }
+  .modecard .mname { font-size: 13px; font-weight: 600; }
+  .modecard .mdesc { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+  .modecard.selected { border-color: var(--blue); background: rgba(59,130,246,.08); }
+  .donate { display: block; text-align: center; background: transparent;
+    border: 1px solid var(--border); color: var(--text); border-radius: 10px;
+    padding: 9px 0; font-size: 12px; font-weight: 600; cursor: pointer; margin: 4px 0 16px; }
+  .donate:hover { background: var(--card-hover); }
+  .logpanel { background: var(--log); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; height: 460px; display: flex; flex-direction: column; }
+  .loghead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .loghead b { font-size: 10px; color: var(--text-sec); }
+  .logentries { font-family: "Cascadia Mono", Consolas, monospace; font-size: 10.5px;
+    line-height: 1.7; color: var(--meta); overflow: hidden; }
+  .logentries .t { color: var(--text-sec); }
+  .logentries .ok { color: var(--green); }
+  .logentries .info { color: var(--blue); }
+  .logentries .warn { color: var(--amber); }
+  .panel { background: rgba(19,22,30,.85); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; display: flex; flex-direction: column; }
+  .panel-title { font-size: 10px; font-weight: 700; color: var(--blue); }
+  .panel-sub { font-size: 12px; color: var(--text-sec); margin: 6px 0 16px; }
+  .scenarios { flex: 1; }
+  .scard { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    background: transparent; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
+  .scard.selected { background: var(--scenario-sel); border-color: var(--blue); }
+  .stags { display: flex; align-items: center; gap: 10px; }
+  .dtag { border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #0F1720; }
+  .dtag.easy { background: #1E7F3A; }
+  .dtag.medium { background: #C6A700; }
+  .dtag.hard { background: #D85A2A; }
+  .dtag.insane { background: #6F2DBD; }
+  .sname { font-size: 13px; font-weight: 600; }
+  .ptag { background: var(--scenario-sel); color: var(--blue); border-radius: 4px;
+    padding: 2px 6px; font-size: 10px; }
+  .sdesc { font-size: 11px; color: var(--text-sec); margin-top: 5px; }
+  .arrow { color: var(--text-sec); font-size: 14px; }
+  .selected-box { background: var(--inner); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .selected-box h4 { font-size: 10px; font-weight: 700; color: var(--text-sec); }
+  .selected-box .sname { font-size: 14px; margin: 4px 0 0; }
+  .selected-box p { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+  .bigbtn { width: 100%; height: 40px; background: var(--blue); color: #fff;
+    border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .pagefoot { margin-top: 20px; font-size: 11px; color: var(--text-sec); text-align: center; }
+  .pagefoot a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer">
+  ⚠ SIMULACIÓN ILUSTRATIVA — <span>Mock de la interfaz con datos ficticios. Ningún valor mostrado representa valores reales del simulador ni de una sesión real.</span>
+</div>
+
+<div class="app">
+  <div class="titlebar">
+    <div class="brand">
+      <div class="icon">✈</div>
+      <b>Real Fenix</b><i> Failures</i>
+    </div>
+    <div class="winbtns"><span>─</span><span>□</span><span>✕</span></div>
+  </div>
+
+  <div class="statusbar">
+    <div class="conn">
+      <div class="dot"></div>
+      <div><div class="label">MSFS 2020/2024</div><div class="value">Connected · Aircraft data</div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="conn">
+      <div class="dot"></div>
+      <div><div class="label">Fenix System</div><div class="value">Connected</div></div>
+    </div>
+    <div class="center">
+      <div class="phase"><b>FASE: </b><span>Cruising</span></div>
+      <div class="clock" id="utc">--:--:-- UTC</div>
+    </div>
+    <div class="right">
+      <span class="demo-pill">DEMO · DATOS SIMULADOS</span>
+      <span class="version">v0.3.0-beta.1</span>
+      <span class="gear">⚙</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div>
+      <div class="modes-label">MODOS</div>
+      <div class="modecard">
+        <div class="micon" style="background:#2A1C1C">🛩️</div>
+        <div><div class="mname">Realista</div><div class="mdesc">Basado en historial de vuelos</div></div>
+      </div>
+      <div class="modecard selected">
+        <div class="micon" style="background:#1C2A3A">🎓</div>
+        <div><div class="mname">Entrenamiento</div><div class="mdesc">Escenarios preestablecidos</div></div>
+      </div>
+      <div class="modecard">
+        <div class="micon" style="background:#1C2A1C">⚙️</div>
+        <div><div class="mname">Personalizado</div><div class="mdesc">Control manual de fallas</div></div>
+      </div>
+      <button class="donate">♥  Apoyar el proyecto</button>
+      <div class="logpanel">
+        <div class="loghead"><b>LOG EN TIEMPO REAL</b></div>
+        <div class="logentries">
+          <div><span class="t">23:12:02</span> · <span class="ok">SimConnect conectado</span></div>
+          <div><span class="t">23:12:02</span> · Aeronave detectada: LV-FNX (A320)</div>
+          <div><span class="t">23:12:03</span> · <span class="ok">API de Fenix disponible en el puerto 8083</span></div>
+          <div><span class="t">23:14:10</span> · <span class="info">Modo Entrenamiento seleccionado</span></div>
+          <div><span class="t">23:14:18</span> · 6 escenarios preestablecidos cargados</div>
+          <div><span class="t">23:15:02</span> · <span class="warn">Escenario: Dual Hydraulic System Failure</span></div>
+          <div><span class="t">23:15:03</span> · Fase de vuelo: Cruising</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">MODO ENTRENAMIENTO</div>
+      <p class="panel-sub">Seleccioná un escenario para practicar procedimientos de emergencia.</p>
+
+      <div class="scenarios">
+        <div class="scard">
+          <div>
+            <div class="stags">
+              <span class="dtag medium">Medium</span>
+              <span class="sname">Engine Failure Before V1</span>
+              <span class="ptag">Takeoff</span>
+            </div>
+            <div class="sdesc">Un motor falla justo antes de la V1 durante el despegue.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="scard">
+          <div>
+            <div class="stags">
+              <span class="dtag insane">Insane</span>
+              <span class="sname">Engine Failure After V1</span>
+              <span class="ptag">Takeoff</span>
+            </div>
+            <div class="sdesc">El motor falla justo después de la V1: mantené el control y completá el despegue.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="scard">
+          <div>
+            <div class="stags">
+              <span class="dtag hard">Hard</span>
+              <span class="sname">Engine Birdstrike After V2</span>
+              <span class="ptag">Climb</span>
+            </div>
+            <div class="sdesc">Un pájaro daña el motor después de la V2: evaluá el daño y decidí si regresás.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="scard selected">
+          <div>
+            <div class="stags">
+              <span class="dtag medium">Medium</span>
+              <span class="sname">Dual Hydraulic System Failure</span>
+              <span class="ptag">Cruise</span>
+            </div>
+            <div class="sdesc">Falla hidráulica severa: presiones intermedias, baja fluidez y reglas del manual.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="scard">
+          <div>
+            <div class="stags">
+              <span class="dtag hard">Hard</span>
+              <span class="sname">Bleed Failure</span>
+              <span class="ptag">Unknown</span>
+            </div>
+            <div class="sdesc">La válvula de sangrado se cierra sola y prepara una descompresión.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="scard">
+          <div>
+            <div class="stags">
+              <span class="dtag medium">Medium</span>
+              <span class="sname">Gear Not Down on Final</span>
+              <span class="ptag">Approach</span>
+            </div>
+            <div class="sdesc">El tren no está abajo en la aproximación final: gestioná el aterrizaje.</div>
+          </div>
+          <span class="arrow">▶</span>
+        </div>
+      </div>
+
+      <div class="selected-box">
+        <h4>ESCENARIO SELECCIONADO</h4>
+        <div class="sname">Dual Hydraulic System Failure</div>
+        <p>Se dispara de forma aleatoria al subir por encima de FL150.</p>
+      </div>
+
+      <button class="bigbtn">▶ INICIAR ESCENARIO</button>
+    </div>
+  </div>
+</div>
+
+<p class="pagefoot">Mock de <b>Real Fenix Failures</b> · interfaz simulada, sin datos reales · <a href="index.html">← Volver a las demos</a></p>
+
+<script>
+  function tick() {
+    var d = new Date();
+    var p = n => String(n).padStart(2, '0');
+    document.getElementById('utc').textContent =
+      p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + ' UTC';
+  }
+  setInterval(tick, 1000); tick();
+</script>
+</body>
+</html>

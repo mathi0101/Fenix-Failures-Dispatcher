@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demos — Real Fenix Failures</title>
+<style>
+  :root {
+    --bg-deep: #0D0F14; --card: #13161E; --card-hover: #1A1E28;
+    --titlebar: #0A0C10; --warn-bg: #2A1C0A;
+    --blue: #3B82F6; --green: #22C55E; --amber: #F59E0B;
+    --text: #F1F5F9; --text-sec: #64748B; --border: #1E2433; --meta: #94A3B8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg-deep); color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+  .disclaimer { position: sticky; top: 0; z-index: 50; width: 100%;
+    background: var(--warn-bg); border-bottom: 1px solid var(--amber);
+    color: var(--amber); font-size: 12.5px; font-weight: 600; text-align: center; padding: 9px 16px; }
+  .disclaimer span { opacity: .92; font-weight: 400; }
+  header { text-align: center; margin: 40px 0 8px; }
+  header .icon { width: 44px; height: 44px; border-radius: 8px; background: var(--border);
+    color: var(--blue); display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 14px; }
+  h1 { font-size: 24px; }
+  h1 i { font-style: normal; color: var(--text-sec); font-weight: 400; }
+  .sub { color: var(--text-sec); font-size: 13px; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(280px, 420px)); gap: 14px; margin-top: 28px; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  .dcard { display: block; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; text-decoration: none; color: var(--text); }
+  .dcard:hover { background: var(--card-hover); border-color: var(--blue); }
+  .dcard .tag { font-size: 9.5px; font-weight: 700; letter-spacing: .5px; color: var(--amber);
+    border: 1px dashed var(--amber); border-radius: 10px; padding: 2px 8px; display: inline-block; }
+  .dcard h2 { font-size: 15px; margin: 10px 0 6px; }
+  .dcard p { font-size: 12px; color: var(--text-sec); line-height: 1.55; }
+  .dcard .go { color: var(--blue); font-size: 12px; font-weight: 600; margin-top: 12px; display: inline-block; }
+  footer { margin-top: 36px; font-size: 11.5px; color: var(--text-sec); text-align: center; }
+  footer a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer">
+  ⚠ SIMULACIÓN ILUSTRATIVA — <span>Estas demos son mocks de la interfaz con datos ficticios. Ningún valor mostrado representa valores reales del simulador ni de una sesión real. La app real es una aplicación de escritorio WPF.</span>
+</div>
+
+<header>
+  <div class="icon">✈</div>
+  <h1><b>Real Fenix</b> <i>Failures</i> — Demos de la interfaz</h1>
+  <p class="sub">Mocks navegables de la app (v0.3.0-beta.1) para conocerla antes de descargarla.</p>
+</header>
+
+<div class="grid">
+  <a class="dcard" href="demo-app-modo-realista.html">
+    <span class="tag">DEMO · DATOS SIMULADOS</span>
+    <h2>App principal · Modo Realista</h2>
+    <p>Cómo se ve la app al preparar una sesión realista: aeronave con desgaste acumulado, OFP de SimBrief, requisitos de activación y perfil de riesgo Moderado.</p>
+    <span class="go">Ver demo →</span>
+  </a>
+  <a class="dcard" href="mock-perfiles-riesgo.html">
+    <span class="tag">DEMO · DATOS SIMULADOS</span>
+    <h2>Selector de perfil de riesgo</h2>
+    <p>El modal donde se elige la intensidad de las fallas de la sesión: Bajo, Moderado, Alto o 7700, con su frecuencia, efecto del desgaste y compatibilidad con VATSIM.</p>
+    <span class="go">Ver demo →</span>
+  </a>
+  <a class="dcard" href="mock-resultados-sesion.html">
+    <span class="tag">DEMO · DATOS SIMULADOS</span>
+    <h2>Resultados de la sesión</h2>
+    <p>El reporte al cerrar un vuelo realista: fallas lanzadas y cómo terminaron, cronología UTC de la sesión, fallas rechazadas y desgaste por componente.</p>
+    <span class="go">Ver demo →</span>
+  </a>
+  <a class="dcard" href="demo-app-modo-entrenamiento.html">
+    <span class="tag">DEMO · DATOS SIMULADOS</span>
+    <h2>App principal · Modo Entrenamiento</h2>
+    <p>Los escenarios preestablecidos para practicar emergencias: desde falla de motor antes de V1 hasta tren abajo en final, con dificultad por escenario.</p>
+    <span class="go">Ver demo →</span>
+  </a>
+</div>
+
+<footer>
+  Proyecto: <a href="https://github.com/mathi0101/Fenix-Failures-Dispatcher">github.com/mathi0101/Fenix-Failures-Dispatcher</a><br>
+  Interfaz simulada en HTML/CSS · no es la aplicación real.
+</footer>
+
+</body>
+</html>

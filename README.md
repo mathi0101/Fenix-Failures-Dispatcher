@@ -30,6 +30,18 @@ Es para los que les gusta aprender más o poner en práctica los SOPs y flows re
   - **Alto** — más probabilidad, agravación y fallas en tierra.
   - **7700** — para los más experimentados: el logro no es llegar a destino, sino salvar a tus pasajeros y tripulación de un trágico accidente.
 
+## Demos de la interfaz
+
+🖼️ Si querés ver cómo se ve la app antes de descargarla, hay **demos navegables** (mocks de la interfaz, con datos ficticios):
+
+- **[Abrir todas las demos](https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/)** — página con las cuatro.
+  - [App principal · Modo Realista](https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/demo-app-modo-realista.html)
+  - [Selector de perfil de riesgo](https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/mock-perfiles-riesgo.html)
+  - [Resultados de la sesión](https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/mock-resultados-sesion.html)
+  - [App principal · Modo Entrenamiento](https://mathi0101.github.io/Fenix-Failures-Dispatcher/demos/demo-app-modo-entrenamiento.html)
+
+⚠️ Son simulaciones en HTML/CSS: **los valores mostrados no representan valores reales del simulador**. Si el link no funciona aún, es que GitHub Pages todavía no está activado (ver [docs/demos/](docs/demos/), se pueden abrir los archivos localmente).
+
 ## Descarga
 
 📥 Descargá la última versión desde [Releases](https://github.com/mathi0101/Fenix-Failures-Dispatcher/releases) (ejecutable único, autocontenido para Windows x64: no requiere instalar .NET).

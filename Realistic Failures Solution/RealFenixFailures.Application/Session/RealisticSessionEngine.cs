@@ -39,6 +39,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private bool _hasEverHadFenixRead;
     private bool _groundSeeded;
     private Dictionary<string, int>? _ataByFenixId;
+    private IReadOnlyList<PresetFailureDefinition>? _flightUniverse;
     private DateTime? _lastCadenceTickUtc;
     private DateTime _scenarioStartedAtUtc;
     private DateTime? _flightTimeStartedAtUtc;
@@ -134,7 +135,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         if (newSession.FlightPlan == null)
             return new StartSessionResult(false, "Flight Plan data not loaded");
 
-        Session = new RealisticSession(newSession, context.Aircraft, RealisticProfileCatalog.Resolve(_settings, newSession.RiskLevel)) {
+        Session = new RealisticSession(newSession, context.Aircraft, _settings.ProfileFor(newSession.RiskLevel)) {
             AvailablePresets = presets
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
@@ -251,6 +252,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             }
 
             var stateChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
+            await ExpireTemporaryFailuresAsync(currentPhase, stateChanges, ct);
 
             var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
             var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
@@ -331,7 +333,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     ///   • Sent → Active cuando <c>failed=true</c> (confirmada por Fenix).
     ///   • Active → ResolvedByPilot cuando <c>failed=false</c> y ya no está armada (el piloto la despejó).
     /// </summary>
-    private async Task<IReadOnlyList<FailureStateChangeInfo>> ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
+    private async Task<List<FailureStateChangeInfo>> ReconcileFailureLifecycleAsync(ComplexFlightPhaseEnum phase, CancellationToken ct) {
         var session = Session;
         if (session is null) return [];
 
@@ -374,6 +376,37 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     /// <summary>
+    /// Expiración de fallas temporales (tipos-de-falla §4.3): cada tick, las fallas aleatorias activas cuyo
+    /// <c>ExpiresAtUtc</c> (tiempo de escenario) ya pasó se desarmen en Fenix y quedan
+    /// <c>AutoResolved</c>/<c>EngineAuto</c>. Reutiliza el desarme del simulador; score y tope de simultáneas
+    /// se liberan solos (derivan de activas). Un desarme fallido reintenta en el próximo tick.
+    /// </summary>
+    private async Task ExpireTemporaryFailuresAsync(ComplexFlightPhaseEnum phase, List<FailureStateChangeInfo> stateChanges, CancellationToken ct) {
+        var session = Session;
+        if (session is null) return;
+
+        var now = _policy.UtcNow;
+        var active = await _triggeredFailureRepository.GetActiveForSessionAsync(session.Session.Id, ct);
+        foreach (var failure in active) {
+            if (failure.ExpiresAtUtc is not DateTime expiresAt || expiresAt > now) continue;
+
+            var disarmed = await _simulator.DisarmFailureAsync(failure.FenixFailureId, ct);
+            if (!disarmed) {
+                _logger.LogWarning("Temporary failure {FenixFailureId} expired but Fenix did not confirm the disarm; retrying next tick", failure.FenixFailureId);
+                continue;
+            }
+
+            var utcNow = DateTime.UtcNow;
+            await _sessionService.UpdateTriggeredFailureStateAsync(
+                session.Session.Id, failure.FenixFailureId, FailureLifecycleState.AutoResolved,
+                phase, ResolutionSource.EngineAuto, utcNow, ct);
+            _logger.LogInformation("Temporary failure expired and auto-resolved: {Id}", failure.FenixFailureId);
+            await LogStateChangeAsync(session.Session.Id, failure, FailureLifecycleState.AutoResolved, "FAILURE_EXPIRED_TEMPORARY", phase, utcNow, ct);
+            stateChanges.Add(new FailureStateChangeInfo(failure.FenixFailureId, failure.FailureName ?? failure.FenixFailureId, FailureLifecycleState.AutoResolved, failure.Severity, utcNow));
+        }
+    }
+
+    /// <summary>
     /// Registra en el log de eventos de la sesión la transición de ciclo de vida confirmada por Fenix
     /// (el evento <c>FailureStateChanged</c> quedaba sin uso). Un fallo al registrar no aborta la
     /// reconciliación: la transición ya se persiste en <c>UpdateTriggeredFailureStateAsync</c>.
@@ -383,6 +416,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var description = newState switch {
                 FailureLifecycleState.Active => $"Falla confirmada activa por Fenix: {failure.FailureName} ({failure.FenixFailureId})",
                 FailureLifecycleState.ResolvedByPilot => $"Falla resuelta por el piloto: {failure.FailureName} ({failure.FenixFailureId})",
+                FailureLifecycleState.AutoResolved => $"Falla temporal expirada (auto-resuelta): {failure.FailureName} ({failure.FenixFailureId})",
                 _ => $"Falla en estado {newState}: {failure.FailureName} ({failure.FenixFailureId})"
             };
             await _sessionService.AddEventLogAsync(sessionId, SessionEventCategory.FailureStateChanged, eventCode, description, phase, utcNow, ct);
@@ -416,7 +450,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         excluded.UnionWith(Queue.Snapshot().Select(q => q.FenixFailureId));
 
         var candidates = _policy.EvaluateEligible(
-                session.AvailablePresets.SelectMany(p => p.PresetFailureDefinitions),
+                await GetFlightUniverseAsync(ct),
                 phase, session.RiskLevel, excluded)
             .DistinctBy(c => c.FenixFailureId)
             .ToList();
@@ -426,7 +460,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         var wearByAta = session.Aircraft.SystemsWear
             .GroupBy(x => x.SystemWear.AtaId)
             .ToDictionary(g => g.Key, g => g.Max(x => x.WearPercentage));
-        var flightCandidates = new List<FlightFailureCandidate<PresetFailureDefinition>>();
+        var passing = new List<(PresetFailureDefinition Item, FailureSeverity Severity)>();
         foreach (var candidate in candidates) {
             var severity = candidate.FenixFailure?.Severity ?? FailureSeverity.Minor;
             var extra = ataLookup.TryGetValue(candidate.FenixFailureId, out var ata)
@@ -437,10 +471,25 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 continue;
             }
 
-            var wear = ataLookup.TryGetValue(candidate.FenixFailureId, out ata) ? wearByAta.GetValueOrDefault(ata) : (double?)null;
+            passing.Add((candidate, severity));
+        }
+
+        // Normalización por severidad (tipos-de-falla §4.2): la cadencia es global por severidad — Σλ de una
+        // severidad = base × multiplicador de severidad × perfil × desgaste, sin importar cuántas fallas del
+        // catálogo estén elegibles. Cada falla aleatoria del catálogo entra al sorteo con p = 1/elegibles de su
+        // severidad; los presets conservan su Probability definida (son escenarios, no sorteos globales).
+        var eligibleBySeverity = passing
+            .GroupBy(p => p.Severity)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var flightCandidates = new List<FlightFailureCandidate<PresetFailureDefinition>>();
+        foreach (var (item, severity) in passing) {
+            var weight = item.Preset is null && eligibleBySeverity.TryGetValue(severity, out var eligible) && eligible > 0
+                ? 1.0 / eligible
+                : item.Probability;
+            var wear = ataLookup.TryGetValue(item.FenixFailureId, out var ata2) ? wearByAta.GetValueOrDefault(ata2) : (double?)null;
             var wearFactor = RealisticFailurePolicy.WearFactor(profile, wear);
-            var lambda = RealisticFailurePolicy.FlightFailureLambda(severity, candidate.Probability, profile, physics, wearFactor);
-            if (lambda > 0) flightCandidates.Add(new FlightFailureCandidate<PresetFailureDefinition>(candidate, lambda));
+            var lambda = RealisticFailurePolicy.FlightFailureLambda(severity, weight, profile, physics, wearFactor);
+            if (lambda > 0) flightCandidates.Add(new FlightFailureCandidate<PresetFailureDefinition>(item, lambda));
         }
 
         var triggered = _policy.RollTick(flightCandidates, elapsedSeconds, out var chosen, out var roll);
@@ -485,8 +534,19 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         // La política usa tiempo de escenario; el historial y los DTO usan UTC de pared.
         var triggeredAtUtc = DateTime.UtcNow;
+        // Temporalidad de fallas aleatorias (tipos-de-falla §4.3): solo candidatos de catálogo (sin preset),
+        // solo leves y graves — las críticas nunca son temporales. El dado decide; la vida es uniforme en
+        // tiempo de escenario y la expiración la ejecuta el tick (ExpireTemporaryFailuresAsync).
+        var chosenSeverity = chosen.FenixFailure?.Severity ?? FailureSeverity.Minor;
+        DateTime? expiresAtUtc = null;
+        if (chosen.Preset is null
+            && chosenSeverity != FailureSeverity.Critical
+            && _policy.RollTemporaryFailure(_settings.TemporaryFailureProbability)) {
+            expiresAtUtc = _policy.TemporaryExpiryUtc(_settings.TemporaryLifetimeMinMinutes, _settings.TemporaryLifetimeMaxMinutes);
+            _logger.LogInformation("Failure drawn as temporary: {FenixFailureId} expires at {ExpiresAtUtc} (scenario time)", chosen.FenixFailureId, expiresAtUtc);
+        }
         try {
-            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, phase, triggeredAtUtc, ct);
+            await _sessionService.AddTriggeredFailureAsync(session.Session.Id, chosen, phase, triggeredAtUtc, ct, expiresAtUtc);
             _logger.LogDebug("Realistic sesión {SessionId}: decisión positiva, {FailureId} enviada y persistida como Sent, UTC {TriggeredAtUtc}", session.Session.Id, chosen.FenixFailureId, triggeredAtUtc);
         } catch (OperationCanceledException ex) {
             // Persistencia cancelada: la falla quedó armada y aún no está registrada. Se desarma con token
@@ -523,9 +583,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         session.RecordTriggeredFailure(now);
         if (chosen.FenixFailure?.Severity == FailureSeverity.Critical) {
-            session.CriticalRespiteUntilUtc = now + _policy.EffectiveRespite(session.RiskProfile, _settings.RespiteClampSeconds);
-            _logger.LogDebug("Realistic sesión {SessionId}: tregua crítica establecida hasta escenario {UntilUtc}, duración configurada {Seconds}s, clamp {ClampSeconds}s",
-                session.Session.Id, session.CriticalRespiteUntilUtc, session.RiskProfile.CriticalRespiteSeconds, _settings.RespiteClampSeconds);
+            session.CriticalRespiteUntilUtc = now + _policy.EffectiveRespite(session.RiskProfile);
+            _logger.LogDebug("Realistic sesión {SessionId}: tregua crítica establecida hasta {UntilUtc}, duración configurada {Seconds}s",
+                session.Session.Id, session.CriticalRespiteUntilUtc, session.RiskProfile.CriticalRespiteSeconds);
         }
 
         _logger.LogInformation("Failure triggered: {FenixFailureId} (preset {PresetName}) during phase {Phase} for session {SessionId}",
@@ -576,6 +636,25 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         }
         _ataByFenixId = lookup;
         return lookup;
+    }
+
+    /// <summary>
+    /// Universo de fallas aleatorias en vuelo (tipos-de-falla.md §4.2): el catálogo completo persistido
+    /// (FenixFailureDefinition), no las definiciones de presets. Candidatos sintéticos con
+    /// <c>Preset = null</c> (pasan el filtro de fase en cualquier fase de vuelo) y <c>Probability = 1.0</c> —
+    /// la λ por severidad la pone la política (base × severidad × perfil × desgaste), igual que la
+    /// estimación del balance. Cacheado por vida del engine (el catálogo no cambia a mitad de sesión).
+    /// </summary>
+    private async Task<IReadOnlyList<PresetFailureDefinition>> GetFlightUniverseAsync(CancellationToken ct) {
+        if (_flightUniverse is not null) return _flightUniverse;
+        if (_fenixFailureDefinitions is null) return [];
+        var catalog = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        _flightUniverse = catalog.Select(entity => new PresetFailureDefinition {
+            FenixFailureId = entity.FenixFailureId,
+            FenixFailure = entity,
+            Probability = 1.0
+        }).ToList();
+        return _flightUniverse;
     }
 
     /// <summary>
@@ -640,6 +719,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             if (count < eligibleCount)
                 _logger.LogDebug("Realistic sesión {SessionId}: acumulan {Count} de {Total} sistemas elegibles por {Hours:F1} h de vuelo (tope {Cap})",
                     session.Session.Id, count, eligibleCount, hours, cap);
+            var noticeThreshold = _settings.Wear.ThresholdNoticePct;
             var deltas = new List<SystemWearDeltaDto>();
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
@@ -663,6 +743,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: desgaste guardado para aeronave {AircraftId}, sistemas {Count}, UTC {StoppedAtUtc}", session.Session.Id, session.Aircraft.Id, deltas.Count, stoppedAtUtc);
             _logger.LogInformation("Desgaste acumulado por {Hours:F2} h de vuelo en {Count} sistemas (aeronave {AircraftId})",
                 hours, deltas.Count, session.Aircraft.Id);
+            var castigated = deltas.Where(d => d.TotalPercentage >= noticeThreshold).ToList();
+            if (castigated.Count > 0)
+                _logger.LogInformation("Realistic sesión {SessionId}: sistemas que quedan por encima del umbral de mantenimiento ({Threshold}%): {Systems}",
+                    session.Session.Id, noticeThreshold, string.Join(", ", castigated.Select(d => $"{d.SystemName} (ATA {d.AtaId}, {d.TotalPercentage:0.#}%)")));
             return deltas;
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo acumular el desgaste por horas de vuelo al cerrar la sesión {SessionId}", session.Session.Id);
@@ -799,7 +883,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
         var result = new List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>();
         var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
-        foreach (var entity in availableFailures.Where(x=> x.Severity is FailureSeverity.Minor)) {
+        // Solo leves Y recuperables (tipos-de-falla.md §4.1): nunca se arranca una sesión con una falla
+        // permanente que el piloto no puede resolver en tierra.
+        foreach (var entity in availableFailures.Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)) {
             if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
             var ataId = entity.Group?.System?.AtaId ?? 0;
             var wear = wearByAta.GetValueOrDefault(ataId);

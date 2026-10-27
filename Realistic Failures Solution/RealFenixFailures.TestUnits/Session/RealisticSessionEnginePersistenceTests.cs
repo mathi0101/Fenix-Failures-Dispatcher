@@ -48,7 +48,7 @@ public class RealisticSessionEnginePersistenceTests {
         var group = new FenixFailureGroup { Name = "APU", System = system };
         var definition = new FenixFailureDefinition {
             FenixFailureId = GroundFailureId, Name = "APU Generator",
-            Group = group, Severity = FailureSeverity.Minor
+            Group = group, Severity = FailureSeverity.Minor, CanBeRepaired = true
         };
         var preset = new FailurePreset {
             Name = "P-GATE", Description = "d", TriggerDescription = "t",
@@ -83,9 +83,7 @@ public class RealisticSessionEnginePersistenceTests {
             EvaluationIntervalSeconds = 30,
             Physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 1.0 },
             Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap },
-            Profiles = {
-                new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
-            }
+            Moderate = new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
         };
         var engine = new RealisticSessionEngine(
             _simulator.Object,

@@ -64,28 +64,31 @@ public class RealisticFailurePolicyGroundSeedTests {
 
     [Fact]
     public void GroundSeed_WithoutWear_EqualsBase() {
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), Physics(), wearFactor: 1.0);
+        var physics = Physics();
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 1.0);
 
-        Assert.Equal(0.01, p, precision: 6);
+        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor, p, precision: 9);
     }
 
     [Theory]
-    [InlineData(50, 0.02)]   // max ×3 → 50% de desgaste duplica la base
-    [InlineData(100, 0.03)]  // max ×3 → 100% de desgaste triplica la base
-    public void GroundSeed_WithWear_AmplifiesBase(double wear, double expected) {
+    [InlineData(50, 2.0)]   // 50% de desgaste con max ×3 duplica el factor
+    [InlineData(100, 3.0)]  // 100% de desgaste con max ×3 triplica el factor
+    public void GroundSeed_WithWear_AmplifiesBase(double wear, double factor) {
+        var physics = Physics();
         var wearFactor = RealisticFailurePolicy.WearFactor(Profile(), wear);
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), Physics(), wearFactor);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor);
 
-        Assert.Equal(expected, p, precision: 6);
+        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor * factor, p, precision: 9);
     }
 
     [Fact]
     public void GroundSeed_WithoutWearRecord_FactorIsOne() {
+        var physics = Physics();
         Assert.Equal(1.0, RealisticFailurePolicy.WearFactor(Profile(), wearPercentage: null), precision: 6);
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), Physics(), wearFactor: 1.0);
-        Assert.Equal(0.01, p, precision: 6);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 1.0);
+        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor, p, precision: 9);
     }
 
     [Fact]
@@ -127,27 +130,30 @@ public class RealisticFailurePolicyGroundSeedTests {
 
     [Fact]
     public void Lambda_MinorWithoutWear_EqualsBaseTimesPreset() {
-        var lambda = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 0.5, Profile(), Physics(), wearFactor: 1.0);
+        var physics = Physics();
+        var lambda = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 0.5, Profile(), physics, wearFactor: 1.0);
 
-        Assert.Equal(0.005, lambda, precision: 8);
+        Assert.Equal(physics.FailureRatePerHourBase * 0.5 * physics.SeverityRateMultiplier.Minor, lambda, precision: 9);
     }
 
     [Fact]
     public void Lambda_SeverityMultiplier_Applies() {
-        var minor = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 1.0, Profile(), Physics(), 1.0);
-        var major = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Major, 1.0, Profile(), Physics(), 1.0);
-        var critical = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Critical, 1.0, Profile(), Physics(), 1.0);
+        var physics = Physics();
+        var minor = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 1.0, Profile(), physics, 1.0);
+        var major = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Major, 1.0, Profile(), physics, 1.0);
+        var critical = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Critical, 1.0, Profile(), physics, 1.0);
 
-        Assert.Equal(0.01, minor, precision: 8);
-        Assert.Equal(0.004, major, precision: 8);
-        Assert.Equal(0.0015, critical, precision: 8);
+        Assert.Equal(physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Minor, minor, precision: 9);
+        Assert.Equal(physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Major, major, precision: 9);
+        Assert.Equal(physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Critical, critical, precision: 9);
     }
 
     [Fact]
     public void Lambda_ProfileMultiplier_Applies() {
-        var lambda = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 1.0, Profile(probabilityMultiplier: 2.5), Physics(), 1.0);
+        var physics = Physics();
+        var lambda = RealisticFailurePolicy.FlightFailureLambda(FailureSeverity.Minor, 1.0, Profile(probabilityMultiplier: 2.5), physics, 1.0);
 
-        Assert.Equal(0.025, lambda, precision: 8);
+        Assert.Equal(physics.FailureRatePerHourBase * 2.5 * physics.SeverityRateMultiplier.Minor, lambda, precision: 9);
     }
 
     // -------------------------------------------------------------------------

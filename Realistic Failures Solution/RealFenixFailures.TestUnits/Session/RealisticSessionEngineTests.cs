@@ -22,6 +22,7 @@ public class RealisticSessionEngineTests {
     private readonly Mock<IFlightEventDetector> _flightEventDetector = new();
     private readonly Mock<IFlightPlanRepository> _flightPlanRepository = new();
     private readonly Mock<ITriggeredFailureRepository> _triggeredFailureRepository = new();
+    private readonly Mock<IFenixFailureDefinitionRepository> _fenixFailureDefinitionsRepository = new();
     private readonly MockRandom _random = new();
     private DateTime _now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
     private const int FlightPlanId = 1;
@@ -59,7 +60,7 @@ public class RealisticSessionEngineTests {
             _triggeredFailureRepository.Object,
             settings,
             new RealisticFailurePolicy(new FailureRuleEvaluator(), () => _now, _random),
-            fenixFailureDefinitions);
+            fenixFailureDefinitions ?? _fenixFailureDefinitionsRepository.Object);
     }
 
     [Theory]
@@ -107,6 +108,105 @@ public class RealisticSessionEngineTests {
         public void Emit(Serilog.Events.LogEvent logEvent) => events.Add(logEvent);
     }
 
+    [Fact]
+    public async Task GroundSeed_OnlyOffersMinorAndRepairableFailures() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupFenixFailuresOk();
+        SetupValidPersistence();
+        // OnGate explícito: sin esto la fase default (Unknown) hace descartar las sembradas de tierra.
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var repairable = Entity("F_TIERRA_OK", FailureSeverity.Minor, repairable: true);
+        var permanent = Entity("F_TIERRA_PERMANENTE", FailureSeverity.Minor, repairable: false);
+        var major = Entity("F_TIERRA_MAJOR", FailureSeverity.Major, repairable: true);
+        _fenixFailureDefinitionsRepository
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<FenixFailureDefinition> { repairable, permanent, major });
+        var settings = DefaultSettings();
+        settings.Physics.GroundSeedBaseProbability = 1.0;
+        var engine = CreateEngine(settings);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        var seeded = Assert.Single(result.TriggeredFailures);
+        Assert.Equal("F_TIERRA_OK", seeded.FenixFailureId);
+    }
+
+    [Fact]
+    public async Task FlightRandomFailures_ComeFromFullCatalog_NotFromPresetDefinitions() {
+        SetupConnected();
+        SetupOnGateData();
+        // El preset trae una definición que NO debe ser candidata en vuelo (los presets son escenarios);
+        // el catálogo trae otra que sí. Misma fase Unknown para que no influya el filtro de fase.
+        SetupValidPersistence(definitions: [Def("F_SOLO_PRESET", FailureSeverity.Major)]);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var catalogOnly = Entity("F_SOLO_CATALOGO", FailureSeverity.Major, repairable: true);
+        _fenixFailureDefinitionsRepository
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<FenixFailureDefinition> { catalogOnly });
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        var engine = CreateEngine(settings);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddSeconds(60);
+        _random.SetupNextDouble(0);
+        _random.SetupNextDouble(0);
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.Equal("F_SOLO_CATALOGO", Assert.Single(result.TriggeredFailures).FenixFailureId);
+    }
+
+    [Fact]
+    public async Task FlightRandomFailures_SeverityLambdaIsNormalized_RegardlessOfCatalogSize() {
+        SetupConnected();
+        SetupOnGateData();
+        // 3 leves + 1 crítica, todas del catálogo (Preset = null): la Σλ de cada severidad debe ser la
+        // fórmula global del reporte (base × mult severidad × perfil × desgaste), NO multiplicada por
+        // la cantidad de fallas elegibles de esa severidad.
+        SetupValidPersistence(definitions: []);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var catalog = new List<FenixFailureDefinition> {
+            Entity("F_MIN_1", FailureSeverity.Minor, repairable: true),
+            Entity("F_MIN_2", FailureSeverity.Minor, repairable: true),
+            Entity("F_MIN_3", FailureSeverity.Minor, repairable: true),
+            Entity("F_CRIT_1", FailureSeverity.Critical, repairable: false),
+        };
+        _fenixFailureDefinitionsRepository
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(catalog);
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        settings.Physics.FailureRatePerHourBase = 0.05;
+        settings.ProfileFor(RiskLevel.Moderate).ProbabilityMultiplier = 1.0;
+        settings.ProfileFor(RiskLevel.Moderate).WearMaxMultiplier = 1.0;
+        var engine = CreateEngine(settings);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddMinutes(20);
+        _random.SetupNextDouble(0);   // dado 1: dispara el tick
+        _random.SetupNextDouble(0.999); // dado 2: cae al final de la regla (la crítica es el último segmento)
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        var failure = Assert.Single(result.TriggeredFailures);
+        Assert.Equal("F_CRIT_1", failure.FenixFailureId);
+    }
+
+    private static FenixFailureDefinition Entity(string id, FailureSeverity severity, bool repairable) => new() {
+        FenixFailureId = id,
+        Name = id,
+        Severity = severity,
+        CanBeRepaired = repairable,
+        Group = new FenixFailureGroup { Name = "G-" + id, System = new FenixFailureSystem { Name = "S-" + id, ShortName = "S" } }
+    };
+
+
     [Theory]
     [InlineData("roll")]
     [InlineData("cap")]
@@ -125,7 +225,7 @@ public class RealisticSessionEngineTests {
         SetupValidPersistence(definitions: reason == "empty" ? [] : [Def("F_NEGATIVE", FailureSeverity.Major)]);
         var settings = DefaultSettings();
         settings.GroundFailureEnabled = false;
-        if (reason == "cap") settings.Profiles.Single(p => p.RiskLevel == 2).AggravationCap = 0;
+        if (reason == "cap") settings.Moderate.AggravationCap = 0;
         if (reason == "full_queue") settings.PreparedQueueLimit = 1;
         var engine = CreateEngine(settings, logger: factory.CreateLogger<RealisticSessionEngine>());
         Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
@@ -216,12 +316,12 @@ public class RealisticSessionEngineTests {
 
     private static RealisticModeSettings DefaultSettings() => new() {
         Physics = new RealisticPhysicsSettings(),
-        Profiles = {
-            new RealisticProfileSettings { RiskLevel = 1, ProbabilityMultiplier = 0.75, WearMaxMultiplier = 2.5, AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0 },
-            new RealisticProfileSettings { RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 0 },
-            new RealisticProfileSettings { RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 3.5, AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 600 },
-            new RealisticProfileSettings { RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0, AggravationCap = null, GroundFailuresCap = 5, CriticalRespiteSeconds = 300 }
-        }
+        Low = new() { RiskLevel = 1, ProbabilityMultiplier = 0.75, WearMaxMultiplier = 2.5, AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0 },
+        Moderate = new() { RiskLevel = 2, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 0 },
+        High = new() { RiskLevel = 3, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 3.5, AggravationCap = 7, GroundFailuresCap = 3, CriticalRespiteSeconds = 600 },
+        Squawk7700 = new() { RiskLevel = 4, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 4.0, AggravationCap = null, GroundFailuresCap = 5, CriticalRespiteSeconds = 300 },
+        // Determinismo: sin fallas temporales salvo en los tests que las ejercitan explícitamente.
+        TemporaryFailureProbability = 0
     };
 
     private static RealisticModeContext Context(RiskLevel risk = RiskLevel.Moderate) =>
@@ -253,6 +353,7 @@ public class RealisticSessionEngineTests {
             FenixFailureId = id,
             Name = id,
             Severity = severity,
+            CanBeRepaired = true,
             Group = new FenixFailureGroup {
                 Name = "G-" + id,
                 SystemId = systemId,
@@ -289,6 +390,15 @@ public class RealisticSessionEngineTests {
         _presetService
             .Setup(p => p.GetRealisticPresetsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(presets);
+        // Universo de fallas aleatorias = catálogo completo (tipos-de-falla.md §4.2): las entidades de las
+        // definiciones de los presets hacen de catálogo de prueba (misma identidad FenixFailureId/severidad).
+        var catalog = (definitions ?? [])
+            .Select(d => d.FenixFailure!)
+            .Where(e => e is not null)
+            .ToList();
+        _fenixFailureDefinitionsRepository
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(catalog);
     }
 
     private void SetupFenixFailuresOk() {
@@ -681,7 +791,7 @@ public class RealisticSessionEngineTests {
     }
 
     [Fact]
-    public async Task EvaluateAsync_TriggeredFailure_PassesChosenPresetToService() {
+    public async Task EvaluateAsync_TriggeredFailure_PassesChosenDefinitionToService() {
         SetupConnected();
         SetupOnGateData();
         var chosen = Def("F_ENGINE_1", FailureSeverity.Major);
@@ -713,14 +823,15 @@ public class RealisticSessionEngineTests {
 
         Assert.Single(result.TriggeredFailures);
         Assert.NotNull(engine.Session!.LastTriggeredAtUtc);
+        // La elegida viene del universo de catálogo (candidato sintético con Probability 1.0 y la entidad
+        // del catálogo): los campos de timing (Ias/AfterEvent) son de definiciones de escenario, no de
+        // fallas aleatorias (tipos-de-falla.md §4.2).
         _sessionService.Verify(
             s => s.AddTriggeredFailureAsync(42, It.Is<PresetFailureDefinition>(p =>
-                    ReferenceEquals(p, chosen)
+                    p.FenixFailureId == "F_ENGINE_1"
                     && p.FenixFailure!.Name == "F_ENGINE_1"
                     && p.Probability == 1.0
-                    && p.ProbabilityGroup == 2
-                    && p.Ias == "180"
-                    && p.AfterEventSeconds == "15"),
+                    && p.Preset == null),
                 It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -988,13 +1099,16 @@ public class RealisticSessionEngineTests {
     }
 
     [Fact]
-    public async Task EvaluateAsync_OfflinePrepared_RevalidatedAgainstNewPhase_DroppedIfIneligible() {
+    public async Task EvaluateAsync_OfflinePrepared_CatalogFailureSurvivesPhaseChange() {
+        // Con Fenix offline la elegida del catálogo queda preparada; al volver, el flush la envía aunque
+        // la fase haya cambiado: las fallas aleatorias del catálogo no tienen fase (tipos-de-falla.md §4.2).
         SetupConnected(fenixConnected: false);
         SetupOnGateData();
-        SetupValidPersistence(definitions: new[] { Def("F_ENGINE_1", FailureSeverity.Major) });
+        SetupValidPersistence(definitions: [Def("F_ENGINE_1", FailureSeverity.Major)]);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         var engine = CreateEngine();
-        var start = await engine.TryStartSession(Context(), CancellationToken.None);
-        Assert.True(start.Started);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
 
         _now = _now.AddHours(1);
         _random.SetupNextDouble(0.0);
@@ -1002,20 +1116,16 @@ public class RealisticSessionEngineTests {
         await engine.EvaluateAsync(CancellationToken.None);
         Assert.Equal(1, engine.PreparedCount);
 
-        // Fase cambió a Takeoff (el preset es de fase Unknown): la preparada ya no es elegible y se descarta.
-        _simulator
-            .Setup(s => s.GetConnectionStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ConnectionStatusDto(true, true, SimpleFlightPhaseEnum.Flying));
-        SetupFenixFailuresOk();
+        SetupConnected(fenixConnected: true);
         _flightEventDetector
             .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
             .Returns(ComplexFlightPhaseEnum.Takeoff);
 
         var result = await engine.EvaluateAsync(CancellationToken.None);
 
-        Assert.Empty(result.TriggeredFailures);
+        Assert.Equal("F_ENGINE_1", Assert.Single(result.TriggeredFailures).FenixFailureId);
         Assert.Equal(0, engine.PreparedCount);
-        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -47,7 +47,7 @@ public class FlightSessionService : IFlightSessionService {
         return session;
     }
 
-    public async Task AddTriggeredFailureAsync(int sessionId, PresetFailureDefinition chosen, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct) {
+    public async Task AddTriggeredFailureAsync(int sessionId, PresetFailureDefinition chosen, ComplexFlightPhaseEnum flightPhase, DateTime triggeredAtUtc, CancellationToken ct, DateTime? expiresAtUtc = null) {
         var triggeredFailure = new TriggeredFailure {
             FlightSessionId = sessionId,
             FenixFailureId = chosen.FenixFailureId,
@@ -64,7 +64,8 @@ public class FlightSessionService : IFlightSessionService {
             BelowAltitude = chosen.Below_Altitude,
             Time = chosen.Time,
             AfterEvent = chosen.AfterEvent,
-            AfterEventSeconds = chosen.AfterEventSeconds
+            AfterEventSeconds = chosen.AfterEventSeconds,
+            ExpiresAtUtc = expiresAtUtc
         };
         var eventLog = new SessionEventLog {
             FlightSessionId = sessionId,

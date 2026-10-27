@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock · Perfil de riesgo — Real Fenix Failures</title>
+<style>
+  :root {
+    --bg-deep: #0D0F14; --card: #13161E; --card-hover: #1A1E28;
+    --titlebar: #0A0C10; --statusbar: #0F1117; --log: #0A0C10;
+    --scenario-sel: #1A2540; --warn-bg: #2A1C0A;
+    --blue: #3B82F6; --green: #22C55E; --amber: #F59E0B; --orange: #F97316;
+    --red: #EF4444; --red-dark: #7F1D1D; --violet: #8B5CF6;
+    --text: #F1F5F9; --text-sec: #64748B; --border: #1E2433; --meta: #94A3B8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg-deep); color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 24px 12px 48px;
+  }
+  /* Banda de descargo: siempre visible */
+  .disclaimer {
+    position: sticky; top: 0; z-index: 50; width: 100%;
+    background: var(--warn-bg); border-bottom: 1px solid var(--amber);
+    color: var(--amber); font-size: 12.5px; font-weight: 600;
+    text-align: center; padding: 9px 16px;
+  }
+  .disclaimer span { opacity: .92; font-weight: 400; }
+  .frame { width: 660px; max-width: 100%; background: var(--card);
+    border: 1px solid #2A2F3A; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); margin-top: 24px; }
+  .titlebar {
+    background: var(--titlebar); border-bottom: 1px solid var(--border);
+    padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .titlebar b { font-size: 13px; }
+  .titlebar button { background: transparent; border: none; color: var(--text);
+    font-size: 12px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
+  .titlebar button:hover { background: var(--card-hover); }
+  .body-pad { padding: 14px 16px 0; }
+  .intro { font-size: 12.5px; line-height: 19px; color: var(--text-sec); margin-bottom: 12px; }
+  .pcard { background: var(--titlebar); border: 1px solid #232A38; border-radius: 8px;
+    margin-bottom: 8px; cursor: pointer; }
+  .pcard.selected { border-color: var(--accent, var(--blue)); }
+  .phead { display: flex; gap: 12px; padding: 11px 14px; align-items: flex-start; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); margin-top: 3px; flex: none; }
+  .pinfo { flex: 1; }
+  .pname { font-size: 13.5px; font-weight: 700; }
+  .pdesc { font-size: 12px; line-height: 17px; color: var(--text-sec); margin-top: 1px; }
+  .pestimate { font-size: 11.5px; color: var(--meta); margin-top: 5px; }
+  .pill { border-radius: 5px; padding: 3px 8px; font-size: 10.5px; flex: none; margin-top: 2px; }
+  .pill.ok { background: rgba(76,175,80,.12); color: #7DD487; }
+  .pill.warn { background: rgba(245,158,11,.12); color: #F5C04B; }
+  .pill.bad { background: rgba(239,68,68,.12); color: #F37E7E; }
+  .intensity { display: flex; gap: 3px; margin-top: 7px; flex: none; }
+  .intensity i { width: 14px; height: 6px; border-radius: 3px; background: #232B3B; }
+  .intensity i.on { background: var(--accent); }
+  .detail { border-top: 1px solid #1A2029; padding: 11px 14px 12px; }
+  .meterrow { display: grid; grid-template-columns: 168px 1fr; align-items: center; margin-bottom: 9px; }
+  .meterrow label { font-size: 12px; color: var(--text-sec); }
+  .meterwrap { display: flex; align-items: center; gap: 10px; }
+  .meter { flex: 1; height: 5px; background: #1B222F; border-radius: 3px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .mlabel { font-size: 11.5px; font-family: "Cascadia Mono", Consolas, monospace; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { background: #0D1017; border: 1px solid #232A38; border-radius: 5px;
+    padding: 3px 8px; font-size: 11px; color: var(--text-sec); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .footnote { font-size: 11px; line-height: 16px; color: #6B7488; margin: 2px 0 12px; }
+  .footer { background: #0D1017; border-top: 1px solid var(--border);
+    padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .footer .note { font-size: 11.5px; color: var(--text-sec); }
+  .btns { display: flex; gap: 8px; }
+  .btn-ghost { background: transparent; border: none; color: var(--text); font-size: 12.5px;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+  .btn-ghost:hover { background: var(--card-hover); }
+  .btn-primary { background: var(--blue); border: none; color: #fff; font-size: 12.5px;
+    font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+  .pagefoot { margin-top: 20px; font-size: 11px; color: var(--text-sec); text-align: center; }
+  .pagefoot a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer">
+  ⚠ SIMULACIÓN ILUSTRATIVA — <span>Mock de la interfaz con datos ficticios. Ningún valor mostrado representa valores reales del simulador ni de una sesión real.</span>
+</div>
+
+<div class="frame" style="--accent: var(--amber);">
+  <div class="titlebar">
+    <b>Perfil de riesgo</b>
+    <button aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="body-pad">
+    <p class="intro">Define la intensidad de las fallas de la sesión: con qué frecuencia aparecen, qué tan graves son y cuánto influye el desgaste de tu aeronave.</p>
+
+    <!-- BAJO -->
+    <div class="pcard" data-name="Bajo" style="--accent:#4CAF50" onclick="select(this)">
+      <div class="phead">
+        <div class="dot"></div>
+        <div class="pinfo">
+          <div class="pname">Bajo</div>
+          <div class="pdesc">Fallas poco frecuentes y casi siempre leves. Para volar tranquilo y seguir aprendiendo el avión.</div>
+          <div class="pestimate">≈ 0,6 fallas graves cada 10 h de vuelo*</div>
+        </div>
+        <div class="pill ok">VATSIM · seguro</div>
+        <div class="intensity"><i class="on"></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="detail" hidden>
+        <div class="meterrow"><label>Frecuencia de fallas</label>
+          <div class="meterwrap"><div class="meter"><i style="width:24%"></i></div><span class="mlabel">×0,6 · 40 % menos</span></div></div>
+        <div class="meterrow"><label>Efecto del desgaste</label>
+          <div class="meterwrap"><div class="meter"><i style="width:29%"></i></div><span class="mlabel">hasta ×2</span></div></div>
+        <div class="chips">
+          <div class="chip"><b>Al iniciar, la aeronave puede venir con hasta</b> 1 falla</div>
+          <div class="chip"><b>En VATSIM:</b> casi nunca vas a declarar emergencia; volás online tranquilo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODERADO -->
+    <div class="pcard selected" data-name="Moderado" style="--accent:#F59E0B" onclick="select(this)">
+      <div class="phead">
+        <div class="dot"></div>
+        <div class="pinfo">
+          <div class="pname">Moderado</div>
+          <div class="pdesc">Fallas ocasionales que pueden volverse serias si la aeronave viene desgastada. El punto de equilibrio.</div>
+          <div class="pestimate">≈ 1,1 fallas graves y 0,33 críticas cada 10 h de vuelo*</div>
+        </div>
+        <div class="pill ok">VATSIM · ideal</div>
+        <div class="intensity"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+      </div>
+      <div class="detail">
+        <div class="meterrow"><label>Frecuencia de fallas</label>
+          <div class="meterwrap"><div class="meter"><i style="width:40%"></i></div><span class="mlabel">×1,0 · referencia</span></div></div>
+        <div class="meterrow"><label>Efecto del desgaste</label>
+          <div class="meterwrap"><div class="meter"><i style="width:43%"></i></div><span class="mlabel">hasta ×2,5</span></div></div>
+        <div class="chips">
+          <div class="chip"><b>Al iniciar, la aeronave puede venir con hasta</b> 2 fallas</div>
+          <div class="chip"><b>120 min de tregua</b> tras cada falla crítica</div>
+          <div class="chip"><b>En VATSIM:</b> el equilibrio recomendado online — trabajo real de QRH sin desvíos forzados.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALTO -->
+    <div class="pcard" data-name="Alto" style="--accent:#EF4444" onclick="select(this)">
+      <div class="phead">
+        <div class="dot"></div>
+        <div class="pinfo">
+          <div class="pname">Alto</div>
+          <div class="pdesc">Fallas frecuentes y a menudo graves, varias en simultáneo. Para quienes manejan emergencias con soltura.</div>
+          <div class="pestimate">≈ 1,8 fallas graves y 0,54 críticas cada 10 h de vuelo*</div>
+        </div>
+        <div class="pill warn">VATSIM · no recomendado</div>
+        <div class="intensity"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+      </div>
+      <div class="detail" hidden>
+        <div class="meterrow"><label>Frecuencia de fallas</label>
+          <div class="meterwrap"><div class="meter"><i style="width:60%"></i></div><span class="mlabel">×1,5 · 50 % más</span></div></div>
+        <div class="meterrow"><label>Efecto del desgaste</label>
+          <div class="meterwrap"><div class="meter"><i style="width:57%"></i></div><span class="mlabel">hasta ×3</span></div></div>
+        <div class="chips">
+          <div class="chip"><b>Al iniciar, la aeronave puede venir con hasta</b> 3 fallas</div>
+          <div class="chip"><b>60 min de tregua</b> tras cada falla crítica</div>
+          <div class="chip"><b>En VATSIM:</b> puede tocarte desviar o declarar emergencia; avisale al control con calma.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7700 -->
+    <div class="pcard" data-name="7700" style="--accent:#8B5CF6" onclick="select(this)">
+      <div class="phead">
+        <div class="dot"></div>
+        <div class="pinfo">
+          <div class="pname">7700</div>
+          <div class="pdesc">Máxima presión: fallas graves y en cadena, con poca tregua. El modo "documental de accidentes".</div>
+          <div class="pestimate">≈ 3,8 fallas graves y 1,1 críticas cada 10 h de vuelo*</div>
+        </div>
+        <div class="pill bad">VATSIM · no apto</div>
+        <div class="intensity"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+      </div>
+      <div class="detail" hidden>
+        <div class="meterrow"><label>Frecuencia de fallas</label>
+          <div class="meterwrap"><div class="meter"><i style="width:100%"></i></div><span class="mlabel">×2,5 · 150 % más</span></div></div>
+        <div class="meterrow"><label>Efecto del desgaste</label>
+          <div class="meterwrap"><div class="meter"><i style="width:100%"></i></div><span class="mlabel">hasta ×4,5</span></div></div>
+        <div class="chips">
+          <div class="chip"><b>Al iniciar, la aeronave puede venir con hasta</b> 5 fallas</div>
+          <div class="chip"><b>30 min de tregua</b> tras cada falla crítica</div>
+          <div class="chip"><b>En VATSIM:</b> la cadencia de emergencias no es manejable en frecuencia; pensado para offline.</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="footnote">* Fallas graves (Major) y críticas (Critical) en vuelo, aproximadas por cada 10 horas de vuelo con la configuración vigente del motor y desgaste medio 25 %. La semilla de tierra (fallas del arranque) se describe en los chips. La cadencia real la decide el motor tick a tick.</p>
+  </div>
+
+  <div class="footer">
+    <span class="note" id="footnote">Seleccionado: Moderado. La elección queda fija al iniciar la sesión.</span>
+    <div class="btns">
+      <button class="btn-ghost">Cancelar</button>
+      <button class="btn-primary">Confirmar perfil</button>
+    </div>
+  </div>
+</div>
+
+<p class="pagefoot">Mock de <b>Real Fenix Failures</b> · interfaz simulada, sin datos reales · <a href="index.html">← Volver a las demos</a></p>
+
+<script>
+  function select(card) {
+    document.querySelectorAll('.pcard').forEach(c => {
+      c.classList.toggle('selected', c === card);
+      c.querySelector('.detail').hidden = c !== card;
+    });
+    document.getElementById('footnote').textContent =
+      'Seleccionado: ' + card.dataset.name + '. La elección queda fija al iniciar la sesión.';
+  }
+</script>
+</body>
+</html>

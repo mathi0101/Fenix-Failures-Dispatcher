@@ -6,7 +6,8 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 
 /// <summary>Presentación del resultado autocontenido de una sesión.</summary>
 public sealed class SessionResultWindowViewModel {
-    public SessionResultWindowViewModel(SessionResultDto result) {
+    public SessionResultWindowViewModel(SessionResultDto result, int wearNoticeThresholdPct) {
+        WearNoticeThresholdPct = wearNoticeThresholdPct;
         SessionId = result.SessionId;
         RouteDisplay = $"{ValueOr(result.OriginIcao, "????")} → {ValueOr(result.DestinationIcao, "????")}";
         RegistrationDisplay = $"{ValueOr(result.Registration, "Sin matrícula")} · {ValueOr(result.AircraftIcaoType, "Tipo no disponible")}";
@@ -28,6 +29,7 @@ public sealed class SessionResultWindowViewModel {
             : "Sin desgaste registrado";
         WearEmptyMessage = result.DiscardedAt.HasValue ? "Sesión descartada: no se aplicó desgaste."
             : "No hay desgaste registrado para esta sesión.";
+        WearThresholdDisplay = $"Al alcanzar el {wearNoticeThresholdPct} % de desgaste acumulado se señala que el sistema requiere mantenimiento.";
         TotalFailures = result.Summary.TotalFailures;
         ResolvedByPilot = result.Summary.ResolvedByPilot;
         AutoResolved = result.Summary.AutoResolved;
@@ -42,7 +44,7 @@ public sealed class SessionResultWindowViewModel {
             if (f.State == FailureLifecycleState.Rejected) RejectedFailures.Add(new FailureRow(f));
             else Failures.Add(new FailureRow(f));
         }
-        foreach (var w in result.WearDeltas.OrderBy(w => w.AtaId)) WearRows.Add(new WearRow(w));
+        foreach (var w in result.WearDeltas.OrderBy(w => w.AtaId)) WearRows.Add(new WearRow(w, WearNoticeThresholdPct));
     }
     private static string ValueOr(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
     private static string Percent(double value, bool delta = false) =>
@@ -65,6 +67,8 @@ public sealed class SessionResultWindowViewModel {
     public string DurationDisplay { get; }
     public string WearSummaryDisplay { get; }
     public string WearEmptyMessage { get; }
+    public string WearThresholdDisplay { get; }
+    private int WearNoticeThresholdPct { get; }
     public int TotalFailures { get; }
     public int ResolvedByPilot { get; }
     public int AutoResolved { get; }
@@ -154,13 +158,13 @@ public sealed class SessionResultWindowViewModel {
         public bool IsUnresolved { get; }
     }
     public sealed class WearRow {
-        public WearRow(SystemWearDeltaDto w) {
+        public WearRow(SystemWearDeltaDto w, int wearNoticeThresholdPct) {
             SystemName = w.SystemName;
             AtaDisplay = $"ATA {w.AtaId}";
             DeltaDisplay = Percent(w.DeltaPercentage, true);
             TotalDisplay = Percent(w.TotalPercentage);
             TotalPercentage = Math.Clamp(w.TotalPercentage, 0, 100);
-            RequiresMaintenance = w.RequiresMaintenance;
+            RequiresMaintenance = TotalPercentage >= wearNoticeThresholdPct;
         }
         public string SystemName { get; }
         public string AtaDisplay { get; }

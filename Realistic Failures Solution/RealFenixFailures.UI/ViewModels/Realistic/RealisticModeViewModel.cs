@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.Commands;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
@@ -26,6 +28,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly IUserAircraftService _aircraftService;
     private readonly IEngineOrchestrator _orchestrator;
     private readonly ILogger<RealisticModeViewModel> _logger;
+    private readonly int _wearNoticeThresholdPct;
     private readonly IRealisticSessionManager _realisticSessionManager;
     private readonly IFlightSessionService _flightSessionService;
     private readonly ISimbriefOfpService _ofpService;
@@ -76,6 +79,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IFlightSessionService flightSessionService,
         ISimbriefOfpService ofpService,
         UserPreferencesService preferences,
+        IOptions<FailureEngineSettings> engineSettings,
         IRealisticExpectationService? expectationService = null) {
         _aircraftService = aircraftService;
         _orchestrator = orchestrator;
@@ -85,6 +89,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _ofpService = ofpService;
         _preferences = preferences;
         _expectationService = expectationService;
+        _wearNoticeThresholdPct = engineSettings.Value.RealisticMode.Wear.ThresholdNoticePct;
 
         Aircraft = new ObservableCollection<UserAircraftItemViewModel>();
         WearSystems = new ObservableCollection<WearSystemViewModel>();
@@ -782,6 +787,15 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Crea el ViewModel del modal de perfiles de riesgo, conectado a este panel (selección vigente y
+    /// desgaste medio) y al servicio de expectativa para calcular con la config vigente.
+    /// </summary>
+    public RiskProfileWindowViewModel CreateRiskProfileDialog() => new(
+        this,
+        _expectationService,
+        () => WearSystems.Count == 0 ? null : WearSystems.Average(w => (double)w.WearPercentage));
+
     /// <summary>Recalcula la expectativa de fallas (spec §8.7) con el desgaste medio, la duración del OFP y el perfil vigente.</summary>
     private void RefreshExpectation() {
         if (_expectationService is null) return;
@@ -791,8 +805,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             var dto = _expectationService.Compute(avgWear, hours, (RiskLevel?)SelectedRiskLevel);
 
             ExpectationDisplay = dto.FlightHours is { } h
-                ? $"≈ {dto.ExpectedFailures:0.##} fallas esperadas · P(≥1) = {dto.ProbabilityAtLeastOnePct:0}% para {FormatDuration((int)Math.Round(h * 60))}"
-                : $"≈ {dto.RatePerHour:0.##} fallas/h de vuelo (referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)})";
+                ? $"Probabilidad de una falla seria en este vuelo ({FormatDuration((int)Math.Round(h * 60))}): {dto.BaselineRiskPct:0.#}%.\nProbabilidad ajustada por el desgaste acumulado actual: {dto.WearAdjustedRiskPct:0.#}%"
+                : $"Sin vuelo cargado · referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)}: ≈ {dto.RatePerHour:0.##} fallas/h";
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo calcular la expectativa de fallas.");
         }
@@ -892,7 +906,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 return;
             }
 
-            var vm = new SessionResultWindowViewModel(result);
+            var vm = new SessionResultWindowViewModel(result, _wearNoticeThresholdPct);
             var showHistory = await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => {
                 var owner = System.Windows.Application.Current?.MainWindow;
                 var window = new Views.SessionResultWindow(vm) { Owner = owner };

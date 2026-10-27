@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock · App principal con el modo Realista — Real Fenix Failures</title>
+<style>
+  :root {
+    --bg: #0D0F14; --card: #13161E; --card-hover: #1A1E28;
+    --titlebar: #0A0C10; --statusbar: #0F1117; --log: #0A0C10;
+    --inner: #0A0C10; --scenario-sel: #1A2540; --warn-bg: #2A1C0A;
+    --blue: #3B82F6; --green: #22C55E; --amber: #F59E0B; --orange: #F97316;
+    --red: #EF4444; --text: #F1F5F9; --text-sec: #64748B;
+    --border: #1E2433; --meta: #94A3B8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060709; color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 12px 48px; }
+  .disclaimer { position: sticky; top: 0; z-index: 50; width: 100%;
+    background: var(--warn-bg); border-bottom: 1px solid var(--amber);
+    color: var(--amber); font-size: 12.5px; font-weight: 600; text-align: center; padding: 9px 16px; }
+  .disclaimer span { opacity: .92; font-weight: 400; }
+  .app { width: 1100px; max-width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); margin-top: 24px; }
+  .titlebar { background: var(--titlebar); padding: 0 16px; height: 48px;
+    display: flex; justify-content: space-between; align-items: center; }
+  .titlebar .brand { display: flex; align-items: center; gap: 10px; }
+  .titlebar .icon { width: 24px; height: 24px; border-radius: 4px; background: var(--border);
+    color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .titlebar b { font-size: 12px; }
+  .titlebar i { font-style: normal; font-size: 12px; color: var(--text-sec); }
+  .winbtns { display: flex; gap: 2px; }
+  .winbtns span { width: 32px; height: 32px; display: flex; align-items: center;
+    justify-content: center; color: var(--text); font-size: 14px; border-radius: 6px; cursor: pointer; }
+  .winbtns span:hover { background: var(--card-hover); }
+  .statusbar { background: var(--statusbar); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 24px; }
+  .statusbar .sep { width: 1px; height: 28px; background: var(--border); }
+  .conn { display: flex; align-items: center; gap: 8px; }
+  .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .conn .label { font-size: 10px; font-weight: 700; color: var(--text-sec); }
+  .conn .value { font-size: 11px; color: var(--green); }
+  .center { flex: 1; display: flex; justify-content: center; align-items: center; gap: 10px; }
+  .phase { background: var(--scenario-sel); border-radius: 20px; padding: 4px 14px; }
+  .phase b { font-size: 10px; color: var(--text-sec); }
+  .phase span { font-size: 11px; font-weight: 600; color: var(--blue); }
+  .clock { border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px;
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; font-weight: 600;
+    color: var(--text-sec); }
+  .right { display: flex; align-items: center; gap: 10px; }
+  .demo-pill { border: 1px dashed var(--amber); color: var(--amber); border-radius: 20px;
+    padding: 3px 10px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px; }
+  .version { font-size: 10px; color: var(--text-sec); cursor: pointer; }
+  .gear { font-size: 14px; color: var(--text); cursor: pointer; }
+  .main { display: grid; grid-template-columns: 260px 1fr; gap: 16px; padding: 16px 20px 20px; }
+  .modes-label { font-size: 10px; font-weight: 700; color: var(--text-sec); margin-bottom: 12px; }
+  .modecard { display: flex; align-items: center; gap: 10px; padding: 10px;
+    border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+  .modecard .micon { width: 32px; height: 32px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-size: 16px; }
+  .modecard .mname { font-size: 13px; font-weight: 600; }
+  .modecard .mdesc { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+  .modecard.selected { border-color: var(--blue); background: rgba(59,130,246,.08); }
+  .donate { display: block; text-align: center; background: transparent;
+    border: 1px solid var(--border); color: var(--text); border-radius: 10px;
+    padding: 9px 0; font-size: 12px; font-weight: 600; cursor: pointer; margin: 4px 0 16px; }
+  .donate:hover { background: var(--card-hover); }
+  .logpanel { background: var(--log); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; height: 460px; display: flex; flex-direction: column; }
+  .loghead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .loghead b { font-size: 10px; color: var(--text-sec); }
+  .loglive { background: #14532D; color: var(--green); border-radius: 10px;
+    padding: 2px 8px; font-size: 9px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .loglive .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    animation: blink 1.6s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .logentries { font-family: "Cascadia Mono", Consolas, monospace; font-size: 10.5px;
+    line-height: 1.7; color: var(--meta); overflow: hidden; }
+  .logentries .t { color: var(--text-sec); }
+  .logentries .ok { color: var(--green); }
+  .logentries .info { color: var(--blue); }
+  .logentries .warn { color: var(--amber); }
+  .panel { background: rgba(19,22,30,.85); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; }
+  .panel-title { font-size: 10px; font-weight: 700; color: var(--blue); }
+  .panel-sub { font-size: 12px; color: var(--text-sec); margin: 6px 0 16px; }
+  .steps { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .pills { display: flex; gap: 8px; }
+  .pill { border-radius: 16px; padding: 5px 12px; font-size: 10px; font-weight: 600;
+    border: 1px solid var(--border); color: var(--text-sec); }
+  .pill.done { color: var(--green); border-color: rgba(34,197,94,.35); }
+  .pill.active { background: var(--scenario-sel); border-color: var(--blue); color: #fff; }
+  .statusline { font-size: 11px; color: var(--meta); }
+  .statusline .v { color: var(--blue); font-weight: 600; }
+  .statusline .p { color: var(--amber); font-weight: 600; }
+  .aircraft { background: var(--inner); border-radius: 8px; padding: 14px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 12px; }
+  .aircraft .aicon { width: 40px; height: 40px; border-radius: 8px; background: #2A1C1C;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .aircraft .aname { font-size: 15px; font-weight: 700; margin-right: 16px; }
+  .aircraft .wlabel { font-size: 10px; color: var(--text-sec); }
+  .aircraft .wvalue { font-size: 11px; }
+  .aircraft .expectation { font-size: 10px; color: var(--amber); margin-top: 3px; }
+  .aircraft .toggle { margin-left: auto; font-size: 11px; color: var(--text-sec); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .box { background: var(--inner); border-radius: 8px; padding: 14px; }
+  .box h4 { font-size: 10px; font-weight: 700; color: var(--text-sec); margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+  .row .k { color: var(--text); }
+  .row .v { color: var(--text); }
+  .route { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .route span { background: var(--scenario-sel); color: var(--blue); border-radius: 4px; padding: 1px 6px; }
+  .ofpstatus { display: flex; gap: 8px; margin-top: 10px; }
+  .ofpstatus b { font-size: 11px; }
+  .ofpstatus span { font-size: 11px; font-weight: 600; color: var(--amber); }
+  .ofpbtns { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+  .btn-outline { border: 1px solid var(--blue); color: var(--blue); background: transparent;
+    border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-icon { border: 1px solid var(--red); color: var(--red); background: transparent;
+    border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  .tiny { font-size: 9px; color: var(--text-sec); margin-top: 6px; }
+  .req { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 7px; }
+  .req .ok { color: var(--green); font-weight: 600; }
+  .profilecard { background: var(--card-hover); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; margin-top: 10px; display: flex; justify-content: space-between;
+    align-items: center; cursor: pointer; }
+  .profilecard .pname { font-size: 13px; font-weight: 600; }
+  .profilecard .psub { font-size: 10px; color: var(--text-sec); margin-top: 2px; }
+  .profilecard .chev { color: var(--blue); font-size: 14px; }
+  .bigbtn { width: 100%; height: 48px; background: var(--green); color: #052e13;
+    border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .pagefoot { margin-top: 20px; font-size: 11px; color: var(--text-sec); text-align: center; }
+  .pagefoot a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="disclaimer">
+  ⚠ SIMULACIÓN ILUSTRATIVA — <span>Mock de la interfaz con datos ficticios. Ningún valor mostrado representa valores reales del simulador ni de una sesión real.</span>
+</div>
+
+<div class="app">
+  <div class="titlebar">
+    <div class="brand">
+      <div class="icon">✈</div>
+      <b>Real Fenix</b><i> Failures</i>
+    </div>
+    <div class="winbtns"><span>─</span><span>□</span><span>✕</span></div>
+  </div>
+
+  <div class="statusbar">
+    <div class="conn">
+      <div class="dot"></div>
+      <div><div class="label">MSFS 2020/2024</div><div class="value">Connected · Aircraft data</div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="conn">
+      <div class="dot"></div>
+      <div><div class="label">Fenix System</div><div class="value">Connected</div></div>
+    </div>
+    <div class="center">
+      <div class="phase"><b>FASE: </b><span>Cruising</span></div>
+      <div class="clock" id="utc">--:--:-- UTC</div>
+    </div>
+    <div class="right">
+      <span class="demo-pill">DEMO · DATOS SIMULADOS</span>
+      <span class="version">v0.3.0-beta.1</span>
+      <span class="gear">⚙</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div>
+      <div class="modes-label">MODOS</div>
+      <div class="modecard selected">
+        <div class="micon" style="background:#2A1C1C">🛩️</div>
+        <div><div class="mname">Realista</div><div class="mdesc">Basado en historial de vuelos</div></div>
+      </div>
+      <div class="modecard">
+        <div class="micon" style="background:#1C2A3A">🎓</div>
+        <div><div class="mname">Entrenamiento</div><div class="mdesc">Escenarios preestablecidos</div></div>
+      </div>
+      <div class="modecard">
+        <div class="micon" style="background:#1C2A1C">⚙️</div>
+        <div><div class="mname">Personalizado</div><div class="mdesc">Control manual de fallas</div></div>
+      </div>
+      <button class="donate">♥  Apoyar el proyecto</button>
+      <div class="logpanel">
+        <div class="loghead"><b>LOG EN TIEMPO REAL</b><span class="loglive"><span class="dot"></span>ACTIVO</span></div>
+        <div class="logentries">
+          <div><span class="t">23:12:02</span> · <span class="ok">SimConnect conectado</span></div>
+          <div><span class="t">23:12:02</span> · Aeronave detectada: LV-FNX (A320)</div>
+          <div><span class="t">23:12:03</span> · <span class="ok">API de Fenix disponible en el puerto 8083</span></div>
+          <div><span class="t">23:12:05</span> · <span class="info">OFP cargado: SAEZ → LEBL (SimBrief)</span></div>
+          <div><span class="t">23:12:06</span> · Desgaste medio de LV-FNX: 27,4 %</div>
+          <div><span class="t">23:12:07</span> · <span class="warn">Perfil Moderado seleccionado</span></div>
+          <div><span class="t">23:13:41</span> · Fase de vuelo: Cruising</div>
+          <div><span class="t">23:41:07</span> · Motor en espera: sesión no iniciada</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">MODO REALISTA</div>
+      <p class="panel-sub">El sistema monitorea el historial de vuelos y genera fallas de forma autónoma basándose en el desgaste acumulado.</p>
+
+      <div class="steps">
+        <div class="pills">
+          <span class="pill done">✓ 1 · Aeronave</span>
+          <span class="pill done">✓ 2 · Resumen</span>
+          <span class="pill active">3 · Preparación</span>
+        </div>
+        <div class="statusline">Estado: <span class="v">Sin sesión</span> &nbsp;·&nbsp; Perfil: <span class="p">Moderado</span></div>
+      </div>
+
+      <div class="aircraft">
+        <div class="aicon">🛩️</div>
+        <div class="aname">LV-FNX · A320</div>
+        <div>
+          <div class="wlabel">Desgaste medio</div>
+          <div class="wvalue">27,4 %</div>
+          <div class="expectation">≈ 4,35 fallas esperadas · P(≥1) = 99% para 9 h 07 min</div>
+        </div>
+        <div class="toggle">▾  Desgaste</div>
+      </div>
+
+      <div class="cols">
+        <div class="box">
+          <h4>OFP Y RUTA</h4>
+          <div class="row">
+            <span class="k">Ruta</span>
+            <span class="route"><span>SAEZ</span> → <span>LEBL</span></span>
+          </div>
+          <div class="row"><span class="k">Nº de vuelo</span><span class="v">IB 6842</span></div>
+          <div class="row"><span class="k">Callsign</span><span class="v">IBE6842</span></div>
+          <div class="row"><span class="k">Salida programada</span><span class="v">23:05 UTC</span></div>
+          <div class="row"><span class="k">Llegada estimada</span><span class="v">08:12 UTC</span></div>
+          <div class="row"><span class="k">Duración estimada</span><span class="v">9 h 07 min</span></div>
+          <div class="row"><span class="k">Distancia</span><span class="v">5.921 nm</span></div>
+          <div class="row"><span class="k">Aeronave del OFP</span><span class="v">A320</span></div>
+          <div class="row"><span class="k">Fuente</span><span class="v">SimBrief</span></div>
+          <div class="ofpstatus"><b>OFP</b><span>Válido · ventana de salida vigente</span></div>
+          <div class="ofpbtns">
+            <button class="btn-outline">⤓  Descargar OFP</button>
+            <button class="btn-icon">🗑</button>
+          </div>
+          <div class="tiny">Userid guardado solo en tus preferencias (nunca en la BD).</div>
+        </div>
+
+        <div class="box">
+          <h4>REQUISITOS PARA ACTIVAR</h4>
+          <div class="req"><span>MSFS</span><span class="ok">✔ Cumplido</span></div>
+          <div class="req"><span>Datos aeronave</span><span class="ok">✔ Cumplido</span></div>
+          <div class="req"><span>Perfil</span><span class="ok">✔ Cumplido</span></div>
+          <div class="req"><span>Aeronave del OFP</span><span class="ok">✔ Cumplido</span></div>
+          <div class="req"><span>OFP</span><span class="ok">✔ Cumplido</span></div>
+          <div class="req"><span>Fenix (opcional)</span><span class="ok">✔ Opcional (prepara en cola)</span></div>
+          <div class="profilecard">
+            <div>
+              <div class="pname">Moderado</div>
+              <div class="psub">Seleccionado</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="bigbtn">⏵  ACTIVAR MODO REALISTA</button>
+    </div>
+  </div>
+</div>
+
+<p class="pagefoot">Mock de <b>Real Fenix Failures</b> · interfaz simulada, sin datos reales · <a href="index.html">← Volver a las demos</a></p>
+
+<script>
+  function tick() {
+    var d = new Date();
+    var p = n => String(n).padStart(2, '0');
+    document.getElementById('utc').textContent =
+      p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + ' UTC';
+  }
+  setInterval(tick, 1000); tick();
+</script>
+</body>
+</html>
