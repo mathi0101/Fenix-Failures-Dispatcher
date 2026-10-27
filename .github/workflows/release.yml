@@ -35,7 +35,7 @@ jobs:
           $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
           $stage = "$env:RUNNER_TEMP/RealFenixFailures"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
+          foreach ($f in @("RealFenixFailures.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
             Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
           }
           if ($env:POSTHOG_PROJECT_API_KEY) {

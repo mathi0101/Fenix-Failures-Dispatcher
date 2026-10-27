@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 2026-10-27 — chore(ui): el ejecutable pasa a llamarse RealFenixFailures.exe
+
+- **`RealFenixFailures.UI.csproj`**: `<AssemblyName>RealFenixFailures</AssemblyName>` — el binario de salida (build y publish single-file) se llama `RealFenixFailures.exe` en vez de `RealFenixFailures.UI.exe`. El nombre venía del `.csproj` por defecto (AssemblyName = nombre del proyecto). Se fija también `<RootNamespace>RealFenixFailures.UI</RootNamespace>` explícito: los namespaces de código y los recursos embebidos del splash (`RealFenixFailures.UI.Assets.Branding.splash-frame-*.png`, que `SplashWindow` carga por nombre) no cambian.
+- **Referencias actualizadas al nombre nuevo**: `.github/workflows/release.yml` y `.artifacts/release-step3/package-step.ps1` (armado del ZIP portable) y `docs/releases/README-INSTALACION.md` (paso de ejecución).
+- Sin cambios de código: el mutex de instancia única usa nombre fijo (no deriva del ensamblado) y `Environment.ProcessPath`/versión no dependen del nombre.
+- Verificado: build Debug 0 errores, salida con `RealFenixFailures.exe` (y sin `RealFenixFailures.UI.exe`), recursos del splash intactos en el ensamblado, suite **255/255** y arranque del exe (proceso vivo tras splash + init del host). Publish single-file no corrido en esta sesión — el nombre del artefacto sigue del mismo AssemblyName.
+
 ### 2026-10-27 — feat(ui): etiqueta de riesgo del vuelo bajo el desgaste medio + normalización de severidades del sorteo
 
 - **Normalización del sorteo aleatorio (corrección post-integración de la tarea 2)**: cada falla del catálogo entra a la ruleta del tick con `Probability = 1 / elegibles de su severidad` (contadas por tick tras el filtro de cap y reglas); los presets conservan su `Probability` definida. Antes cada candidato del catálogo entraba con λ completa y el motor spawneaba ~100× lo que el reporte promete (Moderado 25 %: una falla cada ~5 min hasta llenar el cap). Ahora la Σλ de cada severidad es exactamente la fórmula global del balance — el tamaño del catálogo no afecta la cadencia, el cap deja de saturarse con leves y no hay spam por más que suban las tasas. Test nuevo `FlightRandomFailures_SeverityLambdaIsNormalized_RegardlessOfCatalogSize`.
