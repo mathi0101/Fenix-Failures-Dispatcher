@@ -32,16 +32,42 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
         var mode = _settings.RealisticMode;
         var profile = mode.ProfileFor(profileRisk ?? RiskLevel.Moderate);
         var wearFactor = RealisticFailurePolicy.WearFactor(profile, averageWearPct);
-        var rate = ReferenceRatePerHour
-            * Math.Max(0, profile.ProbabilityMultiplier)
-            * wearFactor;
+        var physics = mode.Physics;
 
+        // Misma fórmula global por severidad que el reporte de balance y que el motor (§1.1/§4.2):
+        // Σλ severidad = base × multiplicador de severidad × perfil × desgaste. La constante de
+        // referencia deja de alimentar este cálculo.
         var hours = flightHours is > 0 ? flightHours : null;
+        var risk = profileRisk ?? RiskLevel.Moderate;
+        var severeRates = (double wear) => (
+            Major: physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Major
+                * Math.Max(0, profile.ProbabilityMultiplier) * RealisticFailurePolicy.WearFactor(profile, wear),
+            Critical: physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Critical
+                * Math.Max(0, profile.ProbabilityMultiplier) * RealisticFailurePolicy.WearFactor(profile, wear));
+
+        double Combined(double wear) {
+            var r = severeRates(wear);
+            return (r.Major + r.Critical) / 2;
+        }
+
+        double AtLeastOne(double ratePerHour) => hours is null || risk == RiskLevel.Low
+            ? 0
+            : (1 - Math.Exp(-ratePerHour * hours.Value)) * 100;
+
+        var wear = averageWearPct ?? 0;
+        var totalRate = severeRates(wear);
+        var (minorRate, _, _) = (physics.FailureRatePerHourBase * physics.SeverityRateMultiplier.Minor
+            * Math.Max(0, profile.ProbabilityMultiplier) * wearFactor, 0, 0);
+
         return new RealisticExpectationDto {
-            RatePerHour = rate,
+            RatePerHour = ReferenceRatePerHour * Math.Max(0, profile.ProbabilityMultiplier) * wearFactor,
             FlightHours = hours,
-            ExpectedFailures = hours is null ? 0 : rate * hours.Value,
-            ProbabilityAtLeastOnePct = hours is null ? 0 : (1 - Math.Exp(-rate * hours.Value)) * 100
+            ExpectedFailures = hours is null ? 0 : (minorRate + totalRate.Major + totalRate.Critical) * hours.Value,
+            ProbabilityAtLeastOnePct = AtLeastOne(minorRate + totalRate.Major + totalRate.Critical),
+            ProbabilityAtLeastOneMajorPct = AtLeastOne(totalRate.Major),
+            ProbabilityAtLeastOneCriticalPct = AtLeastOne(totalRate.Critical),
+            BaselineRiskPct = AtLeastOne(Combined(0)),
+            WearAdjustedRiskPct = AtLeastOne(Combined(wear)),
         };
     }
 

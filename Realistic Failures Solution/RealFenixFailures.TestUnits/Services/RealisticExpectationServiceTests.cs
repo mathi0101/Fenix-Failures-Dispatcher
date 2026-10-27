@@ -21,9 +21,13 @@ public class RealisticExpectationServiceTests {
         var settings = new FailureEngineSettings();
         var dto = CreateService(settings).Compute(averageWearPct: 0, flightHours: 2, profileRisk: RiskLevel.Moderate);
 
-        var rate = RealisticExpectationService.ReferenceRatePerHour * settings.RealisticMode.Moderate.ProbabilityMultiplier;
-        Assert.Equal(rate, dto.RatePerHour, precision: 5);
-        Assert.Equal(rate * 2, dto.ExpectedFailures, precision: 5);
+        // ExpectedFailures/P(≥1) usan la fórmula global por severidad (base × mult × perfil), no la constante de referencia.
+        var physics = settings.RealisticMode.Physics;
+        var mult = settings.RealisticMode.Moderate.ProbabilityMultiplier;
+        var rate = physics.FailureRatePerHourBase
+            * (physics.SeverityRateMultiplier.Minor + physics.SeverityRateMultiplier.Major + physics.SeverityRateMultiplier.Critical)
+            * mult;
+        Assert.Equal(rate, dto.ExpectedFailures / 2, precision: 5);
         Assert.Equal(2, dto.FlightHours);
         Assert.Equal((1 - Math.Exp(-rate * 2)) * 100, dto.ProbabilityAtLeastOnePct, precision: 5);
     }

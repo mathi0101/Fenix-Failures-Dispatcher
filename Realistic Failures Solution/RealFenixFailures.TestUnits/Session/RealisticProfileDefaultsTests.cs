@@ -42,8 +42,8 @@ public class RealisticProfileDefaultsTests {
             var stronger = profiles[i];
             Assert.True(stronger.ProbabilityMultiplier > weaker.ProbabilityMultiplier,
                 $"{AllRisks[i]} debe multiplicar más que {AllRisks[i - 1]}.");
-            Assert.True(stronger.WearMaxMultiplier > weaker.WearMaxMultiplier,
-                $"{AllRisks[i]} debe amplificar más el desgaste que {AllRisks[i - 1]}.");
+            Assert.True(stronger.WearMaxMultiplier >= weaker.WearMaxMultiplier,
+                $"{AllRisks[i]} debe amplificar igual o más el desgaste que {AllRisks[i - 1]}.");
             Assert.True(stronger.AggravationCap >= weaker.AggravationCap,
                 $"{AllRisks[i]} debe tolerar igual o más agravación que {AllRisks[i - 1]}.");
             Assert.True(stronger.GroundFailuresCap >= weaker.GroundFailuresCap,

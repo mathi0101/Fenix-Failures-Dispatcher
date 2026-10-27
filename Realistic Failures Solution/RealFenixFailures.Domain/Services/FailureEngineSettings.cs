@@ -46,12 +46,12 @@ public class RealisticModeSettings {
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1, WearMaxMultiplier = 2,
+        RiskLevel = 2, ProbabilityMultiplier = 1.1, WearMaxMultiplier = 2,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 120 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
     public RealisticProfileSettings High { get; set; } = new() {
-        RiskLevel = 3, ProbabilityMultiplier = 1.4, WearMaxMultiplier = 2.5,
+        RiskLevel = 3, ProbabilityMultiplier = 1.6, WearMaxMultiplier = 2.5,
         AggravationCap = 8, GroundFailuresCap = 3, CriticalRespiteSeconds = 60 * 60
     };
     /// <summary>Perfil Squawk 7700 (nivel 4): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Squawk7700</c>).</summary>
@@ -88,9 +88,9 @@ public class RealisticModeSettings {
 /// </summary>
 public class RealisticPhysicsSettings {
     /// <summary>λ base por falla Minor elegible en vuelo, en eventos/hora. Subirlo escala linealmente toda la cadencia en vuelo.</summary>
-    public double FailureRatePerHourBase { get; set; } = 0.15;
+    public double FailureRatePerHourBase { get; set; } = 0.05;
     /// <summary>Probabilidad base (0–1) de cada falla Minor individual en el seed de tierra, antes de multiplicadores.</summary>
-    public double GroundSeedBaseProbability { get; set; } = 0.001;
+    public double GroundSeedBaseProbability { get; set; } = 0.006;
     /// <summary>Cuánto más rara es cada severidad a igualdad de todo lo demás (multiplicador de λ en vuelo y de p en tierra).</summary>
     public PhysicsSeverityRateMultipliers SeverityRateMultiplier { get; set; } = new();
     /// <summary>Pesos con que cada falla activa suma al score de agravamiento de la sesión (contra el tope del perfil).</summary>
@@ -106,7 +106,7 @@ public class PhysicsSeverityRateMultipliers {
     /// <summary>Multiplicador de las fallas graves: 0,4 = el 40 % de frecuentes que las leves a igualdad de lo demás.</summary>
     public double Major { get; set; } = 0.4;
     /// <summary>Multiplicador de las fallas críticas: 0,12 = ~1 crítica cada 8 leves a igualdad de lo demás.</summary>
-    public double Critical { get; set; } = 0.12;
+    public double Critical { get; set; } = 0.14;
 
     public double For(FailureSeverity severity) => severity switch {
         FailureSeverity.Major => Major,

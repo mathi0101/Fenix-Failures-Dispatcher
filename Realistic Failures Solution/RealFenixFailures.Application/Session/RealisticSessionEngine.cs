@@ -460,7 +460,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         var wearByAta = session.Aircraft.SystemsWear
             .GroupBy(x => x.SystemWear.AtaId)
             .ToDictionary(g => g.Key, g => g.Max(x => x.WearPercentage));
-        var flightCandidates = new List<FlightFailureCandidate<PresetFailureDefinition>>();
+        var passing = new List<(PresetFailureDefinition Item, FailureSeverity Severity)>();
         foreach (var candidate in candidates) {
             var severity = candidate.FenixFailure?.Severity ?? FailureSeverity.Minor;
             var extra = ataLookup.TryGetValue(candidate.FenixFailureId, out var ata)
@@ -471,10 +471,25 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 continue;
             }
 
-            var wear = ataLookup.TryGetValue(candidate.FenixFailureId, out ata) ? wearByAta.GetValueOrDefault(ata) : (double?)null;
+            passing.Add((candidate, severity));
+        }
+
+        // Normalización por severidad (tipos-de-falla §4.2): la cadencia es global por severidad — Σλ de una
+        // severidad = base × multiplicador de severidad × perfil × desgaste, sin importar cuántas fallas del
+        // catálogo estén elegibles. Cada falla aleatoria del catálogo entra al sorteo con p = 1/elegibles de su
+        // severidad; los presets conservan su Probability definida (son escenarios, no sorteos globales).
+        var eligibleBySeverity = passing
+            .GroupBy(p => p.Severity)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var flightCandidates = new List<FlightFailureCandidate<PresetFailureDefinition>>();
+        foreach (var (item, severity) in passing) {
+            var weight = item.Preset is null && eligibleBySeverity.TryGetValue(severity, out var eligible) && eligible > 0
+                ? 1.0 / eligible
+                : item.Probability;
+            var wear = ataLookup.TryGetValue(item.FenixFailureId, out var ata2) ? wearByAta.GetValueOrDefault(ata2) : (double?)null;
             var wearFactor = RealisticFailurePolicy.WearFactor(profile, wear);
-            var lambda = RealisticFailurePolicy.FlightFailureLambda(severity, candidate.Probability, profile, physics, wearFactor);
-            if (lambda > 0) flightCandidates.Add(new FlightFailureCandidate<PresetFailureDefinition>(candidate, lambda));
+            var lambda = RealisticFailurePolicy.FlightFailureLambda(severity, weight, profile, physics, wearFactor);
+            if (lambda > 0) flightCandidates.Add(new FlightFailureCandidate<PresetFailureDefinition>(item, lambda));
         }
 
         var triggered = _policy.RollTick(flightCandidates, elapsedSeconds, out var chosen, out var roll);

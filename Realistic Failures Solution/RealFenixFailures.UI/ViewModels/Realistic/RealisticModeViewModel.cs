@@ -805,8 +805,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             var dto = _expectationService.Compute(avgWear, hours, (RiskLevel?)SelectedRiskLevel);
 
             ExpectationDisplay = dto.FlightHours is { } h
-                ? $"≈ {dto.ExpectedFailures:0.##} fallas esperadas · P(≥1) = {dto.ProbabilityAtLeastOnePct:0}% para {FormatDuration((int)Math.Round(h * 60))}"
-                : $"≈ {dto.RatePerHour:0.##} fallas/h de vuelo (referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)})";
+                ? $"Probabilidad de una falla seria en este vuelo ({FormatDuration((int)Math.Round(h * 60))}): {dto.BaselineRiskPct:0.#}%.\nProbabilidad ajustada por el desgaste acumulado actual: {dto.WearAdjustedRiskPct:0.#}%"
+                : $"Sin vuelo cargado · referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)}: ≈ {dto.RatePerHour:0.##} fallas/h";
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo calcular la expectativa de fallas.");
         }

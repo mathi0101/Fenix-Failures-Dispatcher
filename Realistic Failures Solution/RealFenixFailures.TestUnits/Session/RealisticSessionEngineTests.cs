@@ -162,6 +162,42 @@ public class RealisticSessionEngineTests {
         Assert.Equal("F_SOLO_CATALOGO", Assert.Single(result.TriggeredFailures).FenixFailureId);
     }
 
+    [Fact]
+    public async Task FlightRandomFailures_SeverityLambdaIsNormalized_RegardlessOfCatalogSize() {
+        SetupConnected();
+        SetupOnGateData();
+        // 3 leves + 1 crítica, todas del catálogo (Preset = null): la Σλ de cada severidad debe ser la
+        // fórmula global del reporte (base × mult severidad × perfil × desgaste), NO multiplicada por
+        // la cantidad de fallas elegibles de esa severidad.
+        SetupValidPersistence(definitions: []);
+        SetupFenixFailuresOk();
+        _simulator.Setup(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var catalog = new List<FenixFailureDefinition> {
+            Entity("F_MIN_1", FailureSeverity.Minor, repairable: true),
+            Entity("F_MIN_2", FailureSeverity.Minor, repairable: true),
+            Entity("F_MIN_3", FailureSeverity.Minor, repairable: true),
+            Entity("F_CRIT_1", FailureSeverity.Critical, repairable: false),
+        };
+        _fenixFailureDefinitionsRepository
+            .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(catalog);
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        settings.Physics.FailureRatePerHourBase = 0.05;
+        settings.ProfileFor(RiskLevel.Moderate).ProbabilityMultiplier = 1.0;
+        settings.ProfileFor(RiskLevel.Moderate).WearMaxMultiplier = 1.0;
+        var engine = CreateEngine(settings);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        _now = _now.AddMinutes(20);
+        _random.SetupNextDouble(0);   // dado 1: dispara el tick
+        _random.SetupNextDouble(0.999); // dado 2: cae al final de la regla (la crítica es el último segmento)
+
+        var result = await engine.EvaluateAsync(CancellationToken.None);
+
+        var failure = Assert.Single(result.TriggeredFailures);
+        Assert.Equal("F_CRIT_1", failure.FenixFailureId);
+    }
+
     private static FenixFailureDefinition Entity(string id, FailureSeverity severity, bool repairable) => new() {
         FenixFailureId = id,
         Name = id,
