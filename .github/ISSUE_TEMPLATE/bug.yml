@@ -1,0 +1,92 @@
+name: "🐛 Bug report / Reporte de bug"
+description: "Something doesn't work as expected / Algo no funciona como debería"
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! ✍️ You can write in **English or Spanish**.
+
+        📋 The most useful attachment is the **app log for the day**: you'll find it in `%AppData%\RealFenixFailures\logs\` (file `realfenix-<YYYYMMDD>.log`). Remove anything you consider personal before pasting.
+
+        ---
+
+        ¡Gracias por tomarte el tiempo de reportar un bug! ✍️ Podés escribir en **inglés o español**.
+
+        📋 Lo más útil que podés adjuntar es el **log del día de la app**: está en `%AppData%\RealFenixFailures\logs\` (archivo `realfenix-<AAAAMMDD>.log`). Borrá todo lo que consideres personal antes de pegarlo.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "What happened? / ¿Qué pasó?"
+      description: "A clear and concise description of the problem / Una descripción clara y concisa del problema."
+      placeholder: "Describe the problem / Describí el problema"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce / Pasos para reproducir"
+      description: "What were you doing when it happened? Include the flight phase if relevant / ¿Qué estabas haciendo cuando pasó? Incluí la fase de vuelo si es relevante."
+      placeholder: |
+        1. Start the app with MSFS running / Arrancar la app con MSFS corriendo
+        2. ... / ...
+        3. ... / ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "What did you expect to happen? / ¿Qué esperabas que pasara?"
+      placeholder: "Expected behavior / Comportamiento esperado"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: "Which app mode? / ¿Qué modo de la app?"
+      options:
+        - "Realistic / Realista"
+        - "Training / Entrenamiento"
+        - "Custom / Personalizado"
+        - "Not sure / No estoy seguro"
+    validations:
+      required: true
+  - type: dropdown
+    id: simulator
+    attributes:
+      label: "Which simulator? / ¿Qué simulador?"
+      options:
+        - "MSFS 2024"
+        - "MSFS 2020"
+        - "Both / Ambos"
+        - "Not sure / No estoy seguro"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: "App version / Versión de la app"
+      description: "Visible in the app window title or About info / Visible en la ventana de la app."
+      placeholder: "e.g. / ej. v0.4.1-beta.1"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Log of the day / Log del día"
+      description: "Paste the relevant part of `%AppData%\\RealFenixFailures\\logs\\realfenix-<YYYYMMDD>.log`, or attach the file / Pegá la parte relevante de `%AppData%\\RealFenixFailures\\logs\\realfenix-<AAAAMMDD>.log`, o adjuntá el archivo."
+      placeholder: "Paste the log excerpt here / Pegá acá el fragmento del log"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots / Capturas de pantalla"
+      description: "Drag & drop images here / Arrastrá y soltá imágenes acá."
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist / Verificaciones"
+      options:
+        - label: "I searched existing issues and discussions for duplicates / Busqué issues y discussions similares antes de crear este reporte"
+          required: true
+        - label: "I attached the app log of the day, or explained why I can't / Adjunté el log del día de la app, o expliqué por qué no puedo"
+        - label: "I removed personal or sensitive information / Borré información personal o sensible"
