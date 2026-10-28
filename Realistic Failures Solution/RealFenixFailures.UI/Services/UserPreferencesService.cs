@@ -65,21 +65,6 @@ public class UserPreferencesService {
         }
     }
 
-    /// <summary>Fecha (UTC) del último ping de telemetría enviado; dedup diario.</summary>
-    public DateTime? LastTelemetryDate {
-        get {
-            lock (_lock) return _preferences.LastTelemetryDate;
-        }
-        set {
-            lock (_lock) {
-                if (_preferences.LastTelemetryDate == value)
-                    return;
-                _preferences.LastTelemetryDate = value;
-            }
-            Save();
-        }
-    }
-
     private UserPreferences Load() {
         try {
             if (!File.Exists(_filePath))
@@ -120,7 +105,4 @@ public class UserPreferences {
 
     /// <summary>True si el usuario desactivó el ping anónimo de uso.</summary>
     public bool TelemetryOptOut { get; set; }
-
-    /// <summary>Día (UTC) del último ping enviado; evita más de uno por día.</summary>
-    public DateTime? LastTelemetryDate { get; set; }
 }

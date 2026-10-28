@@ -33,6 +33,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     private readonly IFlightSessionService _flightSessionService;
     private readonly ISimbriefOfpService _ofpService;
     private readonly UserPreferencesService _preferences;
+    private readonly TelemetryService _telemetry;
     private readonly IRealisticExpectationService? _expectationService;
 
     private int _currentStep = 1;
@@ -79,6 +80,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         IFlightSessionService flightSessionService,
         ISimbriefOfpService ofpService,
         UserPreferencesService preferences,
+        TelemetryService telemetry,
         IOptions<FailureEngineSettings> engineSettings,
         IRealisticExpectationService? expectationService = null) {
         _aircraftService = aircraftService;
@@ -88,6 +90,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _flightSessionService = flightSessionService;
         _ofpService = ofpService;
         _preferences = preferences;
+        _telemetry = telemetry;
         _expectationService = expectationService;
         _wearNoticeThresholdPct = engineSettings.Value.RealisticMode.Wear.ThresholdNoticePct;
 
@@ -874,6 +877,10 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             LiveTriggeredFailures.Clear();
             var risk = (RiskLevel)SelectedRiskLevel.Value;
             await _orchestrator.StartRealisticModeAsync(SelectedAircraft.Id, risk, _ofpPlanForUi!.Id, CancellationToken.None);
+            _telemetry.TrySendEvent("realistic_session_started", new Dictionary<string, object?> {
+                ["risk_level"] = risk.ToString(),
+                ["has_ofp"] = _ofpPlanForUi is not null
+            });
             _logger.LogInformation(
                 "Modo Realista activado. Aeronave={Registration} Riesgo={Risk}",
                 SelectedAircraft.Registration, risk);

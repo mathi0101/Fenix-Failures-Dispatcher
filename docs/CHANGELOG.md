@@ -8,6 +8,13 @@
 - **Doc**: `docs/ui/manejo-de-errores-y-arranque.md` (sección *Arranque con splash*, bullet nuevo; pendiente manual anotado).
 - Verificado: build Debug 0 errores y harness de medición (ver doc para el detalle y el alcance). **No verificado en doble click real** — pendiente de sesión manual (el harness por script no replica los derechos de foreground de un lanzamiento desde el shell; y si el usuario hace click en otra app durante el arranque, Windows por diseño niega el robo de foco). Suite no afectada: `TestUnits` no depende de UI.
 
+### 2026-10-27 — feat(ui): eventos de uso en PostHog (apertura/cierre, sesión realista, escenario training)
+
+- **Cuatro eventos anónimos** (antes solo `app_started` 1×/día): `app_started` por **ejecución** (se relajó el dedup diario; `LastTelemetryDate` removido de `userprefs.json`), `app_closed` desde `App.OnExit` con `session_duration_seconds` (espera acotada de 2 s al POST dentro del proceso que muere; un crash no emite cierre), `realistic_session_started` desde `RealisticModeViewModel` (con `risk_level` y `has_ofp`) y `training_scenario_started` desde `MainWindowViewModel` (con `scenario`).
+- `TelemetryService` generalizado: `TrySendEvent(eventName, props)` reutilizable (mismos gates: opt-out, clave, `#if DEBUG` no envía; fire-and-forget, nunca lanza) + `$set` de propiedades de persona (`app_version`, `os_version`) para cohortes por versión en PostHog. Sin SDK: sigue siendo POST directo a `/i/v0/e/`.
+- Doc actualizado: `docs/ui/telemetria.md` (eventos, dedup, privacidad — riesgo y nombre de escenario son elecciones de UI, no datos de vuelo —, tableros sugeridos). El volumen esperado sigue siendo ínfimo para el plan gratis de PostHog.
+- Verificado: build Debug y Release 0 errores (las dos ramas `#if DEBUG`/`!DEBUG`). **No verificado en PostHog real**: falta correr Release con clave y ver los 4 eventos en Live events.
+
 ### 2026-10-27 — chore(ui): el ejecutable pasa a llamarse RealFenixFailures.exe
 
 - **`RealFenixFailures.UI.csproj`**: `<AssemblyName>RealFenixFailures</AssemblyName>` — el binario de salida (build y publish single-file) se llama `RealFenixFailures.exe` en vez de `RealFenixFailures.UI.exe`. El nombre venía del `.csproj` por defecto (AssemblyName = nombre del proyecto). Se fija también `<RootNamespace>RealFenixFailures.UI</RootNamespace>` explícito: los namespaces de código y los recursos embebidos del splash (`RealFenixFailures.UI.Assets.Branding.splash-frame-*.png`, que `SplashWindow` carga por nombre) no cambian.
