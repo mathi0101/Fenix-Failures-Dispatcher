@@ -76,6 +76,13 @@ public partial class App : System.Windows.Application {
             newWindow.TrayIcon = _trayIconService;
             _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
             newWindow.Show();
+            // El splash corre en otro hilo STA y es la ventana activa del proceso: si se
+            // cierra sin reafirmar la activación, Windows cancela la activación pendiente
+            // del Show() y le da el primer plano a la app anterior, dejando esta ventana
+            // visible pero detrás y sin foco. Mientras el splash sigue abierto, el proceso
+            // conserva el derecho a tomar el foreground; Activate() lo consume acá, y el
+            // cierre posterior del splash ya no roba el foco.
+            newWindow.Activate();
             Program.CloseSplash();
         }
         catch (Exception startupException) {

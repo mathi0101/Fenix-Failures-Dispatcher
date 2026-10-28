@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 2026-10-28 — fix(ui): la ventana principal abría detrás de otra ventana y sin foco tras el splash
+
+- **Síntoma**: con el splash cerrándose, la ventana principal se mostraba **visible pero detrás de la ventana activa y sin foco** (no minimizada). Medición real (`EnumWindows` + `GetForegroundWindow` con lanzamiento instrumentado): sin fix, la ventana nunca fue la de foreground en 60 s; el foco se quedaba en la app anterior (Edge/Google Chat/SSMS).
+- **Causa**: el splash corre en un hilo STA propio y mientras está abierto es la **ventana activa del proceso**. `Show()` pide la activación de la principal, pero `Program.CloseSplash()` (encolado en el hilo del splash) destruye la ventana activa antes de que esa activación se consuma: Windows cancela la activación pendiente y elige como nuevo foreground a la app anterior. Nadie volvía a reclamar el foco.
+- **Fix** (`App.xaml.cs`): `newWindow.Activate()` entre `Show()` y `CloseSplash()`. Mientras el splash sigue activo, el proceso conserva el derecho de Win32 a tomar el foreground: la principal queda activa antes de que el splash se destruya y el cierre ya no puede robar el foco. El restore desde bandeja ya hacía `Activate()`; no cambia nada más del arranque.
+- **Doc**: `docs/ui/manejo-de-errores-y-arranque.md` (sección *Arranque con splash*, bullet nuevo; pendiente manual anotado).
+- Verificado: build Debug 0 errores y harness de medición (ver doc para el detalle y el alcance). **No verificado en doble click real** — pendiente de sesión manual (el harness por script no replica los derechos de foreground de un lanzamiento desde el shell; y si el usuario hace click en otra app durante el arranque, Windows por diseño niega el robo de foco). Suite no afectada: `TestUnits` no depende de UI.
+
 ### 2026-10-27 — chore(ui): el ejecutable pasa a llamarse RealFenixFailures.exe
 
 - **`RealFenixFailures.UI.csproj`**: `<AssemblyName>RealFenixFailures</AssemblyName>` — el binario de salida (build y publish single-file) se llama `RealFenixFailures.exe` en vez de `RealFenixFailures.UI.exe`. El nombre venía del `.csproj` por defecto (AssemblyName = nombre del proyecto). Se fija también `<RootNamespace>RealFenixFailures.UI</RootNamespace>` explícito: los namespaces de código y los recursos embebidos del splash (`RealFenixFailures.UI.Assets.Branding.splash-frame-*.png`, que `SplashWindow` carga por nombre) no cambian.
