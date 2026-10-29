@@ -6,6 +6,7 @@ using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.Commands;
+using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using RealFenixFailures.UI.ViewModels.Extra;
 using RealFenixFailures.UI.ViewModels.Realistic;
@@ -27,6 +28,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     private readonly IFlightSessionService _flightSessionService;
     private readonly IFlightEventDetector _flightEventDetector;
     private readonly ILogger<MainWindowViewModel> _logger;
+    private readonly TelemetryService _telemetry;
 
     // ViewModel del flujo de 4 pasos del Modo Realista (Paso 1..4).
     public RealisticModeViewModel Realistic { get; }
@@ -67,6 +69,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         IFlightEventDetector flightEventDetector,
         SettingsWindowViewModel settings,
         IOptions<FailureEngineSettings> failureEngineSettings,
+        TelemetryService telemetry,
         ILogger<MainWindowViewModel> logger) {
         _orchestrator = orchestrator;
         _presetService = presetService;
@@ -77,6 +80,7 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         Settings = settings;
         _maxLogEntries = failureEngineSettings.Value.MaxLogEntries;
         _logger = logger;
+        _telemetry = telemetry;
 
         // Suscribirse a los eventos del orquestador
         _orchestrator.PropertyChanged += Orchestrator_PropertyChanged;
@@ -517,6 +521,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
         // Activate the preset in orchestrator for training mode
         await _orchestrator.StartTrainingPresetAsync(SelectedTrainingScenario.Id, CancellationToken.None);
+        _telemetry.TrySendEvent("training_scenario_started", new Dictionary<string, object?> {
+            ["scenario"] = SelectedTrainingScenario.Name
+        });
         _logger.LogInformation("Training scenario started: {Name}", SelectedTrainingScenario.Name);
 
         // Refresh UI state from orchestrator

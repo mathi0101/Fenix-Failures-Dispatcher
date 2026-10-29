@@ -41,22 +41,22 @@ public class RealisticModeSettings {
     public RealisticPhysicsSettings Physics { get; set; } = new();
     /// <summary>Perfil Bajo (nivel 1): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Low</c>).</summary>
     public RealisticProfileSettings Low { get; set; } = new() {
-        RiskLevel = 1, ProbabilityMultiplier = 0.60, WearMaxMultiplier = 2.0,
+        RiskLevel = 1, ProbabilityMultiplier = 0.75, WearMaxMultiplier = 2,
         AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1.1, WearMaxMultiplier = 2,
+        RiskLevel = 2, ProbabilityMultiplier = 1.1, WearMaxMultiplier = 2.1,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 120 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
     public RealisticProfileSettings High { get; set; } = new() {
-        RiskLevel = 3, ProbabilityMultiplier = 1.6, WearMaxMultiplier = 2.5,
+        RiskLevel = 3, ProbabilityMultiplier = 2.5, WearMaxMultiplier = 2.2,
         AggravationCap = 8, GroundFailuresCap = 3, CriticalRespiteSeconds = 60 * 60
     };
     /// <summary>Perfil Squawk 7700 (nivel 4): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Squawk7700</c>).</summary>
     public RealisticProfileSettings Squawk7700 { get; set; } = new() {
-        RiskLevel = 4, ProbabilityMultiplier = 2.2, WearMaxMultiplier = 4,
+        RiskLevel = 4, ProbabilityMultiplier = 4.1, WearMaxMultiplier = 2.3,
         AggravationCap = 10, GroundFailuresCap = 5, CriticalRespiteSeconds = 30 * 60
     };
 

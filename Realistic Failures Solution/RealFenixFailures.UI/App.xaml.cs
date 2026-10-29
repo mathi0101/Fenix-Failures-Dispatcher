@@ -76,6 +76,13 @@ public partial class App : System.Windows.Application {
             newWindow.TrayIcon = _trayIconService;
             _singleInstanceGuard.StartListening(() => _trayIconService.RestoreMainWindow());
             newWindow.Show();
+            // El splash corre en otro hilo STA y es la ventana activa del proceso: si se
+            // cierra sin reafirmar la activación, Windows cancela la activación pendiente
+            // del Show() y le da el primer plano a la app anterior, dejando esta ventana
+            // visible pero detrás y sin foco. Mientras el splash sigue abierto, el proceso
+            // conserva el derecho a tomar el foreground; Activate() lo consume acá, y el
+            // cierre posterior del splash ya no roba el foco.
+            newWindow.Activate();
             Program.CloseSplash();
         }
         catch (Exception startupException) {
@@ -86,7 +93,7 @@ public partial class App : System.Windows.Application {
             return;
         }
 
-        // Ping anónimo de telemetría (1 por día; respeta opt-out; best-effort).
+        // Telemetría anónima: app_started por ejecución (respeta opt-out; best-effort).
         // Blindado: un problema de telemetría (DI, red, config) jamás puede tirar abajo el arranque.
         try {
             _host.Services.GetRequiredService<TelemetryService>().TrySendStartupPing();
@@ -110,6 +117,17 @@ public partial class App : System.Windows.Application {
     }
 
     protected override async void OnExit(System.Windows.ExitEventArgs e) {
+        // app_closed con duración de la ejecución (best-effort, espera acotada dentro
+        // del servicio). Un crash no pasa por OnExit: no hay evento de cierre.
+        if (!Program.StartupFailed && _host is not null) {
+            try {
+                _host.Services.GetRequiredService<TelemetryService>().TrySendShutdownPing();
+            }
+            catch (Exception ex) {
+                Console.Error.WriteLine($"Telemetría: {ex.Message}");
+            }
+        }
+
         _trayIconService?.Dispose();
         _singleInstanceGuard.Dispose();
         // El constructor del host pudo fallar antes de asignar _host. El reporte fatal

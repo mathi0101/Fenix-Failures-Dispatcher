@@ -7,7 +7,7 @@
 ## Cómo instalar
 
 1. Descargá el ZIP de esta versión y extraelo en una carpeta de tu gusto (por ejemplo `C:\FNX Realistic Failures`). No lo extraigas dentro de las carpetas del simulador ni de `Community`.
-2. Ejecutá `RealFenixFailures.UI.exe`. Podés crear un acceso directo en el escritorio; la app es portable y no tiene instalador: dejá la carpeta donde está.
+2. Ejecutá `RealFenixFailures.exe`. Podés crear un acceso directo en el escritorio; la app es portable y no tiene instalador: dejá la carpeta donde está.
 3. Si Windows te pregunta sobre permisos de red la primera vez, aceptá: la app habla con la API del Fenix en tu propia PC (puerto 8083 por defecto, configurable en `appsettings.json`).
 4. Abrí MSFS con el Fenix y configurá la app desde la pestaña de ajustes (la base de datos y los logs se crean solos en `%AppData%\RealFenixFailures`).
 

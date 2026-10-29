@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  discussions: write
 
 jobs:
   publish:
@@ -19,6 +20,15 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore "Realistic Failures Solution/RealFenixFailures.slnx"
+
+      - name: Build (Release)
+        run: dotnet build "Realistic Failures Solution/RealFenixFailures.slnx" -c Release --no-restore
+
+      - name: Test (gate del release)
+        run: dotnet test "Realistic Failures Solution/RealFenixFailures.TestUnits/RealFenixFailures.TestUnits.csproj" -c Release --no-build
 
       - name: Publish (single-file, self-contained win-x64)
         run: >
@@ -35,7 +45,7 @@ jobs:
           $pub = Join-Path $env:RUNNER_TEMP "RealFenixFailures-publish"
           $stage = "$env:RUNNER_TEMP/RealFenixFailures"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          foreach ($f in @("RealFenixFailures.UI.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
+          foreach ($f in @("RealFenixFailures.exe", "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll", "appsettings.json")) {
             Copy-Item -LiteralPath (Join-Path $pub $f) -Destination $stage -ErrorAction Stop
           }
           if ($env:POSTHOG_PROJECT_API_KEY) {
@@ -80,3 +90,26 @@ jobs:
           if (Test-Path $notes) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           gh @ghArgs
+
+      - name: Anunciar el release en Discussions (Announcements)
+        # Solo corre si el release se publicó OK (los pasos previos fallan antes de llegar acá).
+        # Best-effort: un fallo del anuncio no marca el release como fallido.
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $repo = $env:GITHUB_REPOSITORY
+          $notes = Join-Path "docs/releases" "$tag.md"
+          if (Test-Path $notes) { $body = Get-Content -LiteralPath $notes -Raw -Encoding utf8 } else { $body = gh release view $tag --json body -q .body }
+          $body += "`n`n➡️ Download / Descarga: https://github.com/$repo/releases/tag/$tag"
+          # Crear discussions es GraphQL-only: primero los node IDs del repo y la categoría Announcements.
+          $owner, $name = $repo -split '/'
+          $ids = gh api graphql -f query='query($owner:String!,$name:String!){ repository(owner:$owner,name:$name){ id discussionCategories(first:10){ nodes{ id name } } } }' -f owner=$owner -f name=$name | ConvertFrom-Json
+          $category = $ids.data.repository.discussionCategories.nodes | Where-Object { $_.name -eq 'Announcements' }
+          if (-not $category) { throw 'Categoria Announcements no encontrada en Discussions' }
+          # El flag "announcement" del post no se expone por API: el post queda en la categoría; marcarlo es manual.
+          $result = gh api graphql -f query='mutation($rid:String!,$cid:String!,$title:String!,$body:String!){ createDiscussion(input:{repositoryId:$rid,categoryId:$cid,title:$title,body:$body}){ discussion{ url } } }' -f rid=$ids.data.repository.id -f cid=$category.id -f title="$tag released" -f body=$body | ConvertFrom-Json
+          Write-Output "Announcement creado: $($result.data.createDiscussion.discussion.url)"

@@ -250,6 +250,25 @@ namespace RealFenixFailures.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.AppVersionHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AppVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DetectedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppVersionHistories");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FailurePreset", b =>
                 {
                     b.Property<int>("Id")

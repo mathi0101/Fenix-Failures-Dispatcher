@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "❓ Question or support / Pregunta o soporte"
+    url: https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions/categories/q-a
+    about: "How to install, configure or use the app / Cómo instalar, configurar o usar la app"
+  - name: "💡 Open-ended idea / Idea abierta o sugerencia"
+    url: https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions/categories/ideas
+    about: "Early ideas and brainstorms; use the feature request form only for concrete proposals / Ideas tempranas y lluvias de ideas; usá el formulario de feature request solo para propuestas concretas"
+  - name: "🖼️ Show and tell / Mostrá tus vuelos"
+    url: https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions/categories/show-and-tell
+    about: "Share flights, screenshots and stories with the community / Compartí vuelos, capturas e historias con la comunidad"
+  - name: "🔒 Security vulnerability / Vulnerabilidad de seguridad"
+    url: https://github.com/mathi0101/Fenix-Failures-Dispatcher/blob/master/SECURITY.md
+    about: "Report privately — never open a public issue / Reportá de forma privada — nunca abras un issue público"

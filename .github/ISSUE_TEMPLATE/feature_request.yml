@@ -1,0 +1,49 @@
+name: "💡 Feature request / Sugerencia de mejora"
+description: "Propose a concrete improvement / Proponé una mejora concreta"
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for **concrete, actionable proposals** (e.g. "add an option to X", "the app should do Y when Z").
+        For early-stage ideas, open questions or brainstorms, use [Ideas in Discussions](https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions/categories/ideas) instead.
+
+        ✍️ You can write in **English or Spanish**.
+
+        ---
+
+        Este formulario es para **propuestas concretas y accionables** (ej. "agregar una opción para X", "la app debería hacer Y cuando Z").
+        Para ideas en estado temprano, dudas o lluvias de ideas, usá mejor [Ideas en Discussions](https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions/categories/ideas).
+
+        Podés escribir en **inglés o español**.
+  - type: textarea
+    id: problem
+    attributes:
+      label: "The problem it solves / El problema que resuelve"
+      description: "What frustration or gap does this address? Is it related to a problem you've had? / ¿Qué frustración o faltante ataca? ¿Está relacionado con un problema que tuviste?"
+      placeholder: "I'm always frustrated when... / Siempre me frustra que..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed solution / Solución propuesta"
+      description: "What exactly would you like to happen? / ¿Qué te gustaría exactamente que pase?"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered / Alternativas consideradas"
+      description: "Any other solutions or workarounds you've thought about / Cualquier otra solución o forma de lidiar con el problema que hayas pensado."
+  - type: textarea
+    id: realism
+    attributes:
+      label: "Realism notes / Notas de realismo"
+      description: "If the idea touches aviation realism: how does the real aircraft / the real procedure behave? / Si la idea toca el realismo aeronáutico: ¿cómo se comporta el avión real / el procedimiento real?"
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: "Willingness to help / Disposición a ayudar"
+      options:
+        - label: "I'm willing to help test this feature when it's ready / Estoy dispuesto/a a ayudar a probar esta función cuando esté lista"
