@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 2026-10-29 — chore(ci): gate de tests en el workflow Release + anuncio automático del release en Discussions (Announcements)
+
+- **Workflow `Release`**: build Release → suite completa (`dotnet test`, gate del release) → publish → ZIP → release → anuncio. Si los tests fallan, no se publica nada: el release deja de depender de que CI de `master` haya corrido antes del tag (el push del tag no dispara `ci.yml`).
+- **Anuncio en Discussions**: si el release se publicó OK, se crea en la categoría **Announcements** el post `<tag> released` con el cuerpo de `docs/releases/vX.Y.Z.md` (o el body del release si no hay notas curadas) + link de descarga. Best-effort (`continue-on-error`): su fallo no marca el release como fallido. Crear discussions es GraphQL-only (`createDiscussion`, permiso nuevo `discussions: write`); el flag "announcement" del post no se expone por API y queda manual.
+- **Docs**: `docs/desarrollo.md` (pasos 6-7 del runbook) y `docs/comunidad/canales-y-configuracion.md` (§7, automatización de anuncios).
+- No verificado en ejecución real: corre recién al pushear el próximo tag.
+
 ### 2026-10-29 — fix(realistic): recalibración de perfiles (probabilidad y desgaste) + reporte de balance regenerado
 
 - **Defaults de perfiles** (`FailureEngineSettings`): `ProbabilityMultiplier` Bajo 0.60→0.75, Alto 1.6→2.5, Squawk 7700 2.2→4.1 (Moderado queda en 1.1); `WearMaxMultiplier` reescalado a banda estrecha 2–2.3 (Bajo 2, Moderado 2.1, Alto 2.2, Squawk 7700 2.3; antes 2–4). Caps de agravación, fallas de tierra y respiro crítico sin cambios. Regenerados `docs/balance/balance-realistic.md` y `.xlsx` con los valores nuevos.

@@ -32,10 +32,6 @@ Toda la documentación **orientada al público** (README, templates, archivos de
 
 Las categorías de Discussions ya existen (son las default de GitHub: Announcements, General, Ideas, Polls, Q&A, Show and tell); el cambio es solo de uso y descripciones.
 
-## Pendiente de configuración en la web de GitHub (manual)
-
-Estos pasos requieren sesión con la cuenta `mathi0101` (o un token de esa cuenta con push). En esta tarea no se pudieron automatizar: el token disponible en el credential manager pertenece a `mgonzalez-quaris`, que no tiene acceso de push al repo.
-
 ### 1. Social preview y About (repo → ⚙️ Settings, al lado del nombre)
 
 - **Topics** (campo "Topics" del About, edit in place): `msfs`, `msfs2020`, `msfs2024`, `flight-simulator`, `fenix`, `a320`, `failure-simulation`, `simconnect`, `csharp`, `dotnet`, `wpf`, `flight-sim-tools`. Sumar estos mejora el descubrimiento en GitHub Search/Topics.
@@ -100,7 +96,7 @@ Happy landings (mostly)! / ¡Felices aterrizajes (casi siempre)!
 
 ### 7. Anuncio de release en Announcements
 
-Cada release nueva: crear una discussion en Announcements con el título del tag (`v0.4.1-beta.1 released`) y copiar el cuerpo de `docs/releases/vX.Y.Z.md` (ya se genera bilingüe según el runbook de release). Se puede automatizar después agregando un paso al workflow `Release` (acciones `github-discussion`-style) — tarea futura.
+Cada release nueva: crear una discussion en Announcements con el título del tag (`v0.4.1-beta.1 released`) y copiar el cuerpo de `docs/releases/vX.Y.Z.md` (ya se genera bilingüe según el runbook de release). **Automatizado**: el workflow `Release` crea la discussion sola al publicar el release (GraphQL `createDiscussion` con `discussions: write`; cuerpo = notas curadas o body del release + link de descarga; best-effort, su fallo no afecta el release). Único paso manual: marcar el post como "announcement" si se quiere el estilo destacado — la API de GitHub no expone ese flag.
 
 ## Wiki
 
