@@ -116,6 +116,6 @@ Documentación:
 
 ## Licencia y donaciones
 
-Proyecto bajo **Licencia Apache 2.0** (ver [LICENSE](LICENSE)). Si el software te resulta útil y querés apoyar su mejora, podés realizar una donación voluntaria.
+Proyecto bajo **Licencia Apache 2.0** (ver [LICENSE](LICENSE)). Si el software te resulta útil y querés apoyar su mejora, podés realizar una donación voluntaria. Es un proyecto independiente de una sola persona: nadie más trabaja en él — me impulsa el hobby y las ganas de más realismo en cada vuelo. Cada dólar ayuda a empujar el proyecto, me da más ganas de seguir mejorando la app y me permite asignarle más recursos.
 
 Al contribuir, aceptás que tus aportes se licencien bajo la misma licencia (ver [CONTRIBUTING.md](CONTRIBUTING.md)).
