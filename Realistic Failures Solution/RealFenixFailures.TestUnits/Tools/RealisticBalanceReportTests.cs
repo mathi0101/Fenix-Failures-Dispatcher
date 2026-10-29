@@ -9,7 +9,6 @@ using RealFenixFailures.Domain.Services;
 using System.Drawing;
 using System.Globalization;
 using System.Text;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace RealFenixFailures.TestUnits.Tools;
@@ -161,18 +160,18 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         }
         FormatTable(sheet, statsHeader, row - 1, columns: 6);
 
-        // Experiencia por vuelo (centro, col I): lo que siente el jugador, a 3 h con desgaste 0/25/100 %.
+        // Experiencia por vuelo (centro, col I): lo que siente el jugador, a 3 h con desgaste 0/50/100 %.
         const int expCol = 9;
-        sheet.Cells[4, expCol].Value = $"Experiencia por vuelo ({FlightHours:0.#} h; desgaste 0 / 25 / 100 %)";
+        sheet.Cells[4, expCol].Value = $"Experiencia por vuelo ({FlightHours:0.#} h; desgaste 0 / 50 / 100 %)";
         sheet.Cells[4, expCol].Style.Font.Bold = true;
         WriteHeaderRow(sheet, 5, expCol, "Perfil", "Desgaste", "E[fallas]", "P(≥1 falla)", "P(≥1 grave)", "P(≥1 crítica)", "1 crítica cada");
         var expRow = 6;
         foreach (var risk in Risks)
-            foreach (var wear in new[] { 0.0, 25.0, 100.0 }) {
+            foreach (var wear in new[] { 0.0, 50.0, 100.0 }) {
                 var e = wearByProfile[risk].First(r => r.WearPct == wear).Expectation;
                 var total = e.TotalPerHour * FlightHours;
                 var nameCell = sheet.Cells[expRow, expCol];
-                nameCell.Value = ProfileName(risk);
+                nameCell.Value = $"{ProfileName(risk)} {wear} %";
                 nameCell.Style.Font.Bold = true;
                 nameCell.Style.Font.Color.SetColor(Accent(risk));
                 WriteWear(sheet.Cells[expRow, expCol + 1], wear);
@@ -218,6 +217,8 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         FormatTable(sheet, anchorHeader, row - 1, columns: 4);
 
         sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
+        sheet.Column(1).Width = 15;
+        sheet.Column(9).Width = 17;
     }
 
     /// <summary>Hoja cruda de un perfil: tabla por escala (1/10/100 h) con el desgaste como filas, más la semilla de tierra.</summary>
