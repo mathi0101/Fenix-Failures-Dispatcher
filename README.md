@@ -68,7 +68,7 @@ If you found a bug, the most useful things are: what you were doing, what you ex
 
 ## Privacy and telemetry
 
-The app can send **one anonymous ping per day** (when you open it) to measure how many people use it. That is everything that leaves your machine: app version, Windows version and a random identifier with no relation to you or your PC. The country is inferred server-side and the IP is not stored; **flight data, simulator content, routes or anything personal are never sent**.
+The app sends **anonymous usage statistics** to see how it is used and make it better with every version. Flight data, simulator content, routes or anything personal are never sent.
 
 You can turn it off in **Settings → General → "Send anonymous usage statistics"**, and the app works exactly the same without it. With the option off, the only outbound traffic is the update check (GitHub) and SimBrief (if you loaded your ID).
 

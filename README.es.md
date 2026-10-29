@@ -68,7 +68,7 @@ Si encontrás un bug, lo más útil es: qué estabas haciendo, qué esperabas qu
 
 ## Privacidad y telemetría
 
-La app puede enviar **un ping anónimo por día** (al abrirla) para medir cuánta gente usa la app. Eso es todo lo que sale: versión de la app, versión de Windows y un identificador aleatorio que no tiene relación con vos ni con tu PC. El país se deduce en el servidor y la IP no se guarda; **nunca** se envían datos de vuelo, contenido del simulador, rutas ni nada personal.
+La app envía **estadísticas anónimas de uso** para saber cómo se usa y mejorarla en cada versión. Nunca incluyen datos de vuelo, contenido del simulador, rutas ni nada personal.
 
 Podés apagarlo en **Ajustes → General → «Enviar estadísticas anónimas de uso»**, y la app funciona igual sin él. Con la opción apagada, lo único que sale a internet es la consulta de actualizaciones (GitHub) y SimBrief (si cargaste tu ID).
 

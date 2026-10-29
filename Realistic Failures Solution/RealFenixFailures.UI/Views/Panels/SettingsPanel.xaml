@@ -196,7 +196,7 @@
                                           HorizontalAlignment="Left" HorizontalContentAlignment="Left"
                                           Foreground="{StaticResource Brush.Text.Primary}"
                                           Content="Enviar estadísticas anónimas de uso"/>
-                                <TextBlock Text="Un ping por día al abrir la app: se envía versión utilizada. Sin datos de vuelo, ni datos personales, ni contenido del simulador. El país se deriva en el servidor y la IP no se almacena. Podés apagarlo cuando quieras."
+                                <TextBlock Text="Estadísticas anónimas de uso: nos ayudan a mejorar la app en cada versión. Nunca incluyen datos de vuelo ni información personal. Podés apagarlo cuando quieras."
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,2,0,0"/>

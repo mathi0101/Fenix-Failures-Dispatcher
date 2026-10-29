@@ -2,6 +2,8 @@
 
 Documento de la telemetría de `RealFenixFailures.UI`: qué se envía, cómo, dónde se configura y qué hace falta para que funcione en producción. Fuente única del tema.
 
+> **Propósito (mensaje oficial, va siempre que se describan las estadísticas al usuario)**: son anónimas y existen para mejorar la app. El mensaje al usuario se mantiene simple — sin enumerar eventos, propiedades ni detalles de qué se envía; la promesa de privacidad (nunca datos de vuelo ni personales) y el opt-out sí se mencionan siempre. El detalle técnico completo vive solo en este doc.
+
 ## Qué se envía (y qué no)
 
 Eventos anónimos por instalación (ingesta HTTP directa a PostHog, sin SDK):
