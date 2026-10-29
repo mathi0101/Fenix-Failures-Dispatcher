@@ -15,6 +15,9 @@ public static class DependencyInjection {
         services.AddSingleton<TimeProvider>(static provider => provider.GetRequiredService<ScaledTimeProvider>());
 
         services.AddScoped<IPresetService, PresetService>();
+        // Corre antes que DatabaseSeeder para que la transición de versión quede
+        // registrada antes que cualquier otro inicializador del arranque.
+        services.AddScoped<IInitializerService, AppVersionTracker>();
         services.AddScoped<IInitializerService, DatabaseSeeder>();
         services.AddScoped<IFlightSessionService, FlightSessionService>();
         services.AddScoped<ISimbriefOfpService, SimbriefOfpService>();

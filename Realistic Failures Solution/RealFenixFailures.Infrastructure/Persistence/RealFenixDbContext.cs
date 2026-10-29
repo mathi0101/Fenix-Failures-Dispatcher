@@ -22,6 +22,7 @@ public class RealFenixDbContext : DbContext {
     public DbSet<AircraftWearableSystem> AircraftWearableSystems => Set<AircraftWearableSystem>();
     public DbSet<AircraftSystemWear> AircraftSystemWears => Set<AircraftSystemWear>();
     public DbSet<FlightPlan> FlightPlans => Set<FlightPlan>();
+    public DbSet<AppVersionHistory> AppVersionHistories => Set<AppVersionHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
 
@@ -205,6 +206,12 @@ public class RealFenixDbContext : DbContext {
                   .WithMany()
                   .HasForeignKey(x => x.TriggeredFailureId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AppVersionHistory>(entity => {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.AppVersion).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.DetectedAtUtc).IsRequired();
         });
 
         SeedData.Apply(modelBuilder);

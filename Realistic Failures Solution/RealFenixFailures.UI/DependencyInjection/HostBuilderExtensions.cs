@@ -39,6 +39,7 @@ public static class HostBuilderExtensions {
                 services.AddSingleton<TelemetrySettings>(sp => sp.GetRequiredService<IOptions<TelemetrySettings>>().Value);
                 services.AddSingleton<TelemetryService>();
                 services.AddSingleton<IUpdateChecker, GithubUpdateChecker>();
+                services.AddSingleton<IAppVersionProvider, AppVersionProvider>();
                 services.AddSingleton<IRealisticExpectationService, RealisticExpectationService>();
                 services.AddTransient<SettingsWindowViewModel>();
                 services.AddTransient<MainWindow>();

@@ -15,14 +15,16 @@ RealFenixFailures.UI ── WPF + MVVM, compone el host y la DI
 RealFenixFailures.TestUnits ── xUnit (Domain + Integrations.SimConnect)
 ```
 
-- Domain: entidades (FlightSession, SessionEventLog, TriggeredFailure, UserAircraft, AircraftSystemWear, FailurePreset, PresetFailureDefinition, FenixFailureDefinition…), enums (RiskLevel, ComplexFlightPhaseEnum, FailureSeverity, SessionEventCategory…), reglas puras (`FailureRuleEvaluator`, `FailureTrigger`), `IFailureTrigger`, `IFailureRuleEvaluator`, repositorios (contratos), `EmbeddedJsonLoader`. `TriggeredFailure` guarda un **snapshot histórico** del preset/condición al disparar (nombre/severidad de la falla, preset, probabilidad/grupo, IAS, altitudes, tiempo, after-event) para que el historial no dependa del catálogo mutable.
+- Domain: entidades (FlightSession, SessionEventLog, TriggeredFailure, UserAircraft, AircraftSystemWear, FailurePreset, PresetFailureDefinition, FenixFailureDefinition, AppVersionHistory…), enums (RiskLevel, ComplexFlightPhaseEnum, FailureSeverity, SessionEventCategory…), reglas puras (`FailureRuleEvaluator`, `FailureTrigger`), `IFailureTrigger`, `IFailureRuleEvaluator`, repositorios (contratos), `EmbeddedJsonLoader`. `TriggeredFailure` guarda un **snapshot histórico** del preset/condición al disparar (nombre/severidad de la falla, preset, probabilidad/grupo, IAS, altitudes, tiempo, after-event) para que el historial no dependa del catálogo mutable.
 - Application: `EngineOrchestrator`, `RealisticSessionManager`, `FlightEventDetector`, `FlightSessionService`, `SimulatorConnectionService`, DTOs, interfaces (`IFlightSessionService`, `IFlightEventDetector`, `IFlightSimulationController`, `ISimulatorConnectionService`, `IRealisticSessionManager`…).
 - Infrastructure: `RealFenixDbContext` (EF Core + SQLite), repositorios, `Migrations/`, `SeedData`, `FailuresPersistenceService`, `PresetsLoader`, `UserAircraftService`, logging Serilog.
 - Integrations.Fenix: `FenixApiClient` (HTTP), `MockFenixApiClient`, `FenixApiFailureService` (implementa `IFenixFailureApiDispatcher`), modelos del payload y mappers.
 - Integrations.SimConnect: `SimConnectClient` (real, `IFlightSimulationController`), `MockSimConnectClient`, `SimulatorFlightDataProvider` (implementa `ISimFlightDataProvider`), `AircraftStateData`/`SimConnectAircraftState`.
-- UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre cada `IInitializerService.InitializeAsync()` resolviendo `IEnumerable<IInitializerService>` (en orden de registro: `DatabaseSeeder`, punto único de orquestación del catálogo de fallas y presets; y, **solo en DEBUG**, `DebugSampleDataSeeder`, que siembra la aeronave de ejemplo con sesiones, fallas y desgaste) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
+- UI: `App` arranca `IHost`, aplica `MigrateAsync()`, corre cada `IInitializerService.InitializeAsync()` resolviendo `IEnumerable<IInitializerService>` (en orden de registro: `AppVersionTracker`, que registra la transición de versión en `AppVersionHistories`; `DatabaseSeeder`, punto único de orquestación del catálogo de fallas y presets; y, **solo en DEBUG**, `DebugSampleDataSeeder`, que siembra la aeronave de ejemplo con sesiones, fallas y desgaste) y muestra `MainWindow`. `MainWindowViewModel` inicia el timer automático del orquestador y suscribe eventos del detector.
 
 En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTypeId` como FK a `FailurePresetTypes`; EF ignora la propiedad enum de conveniencia `FailurePreset.PresetType`. La migración inicial `InitialRelease` crea directamente este modelo sin columna duplicada.
+
+**Historial de versiones (`AppVersionHistories`)**: en cada arranque, `AppVersionTracker` (primer `IInitializerService` del pipeline) compara la versión en ejecución (`IAppVersionProvider`, registrado por la UI, que es quien conoce `AppVersionInfo`) con la última fila registrada; si difiere —primera ejecución, upgrade o downgrade— inserta una fila con `AppVersion` y `DetectedAtUtc`. No es un log de arranques: solo transiciones. Queda como detector para la futura recarga de los catálogos embebidos (`failures.json` / `training_presets.json`) tras un cambio de versión: cuando esa lógica exista, «última versión registrada distinta de la actual» será la condición de re-seed.
 
 ## DI
 
@@ -30,8 +32,8 @@ En `FailurePresets`, la única columna de tipo es `PresetType`: mapea `PresetTyp
 
 Lifetimes relevantes (Application DI):
 
-- Scoped: `IPresetService`, `IInitializerService` (implementado por `DatabaseSeeder` y, solo en DEBUG, por `DebugSampleDataSeeder`), **`IFlightSessionService`**, `IEngineOrchestrator`.
-- Singleton: `ISimulatorConnectionService`, **`IFlightEventDetector`**, **`IRealisticSessionManager`**.
+- Scoped: `IPresetService`, `IInitializerService` (implementado por `AppVersionTracker`, `DatabaseSeeder` y, solo en DEBUG, por `DebugSampleDataSeeder`), **`IFlightSessionService`**, `IEngineOrchestrator`.
+- Singleton: `ISimulatorConnectionService`, **`IAppVersionProvider`** (implementado en UI sobre `AppVersionInfo`), **`IFlightEventDetector`**, **`IRealisticSessionManager`**.
 
 El `RealisticSessionManager` (singleton) **no captura servicios scoped**: en `StartNewSessionAsync` crea un `IServiceScope` por sesión (`IServiceScopeFactory.CreateScope()`) y resuelve de ahí `IFlightSessionService`, `IPresetService` e `IFailureTrigger` para construir cada `RealisticSessionEngine`; el scope se descarta al parar (`StopAsync`) — **scope por sesión**.
 

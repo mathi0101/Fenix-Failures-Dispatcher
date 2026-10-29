@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 2026-10-29 — feat(infra): historial de versiones de la app en la base (`AppVersionHistory`)
+
+- **Tabla nueva `AppVersionHistories`** (migración `AddAppVersionHistory`): `Id`, `AppVersion` (≤50) y `DetectedAtUtc`. Registra **una fila por transición de versión** —primera ejecución, upgrade o downgrade—, no por arranque: queda el historial de qué versiones pasó cada instalación (incluida la `.db` del share de testing).
+- **`AppVersionTracker`** (Application, `IInitializerService` nuevo que corre **primero** en el pipeline de arranque, antes que `DatabaseSeeder`): al iniciar, compara la versión en ejecución con la última fila registrada y agrega una entrada si difiere, con log `Cambio de versión detectado: X -> Y`. La versión la aporta `IAppVersionProvider` (interfaz en Application, implementada en UI sobre `AppVersionInfo`; Infrastructure no referencia UI). Sin condición de carrera: instancia única garantizada por `SingleInstanceGuard`.
+- **Propósito futuro**: es el detector para la recarga de catálogos embebidos (`failures.json` / `training_presets.json`) cuando una versión nueva los cambie — hoy el catálogo solo se carga si la tabla está vacía (`FailuresPersistenceService`); cuando exista la recarga, «última versión registrada ≠ versión actual» disparará el re-seed. La implementación de esa recarga queda fuera de scope (otra versión).
+- **Doc**: `docs/arquitectura.md` (bullet UI y lifetimes DI actualizados + párrafo nuevo del historial de versiones).
+- Verificado: build Debug y Release 0 errores; suite **261/261** (6 tests nuevos: 4 del tracker —primera ejecución, misma versión, nueva versión y downgrade— y 2 del repositorio sobre SQLite en memoria); migración aplicada sobre base SQLite nueva aislada (cadena completa `InitialRelease` → `AddAppVersionHistory`, tabla creada). **No verificado en sesión real**: el registro efectivo ocurre al primer arranque de la app sobre la base de `%AppData%`.
+
 ### 2026-10-28 — docs(repo): infraestructura de comunidad bilingüe (templates de issue, archivos de comunidad, README EN/ES)
 
 - **Formularios guiados de issue** (`.github/ISSUE_TEMPLATE/`): `bug.yml` (qué pasó / pasos / esperado / modo de la app / simulador / versión / log del día `%AppData%\RealFenixFailures\logs\` / checklist con búsqueda de duplicados) y `feature_request.yml` (propuestas concretas, con campo de notas de realismo); ambos bilingües EN+ES y con `triage` automático. `config.yml` bloquea issues en blanco y hace routing: preguntas → Discussions Q&A, ideas abiertas → Ideas, capturas → Show and tell, seguridad → SECURITY.md.
