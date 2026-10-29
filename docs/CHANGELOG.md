@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-10-29 — fix(realistic): recalibración de perfiles (probabilidad y desgaste) + reporte de balance regenerado
+
+- **Defaults de perfiles** (`FailureEngineSettings`): `ProbabilityMultiplier` Bajo 0.60→0.75, Alto 1.6→2.5, Squawk 7700 2.2→4.1 (Moderado queda en 1.1); `WearMaxMultiplier` reescalado a banda estrecha 2–2.3 (Bajo 2, Moderado 2.1, Alto 2.2, Squawk 7700 2.3; antes 2–4). Caps de agravación, fallas de tierra y respiro crítico sin cambios. Regenerados `docs/balance/balance-realistic.md` y `.xlsx` con los valores nuevos.
+- **Herramienta de balance** (`RealisticBalanceReportTests`): curva de desgaste 0/50/100 % (antes 0/25/100), etiquetas de perfil con el % de desgaste en la hoja «Experiencia por vuelo», anchos de columna fijos y `using Xunit` sin uso removido.
+- Verificado: build Debug 0 errores y suite 261/261. No verificado en sesión real MSFS/Fenix.
+
 ### 2026-10-29 — feat(infra): historial de versiones de la app en la base (`AppVersionHistory`)
 
 - **Tabla nueva `AppVersionHistories`** (migración `AddAppVersionHistory`): `Id`, `AppVersion` (≤50) y `DetectedAtUtc`. Registra **una fila por transición de versión** —primera ejecución, upgrade o downgrade—, no por arranque: queda el historial de qué versiones pasó cada instalación (incluida la `.db` del share de testing).
