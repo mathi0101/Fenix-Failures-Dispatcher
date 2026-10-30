@@ -116,6 +116,6 @@ Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md). For support, see [SU
 
 ## License and donations
 
-This project is under the **Apache License 2.0** (see [LICENSE](LICENSE)). If the software is useful to you and you'd like to support its improvement, you can make a voluntary donation.
+This project is under the **Apache License 2.0** (see [LICENSE](LICENSE)). If the software is useful to you and you'd like to support its improvement, you can make a voluntary donation. This is an independent, one-person project: nobody else works on it — it's a hobby fueled by the wish for more realism in every flight. Every dollar helps push the project forward, keeps me motivated to keep improving the app, and lets me put more resources into it.
 
 By contributing, you agree that your contributions will be licensed under the same license (see [CONTRIBUTING.md](CONTRIBUTING.md)).

@@ -1,5 +1,20 @@
 # CHANGELOG
 
+### 2026-10-30 — fix(realistic): segunda ronda de calibración de perfiles + reporte de balance regenerado
+
+- Defaults de perfiles (`FailureEngineSettings`): `ProbabilityMultiplier` Bajo 0.75→1, Moderado 1.1→1.5, Alto 2.5→3.5, Squawk 7700 4.1→6; `WearMaxMultiplier` Moderado 2.1→2.6, Alto 2.2→3, Squawk 7700 2.3→3 (Bajo queda 2); tregua tras falla crítica: Moderado 120→180 min, Alto 60→120 min, Squawk 7700 30→60 min. Regenerados `docs/balance/balance-realistic.md` y `.xlsx`.
+- Verificado: build Release 0 errores y suite 261/261. No verificado en sesión real MSFS/Fenix.
+
+### 2026-10-30 — chore(ui): ajustes de payloads de telemetría
+
+- `app_closed` ahora envía `session_duration_minutes` (antes `session_duration_seconds`); `os_version` consolidada en una propiedad (versión + bits), se quitan `os_bitness` y `$os`. Sin cambios de comportamiento para el usuario; opt-out intacto.
+
+### 2026-10-29 — fix(ci): test de desgaste flaky bajo carga + type mismatch del anuncio en Discussions
+
+- **Test**: `StopAsync_TwoScenarioHours_*` (2 tests de `RealisticSessionManagerTests`) reemplazó el `Task.Delay(200)` fijo por una espera determinística del primer tick del loop (poll con timeout de 5 s sobre las llamadas a `ProcessSnapshot`, que es donde el mock ancla el `EnginesStarted`). Bajo carga (runner de CI en Release), el Delay corría antes del primer tick, el desgaste quedaba sin anclar y el delta daba 0 → 50 ≠ 51,2. Localmente pasaba por timing; la falla solo se veía en CI.
+- **Workflow `Release`**: la mutación `createDiscussion` declaraba `rid`/`cid` como `String!` pero el API espera `ID!` → type mismatch y post nunca creado. Variables ahora `ID!` (viajan como string, que es válido para ID), y los dos `gh api graphql` verifican `$LASTEXITCODE` con `throw` con mensaje claro (antes un fallo dejaba "Announcement creado: " vacío y salía con exit 1 sin diagnóstico). Sigue siendo best-effort (`continue-on-error`).
+- Verificado: build Release 0 errores; suite 261/261; los 10 tests de `RealisticSessionManagerTests` × 10 corridas seguidas en verde. El paso del anuncio se verifica en el próximo tag real.
+
 ### 2026-10-29 — chore(ci): gate de tests en el workflow Release + anuncio automático del release en Discussions (Announcements)
 
 - **Workflow `Release`**: build Release → suite completa (`dotnet test`, gate del release) → publish → ZIP → release → anuncio. Si los tests fallan, no se publica nada: el release deja de depender de que CI de `master` haya corrido antes del tag (el push del tag no dispara `ci.yml`).

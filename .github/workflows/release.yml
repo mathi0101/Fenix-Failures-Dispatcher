@@ -82,12 +82,16 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          # Flag de prueba (una versión): NO usar las notas curadas como body del release y dejar que
+          # GitHub las genere (--generate-notes). El archivo docs/releases/<tag>.md sigue en el repo y
+          # en el ZIP; solo este body pasa a ser auto-generado.
+          FORCE_GENERATED_NOTES: "true"
         run: |
           $tag = $env:GITHUB_REF_NAME
           $zip = Join-Path $env:RUNNER_TEMP "RealFenixFailures-$tag-win-x64.zip"
           $notes = Join-Path "docs/releases" "$tag.md"
           $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--title', $tag)
-          if (Test-Path $notes) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
+          if ($env:FORCE_GENERATED_NOTES -ne 'true' -and (Test-Path $notes)) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           gh @ghArgs
 
@@ -107,9 +111,16 @@ jobs:
           $body += "`n`n➡️ Download / Descarga: https://github.com/$repo/releases/tag/$tag"
           # Crear discussions es GraphQL-only: primero los node IDs del repo y la categoría Announcements.
           $owner, $name = $repo -split '/'
-          $ids = gh api graphql -f query='query($owner:String!,$name:String!){ repository(owner:$owner,name:$name){ id discussionCategories(first:10){ nodes{ id name } } } }' -f owner=$owner -f name=$name | ConvertFrom-Json
+          $ids = gh api graphql -f query='query($owner:String!,$name:String!){ repository(owner:$owner,name:$name){ id discussionCategories(first:10){ nodes{ id name } } } }' -f owner=$owner -f name=$name
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron leer los IDs de Discussions (gh exit $LASTEXITCODE)" }
+          $ids = $ids | ConvertFrom-Json
           $category = $ids.data.repository.discussionCategories.nodes | Where-Object { $_.name -eq 'Announcements' }
           if (-not $category) { throw 'Categoria Announcements no encontrada en Discussions' }
           # El flag "announcement" del post no se expone por API: el post queda en la categoría; marcarlo es manual.
-          $result = gh api graphql -f query='mutation($rid:String!,$cid:String!,$title:String!,$body:String!){ createDiscussion(input:{repositoryId:$rid,categoryId:$cid,title:$title,body:$body}){ discussion{ url } } }' -f rid=$ids.data.repository.id -f cid=$category.id -f title="$tag released" -f body=$body | ConvertFrom-Json
-          Write-Output "Announcement creado: $($result.data.createDiscussion.discussion.url)"
+          # rid/cid son ID! (no String!): GraphQL los rechaza si se declaran String! aunque viajen como string.
+          $result = gh api graphql -f query='mutation($rid:ID!,$cid:ID!,$title:String!,$body:String!){ createDiscussion(input:{repositoryId:$rid,categoryId:$cid,title:$title,body:$body}){ discussion{ url } } }' -f rid=$ids.data.repository.id -f cid=$category.id -f title="$tag released" -f body=$body
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo crear la discussion (gh exit $LASTEXITCODE)" }
+          $result = $result | ConvertFrom-Json
+          $url = $result.data.createDiscussion.discussion.url
+          if (-not $url) { throw "createDiscussion no devolvio URL: $($result | ConvertTo-Json -Depth 5)" }
+          Write-Output "Announcement creado: $url"

@@ -80,12 +80,21 @@ public class RealisticSessionManagerTests {
             .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        var snapshots = new List<SimulatorAircraftStateSnapshot>();
         _flightEventDetector
             .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
-            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
-                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Callback<SimulatorAircraftStateSnapshot>(snapshot => {
+                snapshots.Add(snapshot);
+                _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                    new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos"));
+            })
             .Returns(ComplexFlightPhaseEnum.Cruise);
-        await Task.Delay(200);
+        // Determinístico: esperar (con timeout) el primer tick del loop, que es quien llama ProcessSnapshot
+        // y ancla el ENGINES_STARTED; un Delay fijo corre antes del primer tick en CI y deja el desgaste sin anclar.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (snapshots.Count == 0 && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+        Assert.NotEmpty(snapshots);
         _now = _now.AddHours(2);
 
         await manager.StopAsync(CancellationToken.None);
@@ -120,12 +129,21 @@ public class RealisticSessionManagerTests {
             .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        var snapshots = new List<SimulatorAircraftStateSnapshot>();
         _flightEventDetector
             .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
-            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
-                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Callback<SimulatorAircraftStateSnapshot>(snapshot => {
+                snapshots.Add(snapshot);
+                _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                    new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos"));
+            })
             .Returns(ComplexFlightPhaseEnum.Cruise);
-        await Task.Delay(200);
+        // Determinístico: esperar (con timeout) el primer tick del loop, que es quien llama ProcessSnapshot
+        // y ancla el ENGINES_STARTED; un Delay fijo corre antes del primer tick en CI y deja el desgaste sin anclar.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (snapshots.Count == 0 && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+        Assert.NotEmpty(snapshots);
         _now = _now.AddHours(2);
 
         await manager.StopAsync(CancellationToken.None);

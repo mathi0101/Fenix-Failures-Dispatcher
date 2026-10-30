@@ -408,7 +408,7 @@
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
                                 <TextBlock Text="Ayudá a que el proyecto siga creciendo" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
-                                <TextBlock Text="Si disfrutás Real Fenix Failures, podés apoyar su desarrollo con una donación voluntaria. ¡Gracias por acompañar el proyecto!" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,10"/>
+                                <TextBlock Text="Si disfrutás Real Fenix Failures, podés apoyar su desarrollo con una donación voluntaria. Es un proyecto independiente de una sola persona: nadie me ayuda, me impulsa solo el hobby y el querer mayor realismo en cada vuelo. Cada dólar ayuda a impulsar el proyecto, me da más ganas de seguir mejorando la app y me permite asignarle más recursos. ¡Gracias por acompañar el proyecto!" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,10"/>
                                 <TextBlock Text="{Binding DonationUrl}" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
                                 <Button Content="Apoyar en Ko-fi" Style="{StaticResource DonationButtonStyle}" Command="{Binding OpenDonationCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
