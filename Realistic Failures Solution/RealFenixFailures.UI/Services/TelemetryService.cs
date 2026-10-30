@@ -1,8 +1,7 @@
+using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace RealFenixFailures.UI.Services;
 
@@ -88,7 +87,7 @@ public sealed class TelemetryService {
                 return;
 
             var payload = BuildPayload("app_closed", new Dictionary<string, object?> {
-                ["session_duration_seconds"] = Math.Round((DateTime.UtcNow - _startedAtUtc).TotalSeconds, 1)
+                ["session_duration_minutes"] = Math.Round((DateTime.UtcNow - _startedAtUtc).TotalMinutes, 1)
             });
             SendAsync(payload).Wait(TimeSpan.FromSeconds(ShutdownSendTimeoutSeconds));
         }
@@ -133,9 +132,7 @@ public sealed class TelemetryService {
     private Dictionary<string, object?> BuildPayload(string eventName, Dictionary<string, object?>? extraProperties) {
         var properties = new Dictionary<string, object?> {
             ["app_version"] = AppVersionInfo.Current,
-            ["os_version"] = Environment.OSVersion.VersionString,
-            ["os_bitness"] = Environment.Is64BitOperatingSystem ? "x64" : "otro",
-            ["$os"] = "Windows",
+            ["os_version"] = Environment.OSVersion.VersionString + " " + (Environment.Is64BitOperatingSystem ? "x64" : "otro"),
             ["$browser"] = "Real Fenix Failures (desktop)"
         };
         if (extraProperties is not null) {
