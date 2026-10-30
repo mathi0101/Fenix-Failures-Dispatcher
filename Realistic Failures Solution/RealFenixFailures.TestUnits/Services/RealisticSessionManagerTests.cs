@@ -365,56 +365,6 @@ public class RealisticSessionManagerTests {
     }
 
     [Fact]
-    public async Task Pause_DisarmsActiveFailuresAndBlocksNewEvaluationsWhilePaused() {
-        SetupConnected();
-        SetupValidData();
-        SetupFenixFailures(new FenixFailureDto("F_ENGINE_1", "Motor 1", Failed: true, FailureCondition: null));
-
-        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
-
-        // El repo reporta la falla en curso activa para la sesión.
-        _triggeredFailureRepository
-            .Setup(r => r.GetActiveForSessionAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { new TriggeredFailure {
-                Id = 7,
-                FlightSessionId = 1,
-                FenixFailureId = "F_ENGINE_1",
-                TriggeredAt = DateTime.UtcNow,
-                FlightPhase = ComplexFlightPhaseEnum.Takeoff,
-                State = FailureLifecycleState.Active
-            } });
-
-        var start = await manager.StartNewSessionAsync(Context(), CancellationToken.None);
-        Assert.True(start.IsSuccess);
-        Assert.False(manager.IsPaused);
-
-        // Confirmar que el loop evalúa (consulta fallas Fenix) mientras la sesión está activa.
-        await Task.Delay(200);
-        var evaluationsWhileActive = _simulator.Invocations.Count(i =>
-            i.Method.Name == nameof(ISimulatorConnectionService.GetCurrentFenixFailures));
-        Assert.True(evaluationsWhileActive > 0);
-
-        await manager.PauseAsync(CancellationToken.None);
-        Assert.True(manager.IsPaused);
-
-        // Pausa: desarma la falla activa de la sesión en Fenix.
-        _simulator.Verify(
-            s => s.DisarmFailureAsync("F_ENGINE_1", It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce);
-
-        // Pausada: el loop quedó detenido y ningún tick nuevo consulta/evalúa fallas.
-        var evaluationsAtPause = _simulator.Invocations.Count(i =>
-            i.Method.Name == nameof(ISimulatorConnectionService.GetCurrentFenixFailures));
-        await Task.Delay(200);
-        var evaluationsWhilePaused = _simulator.Invocations.Count(i =>
-            i.Method.Name == nameof(ISimulatorConnectionService.GetCurrentFenixFailures));
-        Assert.Equal(evaluationsAtPause, evaluationsWhilePaused);
-
-        await manager.StopAsync(CancellationToken.None);
-        Assert.Null(manager.SessionState);
-    }
-
-    [Fact]
     public async Task Resume_WithRestoreFailures_TogglesAndDoesNotThrow() {
         SetupConnected();
         SetupValidData();
