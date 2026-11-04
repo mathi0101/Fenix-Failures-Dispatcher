@@ -81,7 +81,7 @@ public class RealisticSessionEnginePersistenceTests {
         var settings = new RealisticModeSettings {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
-            Physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 1.0 },
+            Physics = new RealisticPhysicsSettings { GroundSeedLambdaBase = 1.0 },
             Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap },
             Moderate = new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
         };

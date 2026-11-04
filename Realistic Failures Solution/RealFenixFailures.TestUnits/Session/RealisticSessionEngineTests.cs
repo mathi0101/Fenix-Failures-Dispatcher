@@ -221,7 +221,7 @@ public class RealisticSessionEngineTests {
             .Setup(r => r.GetAllWithSystemsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<FenixFailureDefinition> { repairable, permanent, major });
         var settings = DefaultSettings();
-        settings.Physics.GroundSeedBaseProbability = 1.0;
+        settings.Physics.GroundSeedLambdaBase = 1.0;
         var engine = CreateEngine(settings);
         Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
 
@@ -1024,7 +1024,10 @@ public class RealisticSessionEngineTests {
         _sessionService
             .Setup(s => s.AddTriggeredFailureAsync(It.IsAny<int>(), It.IsAny<PresetFailureDefinition>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        var engine = CreateEngine();
+        // El test ejercita el score de vuelo: sin semilla de tierra (determinismo).
+        var settings = DefaultSettings();
+        settings.GroundFailureEnabled = false;
+        var engine = CreateEngine(settings);
         var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
         Assert.True(start.Started);
 
@@ -1142,7 +1145,10 @@ public class RealisticSessionEngineTests {
         SetupConnected(fenixConnected: false);
         SetupOnGateData();
         SetupValidPersistence(definitions: new[] { Def("F_ENGINE_1", FailureSeverity.Minor) });
-        var engine = CreateEngine();
+        // El test ejercita la cola de preparados: sin semilla de tierra (determinismo).
+        var noGround = DefaultSettings();
+        noGround.GroundFailureEnabled = false;
+        var engine = CreateEngine(noGround);
         var start = await engine.TryStartSession(Context(), CancellationToken.None);
         Assert.True(start.Started);
         Assert.Equal(0, engine.PreparedCount);
@@ -1240,7 +1246,10 @@ public class RealisticSessionEngineTests {
                 TriggeredAt = _now, FlightPhase = ComplexFlightPhaseEnum.Unknown,
                 State = FailureLifecycleState.Active, Severity = FailureSeverity.Minor
             }).ToArray());
-        var engine = CreateEngine();
+        // El test ejercita el flush de preparados: sin semilla de tierra (determinismo).
+        var noGround = DefaultSettings();
+        noGround.GroundFailureEnabled = false;
+        var engine = CreateEngine(noGround);
         var start = await engine.TryStartSession(Context(RiskLevel.Moderate), CancellationToken.None);
         Assert.True(start.Started);
 

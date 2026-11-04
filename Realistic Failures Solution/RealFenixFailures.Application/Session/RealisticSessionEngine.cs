@@ -761,11 +761,12 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: acumulan {Count} de {Total} sistemas elegibles por {Hours:F1} h de vuelo (tope {Cap})",
                     session.Session.Id, count, eligibleCount, hours, cap);
             var noticeThreshold = _settings.Wear.ThresholdNoticePct;
+            var rateMultiplier = Math.Max(0, _settings.Wear.WearRateMultiplier);
             var deltas = new List<SystemWearDeltaDto>();
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
-                var delta = rate * hours;
+                var delta = rate * rateMultiplier * hours;
                 var previousWear = wear.WearPercentage;
                 wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
                 if (wear.WearPercentage > previousWear)
@@ -897,15 +898,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var queued = Queue.TryEnqueue(item);
             if (queued) {
                 enqueued++;
-                _logger.LogDebug("Realistic sesión {SessionId}: tierra {FailureId} seleccionada y encolada tras cap {Cap}, p {Probability}, azar {Roll}, desgaste {WearPct}%, factor desgaste {WearFactor}, base {Base}, mult perfil {ProfileMultiplier}, cola {Count}",
+                _logger.LogDebug("Realistic sesión {SessionId}: tierra {FailureId} seleccionada y encolada tras cap {Cap}, p {Probability}, azar {Roll}, desgaste {WearPct}%, factor desgaste {WearFactor}, lambda0 {LambdaBase}, mult perfil {ProfileMultiplier}, cola {Count}",
                     session.Session.Id, def.FenixFailureId, session.RiskProfile.GroundFailuresCap, candidate.Probability,
                     positiveRolls?.GetValueOrDefault(def.FenixFailureId), candidate.WearPercentage,
-                    RealisticFailurePolicy.WearFactor(session.RiskProfile, candidate.WearPercentage), _settings.Physics.GroundSeedBaseProbability, session.RiskProfile.ProbabilityMultiplier, Queue.Count);
+                    RealisticFailurePolicy.WearFactor(session.RiskProfile, candidate.WearPercentage), _settings.Physics.GroundSeedLambdaBase, session.RiskProfile.ProbabilityMultiplier, Queue.Count);
             }
         }
         if (enqueued > 0) _logger.LogInformation(
-            "Fallas de tierra sembradas: {Count} de {Candidates} candidatos (perfil {Risk}, p_base {Base}, tope {Cap})",
-            enqueued, candidates.Count, session.RiskLevel, _settings.Physics.GroundSeedBaseProbability, session.RiskProfile.GroundFailuresCap);
+            "Fallas de tierra sembradas: {Count} de {Candidates} candidatos (perfil {Risk}, lambda0 {LambdaBase}, tope {Cap})",
+            enqueued, candidates.Count, session.RiskLevel, _settings.Physics.GroundSeedLambdaBase, session.RiskProfile.GroundFailuresCap);
     }
 
     private async Task<List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>> BuildGroundCandidatesAsync(CancellationToken ct) {
@@ -926,12 +927,18 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
         // Solo leves Y recuperables (tipos-de-falla.md §4.1): nunca se arranca una sesión con una falla
         // permanente que el piloto no puede resolver en tierra.
-        foreach (var entity in availableFailures.Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)) {
-            if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
+        var eligible = availableFailures
+            .Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)
+            .Where(x => !x.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal))
+            .ToList();
+        // λ₀ (GroundSeedLambdaBase, semillas esperadas por vuelo) se reparte entre el universo elegible:
+        // el catálogo decide el reparto individual, no la cadencia total (λ₀ × perfil × desgaste).
+        var universe = eligible.Count;
+        foreach (var entity in eligible) {
             var ataId = entity.Group?.System?.AtaId ?? 0;
             var wear = wearByAta.GetValueOrDefault(ataId);
             var wearFactor = RealisticFailurePolicy.WearFactor(profile, wear);
-            var probability = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, profile, physics, wearFactor);
+            var probability = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universe, profile, physics, wearFactor);
             // Candidato sintético que referencia la entidad persistida (trackeada por GetAllWithSystemsAsync,
             // misma identidad que el contexto de sesión): no se mutan navegaciones ajenas, así que el
             // SaveChanges posterior al seed no dispara conflictos de identity de EF.

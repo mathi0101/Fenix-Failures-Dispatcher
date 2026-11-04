@@ -74,7 +74,6 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
     public Task<IReadOnlyList<ProfileExpectationDto>> ComputePerProfileAsync(double? averageWearPct, CancellationToken ct = default) {
         var mode = _settings.RealisticMode;
         var physics = mode.Physics;
-        var (minorCount, majorCount, _) = FailureCatalogStats.SeverityCounts();
         var wearPct = averageWearPct ?? DefaultAverageWearPct;
 
         var results = new List<ProfileExpectationDto>();
@@ -82,7 +81,7 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
             var profile = mode.ProfileFor(risk);
             var wearFactor = RealisticFailurePolicy.WearFactor(profile, wearPct);
 
-            var groundSeeds = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(physics, profile, minorCount, majorCount, wearPct);
+            var groundSeeds = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(physics, profile, wearPct);
 
             // Estimación global por severidad (sin presets ni fases): λ = base × mult severidad × mult perfil × factor desgaste.
             var rate = Math.Max(0, physics.FailureRatePerHourBase)

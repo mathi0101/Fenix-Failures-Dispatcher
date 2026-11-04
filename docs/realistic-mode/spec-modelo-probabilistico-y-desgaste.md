@@ -37,7 +37,7 @@ p_falla = p_base × SeverityMult(severidad) × ProbabilityMultiplier(perfil)
 
 La interpretación de `p_falla` depende del contexto:
 
-- **Seed de tierra** (gate, motores apagados): Bernoulli **one-shot** por candidata (una única decisión por sesión, igual que hoy). Clamp [0,1]. El universo sigue siendo solo Minors persistidas, excluidas `F_OH_NAV_IR_ALIGNMENT*`.
+- **Seed de tierra** (gate, motores apagados): Bernoulli **one-shot** por candidata (una única decisión por sesión, igual que hoy). Clamp [0,1]. El universo es solo Minors reparables persistidas, excluidas `F_OH_NAV_IR_ALIGNMENT*`. **Normalización por universo (2026-11-04)**: λ₀ (`GroundSeedLambdaBase`, semillas esperadas por vuelo) se reparte entre las candidatas — `p_i = λ₀ × mult severidad × mult perfil × desgaste × peso_i / Σ pesos` — así que agregar o quitar entradas al catálogo cambia *cuáles* salen, no *cuántas* (antes la p era por falla individual y el total escalaba con el tamaño del catálogo, con saturación del tope al subir la base).
 - **En vuelo**: `p_falla` se interpreta como **tasa λ en eventos/hora**. El roll del tick integra el tiempo transcurrido (mecanismo Poisson actual de `RealisticFailurePolicy.RollTick`):
 
 ```
@@ -53,7 +53,7 @@ Esto preserva la **invariancia al `EvaluationIntervalSeconds`** (requisito duro:
 | Parámetro | Default vigente | Significado |
 |---|---|---|
 | `FailureRatePerHourBase` | 0.2 | λ base por falla Minor elegible, en eventos/hora |
-| `GroundSeedBaseProbability` | 0.001 | p one-shot del seed de tierra (unidad distinta de la anterior; se mantiene separada para calibrar cada eje) |
+| `GroundSeedLambdaBase` | 1.0 | λ₀: **semillas de tierra esperadas por vuelo** con desgaste 0 % y perfil ×1, antes del tope del perfil. Se reparte entre las candidatas elegibles (p_i = λ₀ × mult severidad × mult perfil × desgaste × peso_i / Σ pesos): el catálogo define el reparto, no la cadencia total |
 | `SeverityRateMultiplier` | Minor 1.2 / Major 0.4 / Critical 0.12 | Cuánto más rara es cada severidad a igualdad de todo lo demás |
 | `AggravationWeights` | Minor 1 / Major 2 / Critical 4 | Pesos del score de agravamiento (§2) |
 | `SameAtaAggravationExtra` | 1 | Puntos extra por cada falla previa simultánea del mismo ATA (§2.3) |
@@ -139,18 +139,21 @@ El mapeo `FenixFailureSystem.AtaId ↔ AircraftWearableSystem.AtaId` existente s
 
 Hoy el desgaste es estático (lo pone el seeder debug y nunca cambia). Se agrega:
 
-- **Columna nueva en el catálogo**: `AircraftWearableSystem.WearPerFlightHour` (double, % por hora de vuelo, global por sistema). Valores borrador del seed data de Infrastructure:
+- **Columna nueva en el catálogo**: `AircraftWearableSystem.WearPerFlightHour` (double, % por hora de vuelo, global por sistema). Vigentes desde el rebalanceo ×2.5 del 2026-11-04 (`RebalanceWearRatesX25`; antes: rebalanceo 2026-10-25):
 
-| Sistema (ATA) | %/h borrador | Racional |
+| Sistema (ATA) | %/h vigente | Racional |
 |---|---|---|
-| ENG (70-75), APU (49) | 1.0 | Desgaste térmico/mecánico alto |
-| HYD (29), FUEL (28), NEUM (36) | 0.6 | Uso continuo en vuelo |
-| ELEC (24), AVIONICS (31, 34) | 0.3 | Carga moderada |
-| Estructura, tren en vuelo (32*), cabina | 0.1 | Fatiga lenta |
+| Start faults (80) | 2.5 | Fallo de arranque por uso |
+| ENG (70-75) | 1.75 | Desgaste térmico/mecánico alto |
+| HYD (29), FUEL (28), NEUM (36) | 1.875 | Uso continuo en vuelo |
+| APU (49), Flight controls (27) | 1.25 | Uso frecuente |
+| COMMS (23), ELEC (24), IND (31), NAV (34), INFO (46) | 1.0 | Carga moderada |
+| AIR (21), FIRE (26), GEAR (32) | 0.75 | Uso puntual |
+| AutoFlight (22), Ice/Rain (30), OXY (35), Doors (52) | 0.375 | Fatiga lenta |
 
-  (*el tren acumula sobre todo por ciclos — ver backlog §5)
+  (*el tren acumula sobre todo por ciclos — ver backlog §5; fuente única: `SeedData.WearableSystems`, el reporte de balance calibra con esta lista*)
 
-- **Acumulación**: al cerrar sesión, `wear_sistema += WearPerFlightHour × horas_de_vuelo_de_la_sesión`, clamp [0, 100], actualizando `AircraftSystemWear.WearPercentage` y `LastUpdatedAt`. Sin horas de sesión (start sin fin, crash) no se acumula.
+- **Acumulación**: al cerrar sesión, `wear_sistema += WearPerFlightHour × WearRateMultiplier × horas_de_vuelo_de_la_sesión`, clamp [0, 100], actualizando `AircraftSystemWear.WearPercentage` y `LastUpdatedAt`. Sin horas de sesión (start sin fin, crash) no se acumula. `Wear:WearRateMultiplier` (default 1.0, 2026-11-04) es el multiplicador global de la tasa de todos los sistemas: 2 = doble velocidad de desgaste sin tocar el seed (aplica al cierre normal del motor y al desgaste diferido de huérfanas).
 - **Horas de vuelo de la sesión**: duración real de la sesión (`FlightSession.StartedAt → FinishedAt`), medida al cerrarla. **No** se usa la duración del OFP como fuente primaria (la sesión es el uso efectivo del avión); el valor estimado del OFP es solo un fallback en la medida que el motor lo necesite antes del primer cierre (ej. preview pre-vuelo), nunca para acumular desgaste. Nunca wall-clock.
 
 ### 3.3 OFP: qué se usa y qué no
@@ -173,7 +176,7 @@ Perfil: de 11 campos a **6**. Espejo completo validado en `%TEMP%\RF-espejo\apps
   "EvaluationDeltaCapSeconds": 300,
   "Physics": {
     "FailureRatePerHourBase": 0.01,
-    "GroundSeedBaseProbability": 0.01,
+    "GroundSeedLambdaBase": 1.0,
     "SeverityRateMultiplier": { "Minor": 1.2, "Major": 0.4, "Critical": 0.12 },
     "AggravationWeights": { "Minor": 1, "Major": 2, "Critical": 4 },
     "SameAtaAggravationExtra": 1

@@ -4,8 +4,10 @@ using RealFenixFailures.Application.Session;
 using RealFenixFailures.Domain.Entities;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces.Repositories;
+using RealFenixFailures.Domain.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace RealFenixFailures.Application.Services;
 
@@ -15,14 +17,17 @@ public class FlightSessionService : IFlightSessionService {
     private readonly IAircraftSystemWearRepository? _aircraftSystemWearRepository;
     private readonly Random _wearRandom;
     private readonly ILogger<FlightSessionService> _logger;
+    private readonly double _wearRateMultiplier;
 
     public FlightSessionService(IFlightSessionRepository sessionRepository, ITriggeredFailureRepository triggeredFailureRepository,
-        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null, Random? wearRandom = null) {
+        IAircraftSystemWearRepository? aircraftSystemWearRepository = null, ILogger<FlightSessionService>? logger = null, Random? wearRandom = null,
+        IOptions<FailureEngineSettings>? settings = null) {
         _sessionRepository = sessionRepository;
         _triggeredFailureRepository = triggeredFailureRepository;
         _aircraftSystemWearRepository = aircraftSystemWearRepository;
         _wearRandom = wearRandom ?? Random.Shared;
         _logger = logger ?? NullLogger<FlightSessionService>.Instance;
+        _wearRateMultiplier = Math.Max(0, settings?.Value.RealisticMode.Wear.WearRateMultiplier ?? 1.0);
     }
 
     public async Task<FlightSession> StartNewAsync(RealisticModeContext context, CancellationToken cancellationToken) {
@@ -231,12 +236,12 @@ public class FlightSessionService : IFlightSessionService {
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
-                var delta = rate * hours;
+                var delta = rate * _wearRateMultiplier * hours;
                 var previousWear = wear.WearPercentage;
                 wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
                 if (wear.WearPercentage > previousWear)
-                    _logger.LogDebug("Realistic sesión {SessionId}: desgaste diferido calculado ATA {Ata}, tasa {Rate}/h, horas {Hours}, previo {Before}%, delta calculado {Delta}%, efectivo {AppliedDelta}%, total {After}%; pendiente de guardar",
-                        session.Id, wear.WearableSystem!.AtaId, rate, hours, previousWear, delta, wear.WearPercentage - previousWear, wear.WearPercentage);
+                    _logger.LogDebug("Realistic sesión {SessionId}: desgaste diferido calculado ATA {Ata}, tasa {Rate}/h (mult {Multiplier}), horas {Hours}, previo {Before}%, delta calculado {Delta}%, efectivo {AppliedDelta}%, total {After}%; pendiente de guardar",
+                        session.Id, wear.WearableSystem!.AtaId, rate, _wearRateMultiplier, hours, previousWear, delta, wear.WearPercentage - previousWear, wear.WearPercentage);
                 wear.LastUpdatedAt = eta.Value;
                 deltas.Add(new SystemWearDeltaDto {
                     AtaId = wear.WearableSystem!.AtaId,

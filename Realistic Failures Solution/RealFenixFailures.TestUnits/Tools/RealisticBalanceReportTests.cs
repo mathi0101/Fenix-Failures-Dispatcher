@@ -4,6 +4,8 @@ using OfficeOpenXml.Drawing.Chart;
 using OfficeOpenXml.Style;
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Application.Services;
+using RealFenixFailures.Application.Session;
+using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
 using System.Drawing;
@@ -65,8 +67,8 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             output.WriteLine("Saltado: herramienta manual. Regenerar el reporte con docs/balance/balance.cmd (define RFF_BALANCE=1).");
             return;
         }
-        // Estimación global por severidad: nada de presets ni fases — la fórmula usa los conteos del
-        // catálogo curado (para la semilla de tierra) y los parámetros de FailureEngineSettings.
+        // Estimación global por severidad: nada de presets ni fases — usa los defaults de código
+        // (FailureEngineSettings, donde se calibra) y los conteos del catálogo curado.
         var settings = new FailureEngineSettings();
         var counts = FailureCatalogStats.SeverityCounts();
         var service = new RealisticExpectationService(Options.Create(settings));
@@ -100,13 +102,13 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
     private static void BuildWorkbook(ExcelPackage package, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile, (int Minor, int Major, int Critical) counts, FailureEngineSettings settings) {
         var summary = package.Workbook.Worksheets.Add("Resumen");
         foreach (var risk in Risks)
-            BuildProfileSheet(package, risk, wearByProfile[risk]);
-        BuildSummaryContent(summary, wearByProfile, counts);
+            BuildProfileSheet(package, risk, wearByProfile[risk], settings.RealisticMode.Physics);
+        BuildSummaryContent(summary, wearByProfile, counts, settings);
         BuildChartsSheet(package, wearByProfile);
         BuildConfigSheet(package, settings, wearByProfile);
     }
 
-    private static void BuildSummaryContent(ExcelWorksheet sheet, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile, (int Minor, int Major, int Critical) counts) {
+    private static void BuildSummaryContent(ExcelWorksheet sheet, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile, (int Minor, int Major, int Critical) counts, FailureEngineSettings settings) {
         WriteTitle(sheet, "Balance del modo Realistic — generado automáticamente con el motor vigente", 1, 16);
         WriteSubtitle(sheet, $"Fallas en vuelo por perfil y severidad; semilla de tierra (arranque de sesión) aparte. "
             + $"catálogo curado: {counts.Minor} leves / {counts.Major} graves / {counts.Critical} críticas. Estimación global por severidad (sin presets ni fases). Regenerar: docs/balance/balance.cmd", 2, 16);
@@ -159,6 +161,33 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
             row++;
         }
         FormatTable(sheet, statsHeader, row - 1, columns: 6);
+
+        // Desgaste por horas de vuelo: horas esperadas hasta 25/50/80 aviso/100 %, por tasa del seed.
+        row += 2;
+        var wearSystems = SeedData.WearableSystems;
+        var totalWearable = wearSystems.Count;
+        var wearCap = settings.RealisticMode.Wear.SessionSystemsCap;
+        var selectedPerSession = RealisticWearScaling.CountForHours(FlightHours, totalWearable, wearCap);
+        var noticeThreshold = settings.RealisticMode.Wear.ThresholdNoticePct;
+        sheet.Cells[row, 1].Value = $"Desgaste por horas de vuelo (desgaste ×{settings.RealisticMode.Wear.WearRateMultiplier:0.##}; cada sesión de {FlightHours:0.#} h sortea {selectedPerSession} de {totalWearable} sistemas; horas esperadas por tasa del seed)";
+        sheet.Cells[row, 1].Style.Font.Bold = true;
+        row++;
+        var wearHeader = row;
+        WriteHeaderRow(sheet, row, "Tasa del sistema", "Hasta 25 %", "Hasta 50 %", $"Hasta {noticeThreshold:0} % (aviso)", "Hasta 100 %");
+        row++;
+        foreach (var rate in wearSystems.Select(w => w.WearPerFlightHour).Distinct().OrderBy(r => r)) {
+            var count = wearSystems.Count(w => w.WearPerFlightHour == rate);
+            sheet.Cells[row, 1].Value = $"{rate:0.##} %/h ({count} sist.)";
+            var column = 2;
+            foreach (var target in new[] { 25.0, 50.0, (double)noticeThreshold, 100.0 }) {
+                var hoursCell = sheet.Cells[row, column];
+                hoursCell.Value = Math.Round(RealisticWearScaling.ExpectedFlightHoursToWear(target, rate, FlightHours, totalWearable, wearCap, settings.RealisticMode.Wear.WearRateMultiplier), 1);
+                hoursCell.Style.Numberformat.Format = "0 \"h\"";
+                column++;
+            }
+            row++;
+        }
+        FormatTable(sheet, wearHeader, row - 1, columns: 5);
 
         // Experiencia por vuelo (centro, col I): lo que siente el jugador, a 3 h con desgaste 0/50/100 %.
         const int expCol = 9;
@@ -222,7 +251,7 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
     }
 
     /// <summary>Hoja cruda de un perfil: tabla por escala (1/10/100 h) con el desgaste como filas, más la semilla de tierra.</summary>
-    private static void BuildProfileSheet(ExcelPackage package, RiskLevel risk, List<ProfileExpectationRow> rows) {
+    private static void BuildProfileSheet(ExcelPackage package, RiskLevel risk, List<ProfileExpectationRow> rows, RealisticPhysicsSettings physics) {
         var sheet = package.Workbook.Worksheets.Add(ProfileName(risk));
         var profile = rows[0].Expectation.Profile;
         WriteTitle(sheet, $"Perfil {ProfileName(risk)} (nivel {profile.RiskLevel})", 1, 16);
@@ -259,19 +288,22 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
 
         // Columna derecha (I): semilla de tierra y experiencia por vuelo, al costado de las tablas de escalas.
         const int sideCol = 9;
-        sheet.Cells[4, sideCol].Value = "Semilla de tierra (fallas esperadas al iniciar cada vuelo)";
+        sheet.Cells[4, sideCol].Value = "Semilla de tierra al iniciar cada vuelo (distribución; cada vuelo sortea entre 0 y el tope)";
         sheet.Cells[4, sideCol].Style.Font.Bold = true;
-        WriteHeaderRow(sheet, 5, sideCol, "Desgaste", "Fallas al inicio");
+        WriteHeaderRow(sheet, 5, sideCol, "Desgaste", "P(0) limpio", "Media");
         var seedStart = 6;
         var seedRow = seedStart;
         foreach (var row in rows) {
             WriteWear(sheet.Cells[seedRow, sideCol], row.WearPct);
-            var cell = sheet.Cells[seedRow, sideCol + 1];
+            var clean = sheet.Cells[seedRow, sideCol + 1];
+            clean.Value = RealisticProfileExpectation.GroundSeedDistribution(physics, profile, row.WearPct)[0];
+            clean.Style.Numberformat.Format = "0.0%";
+            var cell = sheet.Cells[seedRow, sideCol + 2];
             cell.Value = row.Expectation.GroundSeedsPerFlight;
             cell.Style.Numberformat.Format = "0.00";
             seedRow++;
         }
-        FormatTable(sheet, seedStart, seedRow - 1, 2, sideCol);
+        FormatTable(sheet, seedStart, seedRow - 1, 3, sideCol);
 
         // Experiencia por vuelo (3 h de referencia): desgaste 0–100 % en pasos de 25.
         const int expCol = 9;
@@ -428,8 +460,8 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
     /// <summary>Hoja Configuración: parámetros vigentes del código con los que se generó el reporte.</summary>
     private static void BuildConfigSheet(ExcelPackage package, FailureEngineSettings settings, Dictionary<RiskLevel, List<ProfileExpectationRow>> wearByProfile) {
         var sheet = package.Workbook.Worksheets.Add("Configuración");
-        WriteTitle(sheet, "Configuración del código con la que se generó este reporte", 1, 6);
-        WriteSubtitle(sheet, "Valores leídos del código al generar el archivo (FailureEngineSettings y perfiles del catálogo): "
+        WriteTitle(sheet, "Configuración con la que se generó este reporte", 1, 6);
+        WriteSubtitle(sheet, "Defaults de código al generar el archivo (FailureEngineSettings y perfiles del catálogo; el reporte no lee appsettings): "
             + "si cambiaron parámetros, regenerar para reflejarlos aquí.", 2, 6);
 
         var currentRow = 4;
@@ -456,7 +488,7 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         var physics = settings.RealisticMode.Physics;
         Section("Física del motor (Physics)");
         ParamNum("Tasa base por falla leve elegible en vuelo, eventos/h (FailureRatePerHourBase)", physics.FailureRatePerHourBase);
-        ParamNum("Probabilidad base por falla leve en la semilla de tierra (GroundSeedBaseProbability)", physics.GroundSeedBaseProbability, "0.000");
+        ParamNum("Semillas de tierra esperadas por vuelo, λ₀ (GroundSeedLambdaBase)", physics.GroundSeedLambdaBase);
         ParamNum("Multiplicador de tasa: leves (SeverityRateMultiplier.Minor)", physics.SeverityRateMultiplier.Minor);
         ParamNum("Multiplicador de tasa: graves (SeverityRateMultiplier.Major)", physics.SeverityRateMultiplier.Major);
         ParamNum("Multiplicador de tasa: críticas (SeverityRateMultiplier.Critical)", physics.SeverityRateMultiplier.Critical);
@@ -477,6 +509,7 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
 
         Section("Desgaste (Wear) y ventanas OFP");
         ParamNum("Umbral de aviso de sistema castigado, % (ThresholdNoticePct)", mode.Wear.ThresholdNoticePct, "0");
+        ParamNum("Multiplicador global de desgaste (WearRateMultiplier)", mode.Wear.WearRateMultiplier);
         ParamNum("Tope de sistemas con desgaste por sesión, 0 = sin tope (SessionSystemsCap)", mode.Wear.SessionSystemsCap, "0");
         ParamNum("Ventana previa al start, h (PreStartWindowHours)", mode.Ofp.PreStartWindowHours);
         ParamNum("Ventana posterior al arribo, h (PostArrivalWindowHours)", mode.Ofp.PostArrivalWindowHours);
@@ -528,27 +561,29 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
         report.AppendLine();
         report.AppendLine("- Tasa en vuelo por severidad = `FailureRatePerHourBase` × multiplicador de severidad × multiplicador del perfil × factor de desgaste. Estimación global por severidad: no pondera por fase ni por la composición de presets.");
         report.AppendLine("- Terminología: **leves** = Minor, **graves** = Major, **críticas** = Critical.");
-        report.AppendLine("- La semilla de tierra es un evento por vuelo (arranque de sesión); **no escala con las horas** y el motor solo arma fallas leves ahí.");
+        report.AppendLine("- La semilla de tierra es un evento por vuelo (arranque de sesión); **no escala con las horas** y el motor solo arma fallas leves reparables ahí. El total esperado es λ₀ (`GroundSeedLambdaBase`) × multiplicador del perfil × desgaste, truncado por el tope del perfil: el catálogo elegible solo reparte la probabilidad entre candidatas (cuáles salen), nunca escala el total (cuántas).");
+        report.AppendLine("- Cada vuelo sortea su semilla: arrancar **limpio (0 fallas) siempre tiene probabilidad** — P(0) = e^(−λ) — y el máximo por vuelo es el tope del perfil. La media de cada fila no es un resultado garantizado: es el promedio del sorteo sobre muchos vuelos.");
         report.AppendLine("- Perfil Bajo: el motor descarta fallas críticas, por lo que su cifra de críticas es siempre 0.");
         report.AppendLine("- La cadencia real la decide el motor tick a tick; esto es una estimación de presentación.");
+        report.AppendLine("- Desgaste: al cerrar cada sesión, los sistemas sorteados (1,5 sistemas/h, mínimo 3) acumulan su `WearPerFlightHour` × horas de vuelo. La tabla de desgaste por horas promedia ese sorteo con vuelos de referencia.");
         report.AppendLine();
 
         var physics = settings.RealisticMode.Physics;
         var mode = settings.RealisticMode;
-        report.AppendLine("## Configuración del código con la que se generó este reporte");
+        report.AppendLine("## Configuración con la que se generó este reporte");
         report.AppendLine();
-        report.AppendLine("_Valores leídos del código al generar el archivo (`FailureEngineSettings` y perfiles del catálogo): "
-            + "si cambiaron parámetros, regenerar para reflejarlos._");
+        report.AppendLine($"_Defaults de código al generar el archivo (`FailureEngineSettings` y perfiles del catálogo — el reporte no lee appsettings). La tabla de desgaste por horas aplica el multiplicador global ×{settings.RealisticMode.Wear.WearRateMultiplier:0.##}. Si cambiaron parámetros, regenerar para reflejarlos._");
         report.AppendLine();
         report.AppendLine("| Parámetro | Valor |");
         report.AppendLine("|---|---:|");
         report.AppendLine($"| Tasa base por falla leve elegible en vuelo, eventos/h (`FailureRatePerHourBase`) | {Fmt(physics.FailureRatePerHourBase)} |");
-        report.AppendLine($"| Probabilidad base por falla leve en la semilla de tierra (`GroundSeedBaseProbability`) | {physics.GroundSeedBaseProbability:0.000} |");
+        report.AppendLine($"| Semillas de tierra esperadas por vuelo, λ₀ (`GroundSeedLambdaBase`) | {Fmt(physics.GroundSeedLambdaBase)} |");
         report.AppendLine($"| Multiplicador de tasa leves / graves / críticas (`SeverityRateMultiplier`) | {Fmt(physics.SeverityRateMultiplier.Minor)} / {Fmt(physics.SeverityRateMultiplier.Major)} / {Fmt(physics.SeverityRateMultiplier.Critical)} |");
         report.AppendLine($"| Peso de agravamiento leves / graves / críticas (`AggravationWeights`) | {physics.AggravationWeights.Minor} / {physics.AggravationWeights.Major} / {physics.AggravationWeights.Critical} |");
         report.AppendLine($"| Agravación extra por misma ATA simultánea (`SameAtaAggravationExtra`) | {physics.SameAtaAggravationExtra} |");
         report.AppendLine($"| Intervalo de evaluación del motor, s (`EvaluationIntervalSeconds`) | {mode.EvaluationIntervalSeconds} |");
         report.AppendLine($"| Semilla de tierra habilitada (`GroundFailureEnabled`) | {(mode.GroundFailureEnabled ? "sí" : "no")} |");
+        report.AppendLine($"| Multiplicador global de desgaste (`Wear:WearRateMultiplier`) | {mode.Wear.WearRateMultiplier:0.##} |");
         report.AppendLine($"| Umbral de aviso de sistema castigado, % (`Wear:ThresholdNoticePct`) | {mode.Wear.ThresholdNoticePct} |");
         report.AppendLine();
         report.AppendLine("| Perfil | Multiplicador | Desgaste máx | Tope agravación | Tope tierra | Tregua crítica |");
@@ -575,14 +610,28 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
                     + (risk == RiskLevel.Low ? "—" : $"**{Math.Round(1 / (e.CriticalPerHour * FlightHours)):0} vuelos**") + " |");
             }
         report.AppendLine();
-        report.AppendLine("### Ancla temporal del desgaste");
+        report.AppendLine($"### Desgaste por horas de vuelo (desgaste ×{mode.Wear.WearRateMultiplier:0.##}; 25 / 50 / {mode.Wear.ThresholdNoticePct:0} aviso / 100 %)");
         report.AppendLine();
-        report.AppendLine($"Vuelos de {FlightHours:0.#} h que tarda un sistema en acumular cada nivel de desgaste, según su tasa (`WearPerFlightHour`; el seed va de 0,1 a 0,6 %/h):");
+        var wearSystems = SeedData.WearableSystems;
+        var totalWearable = wearSystems.Count;
+        var wearCap = settings.RealisticMode.Wear.SessionSystemsCap;
+        var selectedPerSession = RealisticWearScaling.CountForHours(FlightHours, totalWearable, wearCap);
+        var noticeThreshold = settings.RealisticMode.Wear.ThresholdNoticePct;
+        report.AppendLine($"El desgaste acumula la tasa del sistema × horas de vuelo **solo en los sistemas sorteados** al cerrar cada sesión: con vuelos de {FlightHours:0.#} h salen {selectedPerSession} de {totalWearable} sistemas (escala 1,5 sistemas/h, mínimo 3"
+            + (wearCap > 0 ? $", tope {wearCap}" : "") + $"). Horas de vuelo esperadas de la aeronave hasta cada nivel, por tasa del seed (`WearPerFlightHour`, {wearSystems.Min(w => w.WearPerFlightHour):0.##}–{wearSystems.Max(w => w.WearPerFlightHour):0.##} %/h); entre paréntesis, vuelos de {FlightHours:0.#} h."
+            + (mode.Wear.WearRateMultiplier == 1 ? "" : $" Multiplicador global de desgaste activo: ×{mode.Wear.WearRateMultiplier:0.##}."));
         report.AppendLine();
-        report.AppendLine("| Tasa del sistema | Hasta 25 % | Hasta 50 % | Hasta 80 % (aviso) |");
-        report.AppendLine("|---|---:|---:|---:|");
-        foreach (var rate in new[] { 0.1, 0.3, 0.6 })
-            report.AppendLine($"| {rate:0.##} %/h | {Math.Ceiling(25 / (rate * FlightHours)):0} | {Math.Ceiling(50 / (rate * FlightHours)):0} | {Math.Ceiling(80 / (rate * FlightHours)):0} |");
+        report.AppendLine("| Tasa del sistema | Hasta 25 % | Hasta 50 % | Hasta " + $"{noticeThreshold:0} % (aviso) | Hasta 100 % |");
+        report.AppendLine("|---|---:|---:|---:|---:|");
+        foreach (var rate in wearSystems.Select(w => w.WearPerFlightHour).Distinct().OrderBy(r => r)) {
+            var count = wearSystems.Count(w => w.WearPerFlightHour == rate);
+            report.Append($"| {rate:0.##} %/h ({count} sist.)");
+            foreach (var target in new[] { 25.0, 50.0, (double)noticeThreshold, 100.0 }) {
+                var hours = RealisticWearScaling.ExpectedFlightHoursToWear(target, rate, FlightHours, totalWearable, wearCap, mode.Wear.WearRateMultiplier);
+                report.Append($" | {Fmt(hours)} h ({Math.Round(hours / FlightHours):0} vuelos)");
+            }
+            report.AppendLine(" |");
+        }
         report.AppendLine();
 
         foreach (var risk in Risks) {
@@ -604,12 +653,17 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
                     report.AppendLine($"| {row.WearPct:0} % | {hours} h | {Fmt(e.MinorPerHour * hours)} | {Fmt(e.MajorPerHour * hours)} | {Fmt(e.CriticalPerHour * hours)} | {Fmt(e.TotalPerHour * hours)} |");
             }
             report.AppendLine();
-            report.AppendLine("### Semilla de tierra (fallas esperadas al iniciar cada vuelo)");
+            report.AppendLine("### Semilla de tierra al iniciar cada vuelo (distribución)");
             report.AppendLine();
-            report.AppendLine("| Desgaste | Fallas esperadas al inicio |");
-            report.AppendLine("|---|---:|");
-            foreach (var row in rows)
-                report.AppendLine($"| {row.WearPct:0} % | {row.Expectation.GroundSeedsPerFlight:0.00} |");
+            report.AppendLine("Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la probabilidad de arrancar con exactamente k fallas de tierra y P(0) la de arrancar limpio. La media resume el conjunto; no es lo que ocurre en cada vuelo.");
+            report.AppendLine();
+            var cap = profile.GroundFailuresCap;
+            report.AppendLine("| Desgaste" + string.Concat(Enumerable.Range(0, cap + 1).Select(k => $" | P({k})")) + " | Media |");
+            report.AppendLine("|---|" + string.Concat(Enumerable.Repeat("---:|", cap + 2)));
+            foreach (var row in rows) {
+                var distribution = RealisticProfileExpectation.GroundSeedDistribution(physics, profile, row.WearPct);
+                report.AppendLine($"| {row.WearPct:0} % |" + string.Concat(distribution.Select(p => $" {p * 100:0.0} % |")) + $" {row.Expectation.GroundSeedsPerFlight:0.00} |");
+            }
             report.AppendLine();
             report.AppendLine($"### Experiencia por vuelo ({FlightHours:0.#} h)");
             report.AppendLine();
@@ -690,13 +744,16 @@ public class RealisticBalanceReportTests(ITestOutputHelper output) {
 
     /// <summary>Busca la raíz del repo (directorio que contiene docs/) desde la salida del test.</summary>
     private static (string Xlsx, string Markdown) ResolveReportPaths() {
+        var directory = RepoRoot();
+        var folder = Path.Combine(directory.FullName, "docs", "balance");
+        return (Path.Combine(folder, "balance-realistic.xlsx"), Path.Combine(folder, "balance-realistic.md"));
+    }
+
+    private static DirectoryInfo RepoRoot() {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "docs")))
             directory = directory.Parent;
-        if (directory is null)
-            throw new InvalidOperationException("No se encontró la raíz del repo (carpeta docs/) desde " + AppContext.BaseDirectory);
-        var folder = Path.Combine(directory.FullName, "docs", "balance");
-        return (Path.Combine(folder, "balance-realistic.xlsx"), Path.Combine(folder, "balance-realistic.md"));
+        return directory ?? throw new InvalidOperationException("No se encontró la raíz del repo (carpeta docs/) desde " + AppContext.BaseDirectory);
     }
 
     /// <summary>Rangos de la tabla de 10 h de cada perfil, para armar las series de las gráficas.</summary>

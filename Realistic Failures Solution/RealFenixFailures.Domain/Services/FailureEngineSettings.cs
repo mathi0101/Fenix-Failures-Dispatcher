@@ -15,10 +15,10 @@ public class FailureEngineSettings {
     public bool Debug { get; set; } = false;
 
     /// <summary>Límite de entradas del log de eventos en vivo de la UI (recorte por la cola).</summary>
-    public int MaxLogEntries { get; set; } = 50;
+    public int MaxLogEntries { get; set; } = 100;
 
     /// <summary>Intervalo, s, entre chequeos de conexión con la API de Fenix (orquestador del motor).</summary>
-    public int CheckConnectionIntervalSeconds { get; set; } = 30;
+    public int CheckConnectionIntervalSeconds { get; set; } = 60;
     /// <summary>Intervalo, s, del refresco periódico del estado en la ventana principal.</summary>
     public int CheckIntervalSeconds { get; set; } = 10;
 
@@ -41,22 +41,22 @@ public class RealisticModeSettings {
     public RealisticPhysicsSettings Physics { get; set; } = new();
     /// <summary>Perfil Bajo (nivel 1): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Low</c>).</summary>
     public RealisticProfileSettings Low { get; set; } = new() {
-        RiskLevel = 1, ProbabilityMultiplier = 1, WearMaxMultiplier = 2,
+        RiskLevel = 1, ProbabilityMultiplier = 0.6, WearMaxMultiplier = 3,
         AggravationCap = 3, GroundFailuresCap = 1, CriticalRespiteSeconds = 0
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1.5, WearMaxMultiplier = 2.6,
+        RiskLevel = 2, ProbabilityMultiplier = 1.2, WearMaxMultiplier = 3,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 180 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
     public RealisticProfileSettings High { get; set; } = new() {
-        RiskLevel = 3, ProbabilityMultiplier = 3.5, WearMaxMultiplier = 3,
+        RiskLevel = 3, ProbabilityMultiplier = 2.6, WearMaxMultiplier = 3,
         AggravationCap = 8, GroundFailuresCap = 3, CriticalRespiteSeconds = 120 * 60
     };
     /// <summary>Perfil Squawk 7700 (nivel 4): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Squawk7700</c>).</summary>
     public RealisticProfileSettings Squawk7700 { get; set; } = new() {
-        RiskLevel = 4, ProbabilityMultiplier = 6, WearMaxMultiplier = 3,
+        RiskLevel = 4, ProbabilityMultiplier = 4, WearMaxMultiplier = 3,
         AggravationCap = 10, GroundFailuresCap = 5, CriticalRespiteSeconds = 60 * 60
     };
 
@@ -76,7 +76,7 @@ public class RealisticModeSettings {
     /// <summary>Probabilidad (0–1) de que un sorteo aleatorio en vuelo salga temporal (se desactiva sola tras su vida). Solo leves y graves: las críticas nunca son temporales.</summary>
     public double TemporaryFailureProbability { get; set; } = 0.25;
     /// <summary>Vida mínima de una falla temporal, en minutos de tiempo de escenario, desde el armado.</summary>
-    public int TemporaryLifetimeMinMinutes { get; set; } = 10;
+    public int TemporaryLifetimeMinMinutes { get; set; } = 5;
     /// <summary>Vida máxima de una falla temporal, en minutos de tiempo de escenario (>= mínima; se invierte si viniera al revés).</summary>
     public int TemporaryLifetimeMaxMinutes { get; set; } = 30;
 }
@@ -88,9 +88,17 @@ public class RealisticModeSettings {
 /// </summary>
 public class RealisticPhysicsSettings {
     /// <summary>λ base por falla Minor elegible en vuelo, en eventos/hora. Subirlo escala linealmente toda la cadencia en vuelo.</summary>
-    public double FailureRatePerHourBase { get; set; } = 0.05;
-    /// <summary>Probabilidad base (0–1) de cada falla Minor individual en el seed de tierra, antes de multiplicadores.</summary>
-    public double GroundSeedBaseProbability { get; set; } = 0.006;
+    public double FailureRatePerHourBase { get; set; } = 0.1;
+    /// <summary>
+    /// Semillas de tierra esperadas por vuelo (λ₀): total de fallas al arrancar la sesión con desgaste 0 %
+    /// y multiplicador de perfil ×1, antes del tope del perfil. El total real por vuelo es
+    /// λ₀ × multiplicador del perfil × factor de desgaste, truncado por el tope de tierra del perfil;
+    /// λ₀ se reparte entre las fallas elegibles del catálogo, así que curar el catálogo cambia *cuáles*
+    /// salen, no *cuántas*. Subirlo a 2 duplica todas las semillas; bajarlo a 0.5 las reduce a la mitad.
+    /// Calibración rápida con los perfiles por defecto (tope entre paréntesis), de desgaste 0 % a 100 %:
+    /// Bajo 0,45→0,83 (1) · Moderado 1,04→1,85 (2) · Alto 2,14→2,98 (3) · 7700 3,59→4,99 (5).
+    /// </summary>
+    public double GroundSeedLambdaBase { get; set; } = 0.8;
     /// <summary>Cuánto más rara es cada severidad a igualdad de todo lo demás (multiplicador de λ en vuelo y de p en tierra).</summary>
     public PhysicsSeverityRateMultipliers SeverityRateMultiplier { get; set; } = new();
     /// <summary>Pesos con que cada falla activa suma al score de agravamiento de la sesión (contra el tope del perfil).</summary>
@@ -149,4 +157,10 @@ public class WearSettings {
     /// 0 o negativo = sin tope (default).
     /// </summary>
     public int SessionSystemsCap { get; set; } = 0;
+    /// <summary>
+    /// Multiplicador global de desgaste: escala el <c>WearPerFlightHour</c> de todos los sistemas a la vez, sin tocar
+    /// el seed ni la base. Config: `FailureEngine:RealisticMode:Wear:WearRateMultiplier`. 2 = los sistemas se desgastan
+    /// al doble de velocidad (el 50 % llega en la mitad de horas); 0.5, a la mitad. 1 = tasas del seed tal cual (default).
+    /// </summary>
+    public double WearRateMultiplier { get; set; } = 2.0;
 }

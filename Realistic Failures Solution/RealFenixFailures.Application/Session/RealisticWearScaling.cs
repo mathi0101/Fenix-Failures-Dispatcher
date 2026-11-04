@@ -18,4 +18,21 @@ public static class RealisticWearScaling {
         var lower = Math.Min(MinSystems, upper);
         return Math.Clamp(target, lower, upper);
     }
+
+    /// <summary>
+    /// Horas de vuelo esperadas de la aeronave para que un sistema con la tasa dada alcance el porcentaje de
+    /// desgaste pedido, promediando el sorteo de sistemas por sesión: en una sesión de <paramref name="sessionHours"/>
+    /// horas, cada sistema acumula solo si sale sorteado (probabilidad <c>CountForHours / elegibles</c>), así que su
+    /// tasa efectiva por hora volada es <c>WearPerFlightHour × multiplicador × selecciones/elegibles</c>. Con sorteo
+    /// garantizado (vuelos largos o sin alternativa) la cota inferior es <c>percentage / (tasa × multiplicador)</c>.
+    /// Devuelve <c>PositiveInfinity</c> si la tasa o la sesión no son positivas.
+    /// </summary>
+    public static double ExpectedFlightHoursToWear(double percentage, double wearPerFlightHour, double sessionHours, int eligibleCount, int sessionSystemsCap, double wearRateMultiplier = 1.0) {
+        if (wearPerFlightHour <= 0 || sessionHours <= 0 || eligibleCount <= 0) return double.PositiveInfinity;
+        var selected = CountForHours(sessionHours, eligibleCount, sessionSystemsCap);
+        if (selected <= 0) return double.PositiveInfinity;
+        var multiplier = Math.Max(0, wearRateMultiplier);
+        if (multiplier <= 0) return double.PositiveInfinity;
+        return percentage / (wearPerFlightHour * multiplier * selected / eligibleCount);
+    }
 }
