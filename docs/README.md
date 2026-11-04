@@ -7,6 +7,7 @@
 | Documento | Propósito | Cuándo leerlo | Estado |
 |---|---|---|---|
 | [project.md](project.md) | Visión, alcance, fuentes de verdad, objetivos/no objetivos y decisión SimConnect vs FSUIPC | Antes de cualquier decisión de diseño o cambio de rumbo | Vigente |
+| [roadmap.md](roadmap.md) | Alcance acordado por release (milestone 1.0.0 oficial) | Al planificar, priorizar o empezar trabajo nuevo | Vigente |
 | [arquitectura.md](arquitectura.md) | Capas, dependencias, componentes reales y flujo vigente de la app | Antes de tocar estructura, DI o flujo | Vigente |
 | [desarrollo.md](desarrollo.md) | Requisitos, comandos, configuración, migrations, ramas y formato de commits | Siempre que se vaya a desarrollar, migrar o commitear | Vigente |
 | [CHANGELOG.md](CHANGELOG.md) | Bitácora técnica de cambios (qué/por qué/áreas/pruebas/pendientes) | Al terminar cada cambio significativo | Vigente (crece con cada entrada) |

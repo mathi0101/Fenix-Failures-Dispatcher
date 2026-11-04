@@ -88,6 +88,7 @@ Este proyecto se desarrolla con **varios agentes de IA y el usuario editando y d
 ## Gotchas verificadas
 
 - Solo Windows: WPF y SimConnect.
+- **GitHub CLI ya instalado y autenticado**: `gh.exe` vive en `C:\Program Files\GitHub CLI\gh.exe` (invocarlo por ruta completa; no está en el PATH de la shell del agente, y la forma `/c/...` no ejecuta — usar `C:/...`). Cuenta activa: **`mathi0101`** con scope `repo` (credencial `gh:github.com:mathi0101` en el keyring). Para operaciones de escritura en `mathi0101/Fenix-Failures-Dispatcher` (issues, releases, etc.) usar esta sesión de gh; el token de git credential manager es de `mgonzalez-quaris` y es de solo lectura sobre este repo.
 - Arquitectura objetivo **x64**: `PlatformTarget=x64` fijado en UI, TestUnits e Integrations.SimConnect; resuelve **MSB3270**. Al tocar esos csproj, no volver a MSIL ni desalinear la arquitectura.
 - Fenix corre en la máquina local; la API es configurable por claves y el puerto predeterminado es **8083**.
 - `RealFenixFailures.Domain/Resources/failures.json` y `training_presets.json` son **EmbeddedResource indispensables** (el app no funciona sin ellos) y están **versionados**: durante la edición de severidad/repairable `failures.json` estuvo desversionado temporalmente (commit `867998d`, dev), y desde **2026-10-17** vuelve a versionarse como catálogo curado (severity + repairable). No borrarlos ni renombrarlos.
