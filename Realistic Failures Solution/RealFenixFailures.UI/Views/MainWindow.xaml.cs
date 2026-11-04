@@ -2,8 +2,10 @@
 using RealFenixFailures.UI.ViewModels;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace RealFenixFailures.UI.Views;
 
@@ -35,6 +37,8 @@ public partial class MainWindow : Window {
             await ShowUnfinishedSessionsDialogAsync();
         };
         Closing += MainWindow_Closing;
+        // Aviso de fin de vuelo (issue #15): el panel Realista pide restaurar la app sin robar foco.
+        _viewModel.Realistic.FlightCompletionPromptRequested += Realistic_FlightCompletionPromptRequested;
         SettingsPanelHost.CloseRequested += (_, _) => _viewModel.IsSettingsOpen = false;
 
         UpdateUtcClock();
@@ -61,7 +65,60 @@ public partial class MainWindow : Window {
         await _viewModel.RefreshAfterRecoveryAsync();
     }
 
+    #region Aviso de fin de vuelo (issue #15)
+
+    private void Realistic_FlightCompletionPromptRequested(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(RestoreForCompletionNotice);
+
+    /// <summary>
+    /// Hace visible la app sin robar el foco (MSFS puede quedar en VR/fullscreen): restaura desde la
+    /// bandeja con <c>ShowActivated=false</c> y hace parpadear el botón de la barra de tareas.
+    /// El usuario abre el aviso cuando quiere (banner + modal en el panel Realista).
+    /// </summary>
+    private void RestoreForCompletionNotice() {
+        if (IsExitAllowed) return;
+        var previousShowActivated = ShowActivated;
+        ShowActivated = false;
+        try {
+            Show();
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
+        } finally {
+            ShowActivated = previousShowActivated;
+        }
+        FlashTaskbarButton();
+    }
+
+    private void FlashTaskbarButton() {
+        var info = new FLASHWINFO {
+            cbSize = (uint)Marshal.SizeOf<FLASHWINFO>(),
+            hwnd = new WindowInteropHelper(this).EnsureHandle(),
+            dwFlags = FLASHW_ALL | FLASHW_NOFG,
+            uCount = 3,
+            dwTimeout = 0
+        };
+        _ = FlashWindowEx(ref info);
+    }
+
+    private struct FLASHWINFO {
+        public uint cbSize;
+        public IntPtr hwnd;
+        public uint dwFlags;
+        public uint uCount;
+        public uint dwTimeout;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+
+    private const uint FLASHW_ALL = 0x3;
+    private const uint FLASHW_NOFG = 0xC;
+
+    #endregion
+
     private void MainWindow_Closing(object? sender, CancelEventArgs e) {
+        _viewModel.Realistic.FlightCompletionPromptRequested -= Realistic_FlightCompletionPromptRequested;
         if (IsExitAllowed)
             return;
 

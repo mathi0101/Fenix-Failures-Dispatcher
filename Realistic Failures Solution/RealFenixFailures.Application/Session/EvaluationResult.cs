@@ -26,10 +26,18 @@ public sealed class EvaluationResult {
     /// </summary>
     public IReadOnlyList<FailureStateChangeInfo> StateChanges { get; }
 
-    private EvaluationResult(bool shouldPauseSession, IReadOnlyList<TriggeredFailureInfo> triggeredFailures, IReadOnlyList<FailureStateChangeInfo> stateChanges) {
+    /// <summary>
+    /// True when this tick completed the flight-completion sequence for the session (flight phase observed,
+    /// then landing, then engines shut down at gate). Raised exactly once per session; the manager starts
+    /// the grace countdown when it sees it (aviso de finalización, issue #15).
+    /// </summary>
+    public bool FlightCompletionDetected { get; }
+
+    private EvaluationResult(bool shouldPauseSession, IReadOnlyList<TriggeredFailureInfo> triggeredFailures, IReadOnlyList<FailureStateChangeInfo> stateChanges, bool flightCompletionDetected = false) {
         ShouldPauseSession = shouldPauseSession;
         TriggeredFailures = triggeredFailures ?? Array.Empty<TriggeredFailureInfo>();
         StateChanges = stateChanges ?? Array.Empty<FailureStateChangeInfo>();
+        FlightCompletionDetected = flightCompletionDetected;
     }
 
     /// <summary>
@@ -55,7 +63,14 @@ public sealed class EvaluationResult {
     /// observed during the same tick: Sent→Active, Active→ResolvedByPilot, ...).
     /// </summary>
     public EvaluationResult WithStateChanges(IReadOnlyList<FailureStateChangeInfo> stateChanges) =>
-        new(ShouldPauseSession, TriggeredFailures, stateChanges);
+        new(ShouldPauseSession, TriggeredFailures, stateChanges, FlightCompletionDetected);
+
+    /// <summary>
+    /// Returns a copy of this result flagging that the flight-completion sequence was detected on this tick
+    /// (flight observed → landed → engines shut down at gate).
+    /// </summary>
+    public EvaluationResult WithFlightCompletionDetected() =>
+        new(ShouldPauseSession, TriggeredFailures, StateChanges, flightCompletionDetected: true);
 }
 
 /// <summary>

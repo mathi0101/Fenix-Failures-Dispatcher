@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RealFenixFailures.Application;
 using RealFenixFailures.Application.Interfaces;
@@ -41,7 +42,12 @@ public static class HostBuilderExtensions {
                 services.AddSingleton<IUpdateChecker, GithubUpdateChecker>();
                 services.AddSingleton<IAppVersionProvider, AppVersionProvider>();
                 services.AddSingleton<IRealisticExpectationService, RealisticExpectationService>();
-                services.AddTransient<SettingsWindowViewModel>();
+                // SettingsWindowViewModel toma el manager singleton para actualizar el gracia de fin de vuelo en vivo.
+                services.AddTransient<SettingsWindowViewModel>(sp => new SettingsWindowViewModel(
+                    sp.GetRequiredService<UserPreferencesService>(),
+                    sp.GetRequiredService<IUpdateChecker>(),
+                    sp.GetRequiredService<ILogger<SettingsWindowViewModel>>(),
+                    sp.GetRequiredService<IRealisticSessionManager>()));
                 services.AddTransient<MainWindow>();
                 services.AddTransient<MainWindowViewModel>();
                 services.AddScoped<RealisticModeViewModel>();

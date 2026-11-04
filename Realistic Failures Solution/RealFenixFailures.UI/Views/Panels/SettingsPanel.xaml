@@ -186,6 +186,24 @@
 
                         <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540">
                             <StackPanel>
+                                <TextBlock Text="MODO REALISTA" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                <TextBlock Text="AVISO DE FIN DE VUELO (MINUTOS DE GRACIA)"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           Margin="0,4,0,4"/>
+                                <TextBox Text="{Binding RealisticCompletionGraceMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="80" HorizontalAlignment="Left"
+                                         MaxLength="3"/>
+                                <TextBlock Text="Cuando la app detecta que aterrizaste y apagaste motores en el gate, espera esta cantidad de minutos antes de avisarte que podés finalizar la sesión. Se cuenta en tiempo real, no en el tiempo del simulador. Valores permitidos: 0 a 999 (0 = avisa de inmediato)."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Width="460"
+                                           HorizontalAlignment="Left" Margin="0,6,0,4"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540">
+                            <StackPanel>
                                 <TextBlock Text="Privacidad" FontWeight="SemiBold"
                                            Foreground="{StaticResource Brush.Text.Primary}"/>
                                 <TextBlock Text="El ID se guarda solo en tu equipo (%AppData%\RealFenixFailures\userprefs.json) y solo se usa para consultar planes de vuelo públicos de SimBrief."

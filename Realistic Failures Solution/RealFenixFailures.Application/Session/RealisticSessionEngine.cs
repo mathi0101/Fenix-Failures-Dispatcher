@@ -38,6 +38,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private bool _subscribedToFlightEvents;
     private bool _hasEverHadFenixRead;
     private bool _groundSeeded;
+    private bool _hasObservedFlight;
+    private bool _flightCompletionDetected;
     private Dictionary<string, int>? _ataByFenixId;
     private IReadOnlyList<PresetFailureDefinition>? _flightUniverse;
     private DateTime? _lastCadenceTickUtc;
@@ -140,6 +142,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
         _flightTimeStartedAtUtc = null;
+        // Secuencia de fin de vuelo fresca por sesión (issue #15): cada sesión arranca sin observaciones previas,
+        // aunque la aeronave ya esté volando (la fase aérea se observa en los primeros ticks).
+        _hasObservedFlight = false;
+        _flightCompletionDetected = false;
         _logger.LogDebug("Realistic sesión {SessionId}: inicio aceptado; aeronave {AircraftId}, perfil {Risk}, presets {Count}, multiplicador {Multiplier}, desgaste máximo x{WearMax}, cap agravamiento {Cap}, cap tierra {GroundCap}, escenario {ScenarioUtc}",
             newSession.Id, context.Aircraft.Id, Session.RiskLevel, presets.Count, Session.RiskProfile.ProbabilityMultiplier,
             Session.RiskProfile.WearMaxMultiplier, Session.RiskProfile.AggravationCap, Session.RiskProfile.GroundFailuresCap, _scenarioStartedAtUtc);
@@ -233,22 +239,24 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             await DrainFlightEventsAsync(currentPhase, ct);
             Session!.ProcessSimData(rawData, failuresList ?? Session.AllFenixFailures, currentPhase);
+            var flightCompletedThisTick = TrackFlightCompletion(currentPhase);
 
-            if (currentPhase != ComplexFlightPhaseEnum.OnGate && Queue.HasGround) {
-                Queue.DiscardGround();
-            }
+            // El aviso de fin de vuelo viaja en el resultado del tick (mismo camino que fallas y cambios de estado).
+            EvaluationResult Finish(EvaluationResult result) => flightCompletedThisTick
+                ? result.WithFlightCompletionDetected()
+                : result;
 
             if (!fenixAvailable) {
                 if (_hasEverHadFenixRead) {
                     _lastCadenceTickUtc = _policy.UtcNow;
-                    return EvaluationResult.NoAction();
+                    return Finish(EvaluationResult.NoAction());
                 }
                 if (Queue.Count >= _settings.PreparedQueueLimit) {
                     _lastCadenceTickUtc = _policy.UtcNow;
-                    return EvaluationResult.NoAction();
+                    return Finish(EvaluationResult.NoAction());
                 }
                 var activeOwned = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
-                return await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct);
+                return Finish(await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct));
             }
 
             var stateChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
@@ -256,10 +264,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
             var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
             var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
-            if (flush.Attempted) return EvaluationResult.Completed(flush.Sent).WithStateChanges(stateChanges);
+            if (flush.Attempted) return Finish(EvaluationResult.Completed(flush.Sent).WithStateChanges(stateChanges));
 
             var chosen = await TryChooseAsync(currentPhase, activeAfterReconcile, fenixAvailable: true, ct);
-            return chosen.WithStateChanges(stateChanges);
+            return Finish(chosen.WithStateChanges(stateChanges));
         } catch (OperationCanceledException) {
             // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
             throw;
@@ -326,6 +334,39 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     private static string PhaseCode(ComplexFlightPhaseEnum phase) => phase.ToString().ToUpperInvariant();
+
+    /// <summary>
+    /// Secuencia de fin de vuelo (issue #15 / decisión de grilling 2026-10-31): se marca que hubo vuelo cuando se
+    /// observa por primera vez una fase aérea (Climb/Cruise/Descent/Approach; la sesión puede iniciarse ya volando),
+    /// y el vuelo se considera terminado en el primer tick posterior en gate con ambos motores apagados
+    /// (<see cref="ComplexFlightPhaseEnum.OnGate"/>, que el detector describe como «Motores apagados en gate»).
+    /// Sin validación de posición ni de destino del OFP: un desvío también cuenta como fin de operación.
+    /// El estado vive en la instancia del engine, por lo que sobrevive pausas y reanudaciones de la sesión.
+    /// Devuelve true solo en el tick que completa la secuencia (se emite una única vez por sesión).
+    /// </summary>
+    private bool TrackFlightCompletion(ComplexFlightPhaseEnum phase) {
+        if (_flightCompletionDetected || !IsRunning) return false;
+
+        if (!_hasObservedFlight && IsAirbornePhase(phase)) {
+            _hasObservedFlight = true;
+            _logger.LogDebug("Realistic sesión {SessionId}: fase aérea observada ({Phase}); armada la secuencia de fin de vuelo, escenario {ScenarioUtc}",
+                Session!.Session.Id, phase, _policy.UtcNow);
+        }
+
+        if (!_hasObservedFlight || phase != ComplexFlightPhaseEnum.OnGate) return false;
+
+        _flightCompletionDetected = true;
+        _logger.LogInformation("Realistic sesión {SessionId}: vuelo finalizado detectado (aeronave en gate con motores apagados), escenario {ScenarioUtc}",
+            Session!.Session.Id, _policy.UtcNow);
+        return true;
+    }
+
+    /// <summary>Fases estrictamente aéreas (mismo criterio que <c>FlightEventDetector.IsAirbornePhase</c>).</summary>
+    private static bool IsAirbornePhase(ComplexFlightPhaseEnum phase) =>
+        phase is ComplexFlightPhaseEnum.Climb
+            or ComplexFlightPhaseEnum.Cruise
+            or ComplexFlightPhaseEnum.Descent
+            or ComplexFlightPhaseEnum.Approach;
 
     /// <summary>
     /// Reconciliación del ciclo de vida por lectura de Fenix (diseño objetivo §10): cada tick compara las fallas

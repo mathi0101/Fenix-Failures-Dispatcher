@@ -108,6 +108,101 @@ public class RealisticSessionEngineTests {
         public void Emit(Serilog.Events.LogEvent logEvent) => events.Add(logEvent);
     }
 
+    // ===== Aviso de fin de vuelo (issue #15): detección de la secuencia vuelo→aterrizaje→apagado en gate =====
+
+    private ComplexFlightPhaseEnum[]? _phaseScript;
+    private int _phaseScriptIndex;
+
+    /// <summary>Fases que devolverá ProcessSnapshot, en orden; agotada la cola, sigue devolviendo la última.</summary>
+    private void EnqueuePhases(params ComplexFlightPhaseEnum[] phases) {
+        _phaseScript = phases;
+        _phaseScriptIndex = 0;
+    }
+
+    private ComplexFlightPhaseEnum NextScriptedPhase() {
+        if (_phaseScript is null || _phaseScriptIndex >= _phaseScript.Length)
+            return _phaseScript is null ? ComplexFlightPhaseEnum.OnGate : _phaseScript[^1];
+        return _phaseScript[_phaseScriptIndex++];
+    }
+
+    private void ScriptDetector() =>
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(() => NextScriptedPhase());
+
+    [Fact]
+    public async Task FlightCompletion_Detects_OnlyWhenAirborneObservedBeforeEnginesOffAtGate() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        SetupFenixFailuresOk();
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        ScriptDetector();
+        // Takeoff y Landing no son aéreas (no arman); Climb arma; OnGate con motores apagados completa.
+        EnqueuePhases(ComplexFlightPhaseEnum.Takeoff, ComplexFlightPhaseEnum.Climb, ComplexFlightPhaseEnum.Landing, ComplexFlightPhaseEnum.OnGate);
+
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected); // Takeoff
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected); // Climb: arma
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected); // Landing
+        Assert.True((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);  // OnGate: completa
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected); // latch: una sola vez
+    }
+
+    [Fact]
+    public async Task FlightCompletion_SessionStartedWhileFlying_DetectsOnFirstAirborneObservation() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        SetupFenixFailuresOk();
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        ScriptDetector();
+        // El usuario puede iniciar la sesión ya volando: basta con observar la fase aérea desde el arranque.
+        EnqueuePhases(ComplexFlightPhaseEnum.Cruise, ComplexFlightPhaseEnum.OnGate);
+
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+        Assert.True((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+    }
+
+    [Fact]
+    public async Task FlightCompletion_WithoutObservedFlight_NeverDetects() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        SetupFenixFailuresOk();
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        ScriptDetector();
+        // Sin fase aérea observada, apagar motores en gate (o aterrizar) no dispara el aviso.
+        EnqueuePhases(ComplexFlightPhaseEnum.Landing, ComplexFlightPhaseEnum.OnGate, ComplexFlightPhaseEnum.OnGate);
+
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+    }
+
+    [Fact]
+    public async Task FlightCompletion_StateResets_PerSession() {
+        SetupConnected();
+        SetupOnGateData();
+        SetupValidPersistence();
+        SetupFenixFailuresOk();
+        var engine = CreateEngine();
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        ScriptDetector();
+        EnqueuePhases(ComplexFlightPhaseEnum.Cruise, ComplexFlightPhaseEnum.OnGate);
+
+        _ = await engine.EvaluateAsync(CancellationToken.None);
+        _ = await engine.EvaluateAsync(CancellationToken.None); // detecta en la sesión 1
+
+        await engine.StopSession(CancellationToken.None);
+        Assert.True((await engine.TryStartSession(Context(), CancellationToken.None)).Started);
+        // Sesión 2 arranca sin observaciones: un OnGate aislado no detecta.
+        EnqueuePhases(ComplexFlightPhaseEnum.OnGate, ComplexFlightPhaseEnum.OnGate);
+        Assert.False((await engine.EvaluateAsync(CancellationToken.None)).FlightCompletionDetected);
+    }
+
     [Fact]
     public async Task GroundSeed_OnlyOffersMinorAndRepairableFailures() {
         SetupConnected();

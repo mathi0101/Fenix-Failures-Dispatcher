@@ -29,6 +29,8 @@ public class RealisticSessionManagerTests {
     private Mock<IServiceScope> _scope = null!;
     private readonly Mock<IAircraftSystemWearRepository> _wearRepository = new();
     private readonly Mock<IFenixFailureDefinitionRepository> _fenixFailureDefinitions = new();
+    private ComplexFlightPhaseEnum[]? _phaseScript;
+    private int _phaseScriptIndex;
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null, RealisticModeSettings? realisticSettings = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
@@ -502,5 +504,79 @@ public class RealisticSessionManagerTests {
         await manager.StopAsync(CancellationToken.None);
         Assert.Equal(0, manager.PreparedCount);
         Assert.Null(manager.SessionState);
+    }
+
+    // ===== Aviso de fin de vuelo (issue #15): gracia, cancelación y default =====
+
+    /// <summary>
+    /// Arranca una sesión real y arma el script de fases del detector: [Cruise (arma la secuencia),
+    /// OnGate (completa)] por defecto; espera a que el loop consuma ambos ticks antes de volver.
+    /// </summary>
+    private async Task<RealisticSessionManager> StartSessionWithCompletionScriptAsync(RealisticSessionManager manager) {
+        _sessionService
+            .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _phaseScript = [ComplexFlightPhaseEnum.Cruise, ComplexFlightPhaseEnum.OnGate];
+        _phaseScriptIndex = 0;
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(() => _phaseScript[_phaseScriptIndex >= _phaseScript.Length ? _phaseScript.Length - 1 : _phaseScriptIndex++]);
+        // Espera determinística (con timeout) de que el loop consuma el script completo.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_phaseScriptIndex < 2 && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+        Assert.True(_phaseScriptIndex >= 2, "El loop no consumió el script de fases a tiempo.");
+        return manager;
+    }
+
+    [Fact]
+    public async Task FlightCompletion_NoticeFires_AfterGraceDelay() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+        manager.FlightCompletionGraceDelay = TimeSpan.FromMilliseconds(150);
+
+        var notice = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.FlightCompletionNoticeDue += (_, e) => notice.TrySetResult();
+        manager.PropertyChanged += (_, e) => {
+            if (e.PropertyName == nameof(manager.IsFlightCompletionPending) && manager.IsFlightCompletionPending)
+                notice.TrySetResult();
+        };
+
+        await StartSessionWithCompletionScriptAsync(manager);
+
+        await notice.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(manager.IsFlightCompletionPending);
+
+        await manager.StopAsync(CancellationToken.None);
+        Assert.False(manager.IsFlightCompletionPending);
+    }
+
+    [Fact]
+    public async Task FlightCompletion_Cancelled_WhenSessionStopsDuringGrace() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+        manager.FlightCompletionGraceDelay = TimeSpan.FromSeconds(10); // gracia largo: no vence dentro del test
+
+        var notice = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.FlightCompletionNoticeDue += (_, _) => notice.TrySetResult();
+
+        await StartSessionWithCompletionScriptAsync(manager);
+        await manager.StopAsync(CancellationToken.None);
+
+        // Tras cerrar la sesión, el countdown debe quedar cancelado: ni un gracia completo dispara el aviso.
+        await Task.Delay(300);
+        Assert.False(notice.Task.IsCompleted);
+        Assert.False(manager.IsFlightCompletionPending);
+    }
+
+    [Fact]
+    public async Task FlightCompletion_DefaultGrace_IsThreeMinutes() {
+        var manager = CreateManager();
+        Assert.Equal(TimeSpan.FromMinutes(3), manager.FlightCompletionGraceDelay);
     }
 }

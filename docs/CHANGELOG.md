@@ -1,5 +1,24 @@
 # CHANGELOG
 
+### 2026-10-31 — feat(realistic): aviso de fin de vuelo con gracia configurable y finalización asistida (#15)
+
+- **Detección en `RealisticSessionEngine`**: secuencia fase aérea observada → aterrizaje → `OnGate` con motores apagados; sin validar destino del OFP (los desvíos cuentan); la sesión puede iniciarse ya en vuelo; latch (una sola vez por sesión) y reset por sesión. La señal viaja en `EvaluationResult.FlightCompletionDetected` (mismo camino que fallas/cambios de estado).
+- **Gracia en `RealisticSessionManager`**: countdown en tiempo real de pared, cancelable (cerrar la sesión a mano durante el gracia no avisa); al vencer marca `IsFlightCompletionPending` (volátil, sin cambio de esquema) y dispara `FlightCompletionNoticeDue`.
+- **UI**: restauración desde bandeja sin robar foco + flash de taskbar (`MainWindow`), banner «FINALIZAR SESIÓN» y modal de confirmación (Finalizar / Ahora no) en `RealisticModePanel`; finalizar usa el cierre consolidado existente y abre el modal de resultados.
+- **Configuración**: preferencia `RealisticCompletionGraceMinutes` en `userprefs.json` (default 3, clamp ≥0) editable en Ajustes → General, aplicada en vivo al manager.
+- **Tests**: detección (secuencia completa, inicio en vuelo, sin vuelo, reset por sesión) y gracia (vencimiento, cancelación, default 3). Doc de estado actualizado: `docs/realistic-mode/estado-y-diseno.md` §Aviso de fin de vuelo. Mapa wayfinder: issue #16 (tickets #17-#20).
+- Build Debug sin errores y suite **268/268 en verde** (incluye los 7 tests nuevos). Verificación en sesión real MSFS/Fenix: pendiente (ticket #20).
+
+### 2026-10-31 — chore(repo): `.scratch/` sale del repo y pasa a ignorado
+
+- Eliminada la carpeta `.scratch/` con todo su contenido (21 archivos versionados: borradores de `cierre-sesion-realista/` y `realistic-vision/`, recuperables del historial de git; el `milestone-1.0.0/` de hoy no estaba trackeado y su contenido vive en los issues #12-15). `.gitignore` ignora `.scratch/` de ahora en más: los borradores de agentes quedan solo locales.
+
+### 2026-10-31 — docs(repo): roadmap del milestone 1.0.0 oficial
+
+- **Doc nuevo [`docs/roadmap.md`](roadmap.md)**: fuente única del alcance por release. Define el milestone 1.0.0 (release oficial estable) con los 4 ítems acordados: (1) app bilingüe ES/EN seleccionable 100 % traducida (visual), (2) mantenimiento de sistemas desgastados que baje el desgaste acumulado, (3) revisión y rediseño del botón para frenar fallas, (4) prompt de finalización de sesión al abrir la app cuando se detecta aeronave aterizada, en gate y con motores apagados.
+- Incluye la nota de contexto de pruebas: verificación en vivo continua desde la v0.2.0 (vuelos completos en modo Realistic, modo debug con reloj escalable probado, UI verificada visualmente). La actualización de los «No verificado en sesión real» heredados en los demás docs queda como tarea separada.
+- Índice actualizado: fila nueva en la tabla «Vigente» de `docs/README.md`. Sin cambios de código.
+
 ### 2026-10-30 — fix(realistic): segunda ronda de calibración de perfiles + reporte de balance regenerado
 
 - Defaults de perfiles (`FailureEngineSettings`): `ProbabilityMultiplier` Bajo 0.75→1, Moderado 1.1→1.5, Alto 2.5→3.5, Squawk 7700 4.1→6; `WearMaxMultiplier` Moderado 2.1→2.6, Alto 2.2→3, Squawk 7700 2.3→3 (Bajo queda 2); tregua tras falla crítica: Moderado 120→180 min, Alto 60→120 min, Squawk 7700 30→60 min. Regenerados `docs/balance/balance-realistic.md` y `.xlsx`.

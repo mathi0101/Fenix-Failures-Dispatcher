@@ -1036,6 +1036,24 @@
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,12,0,0">
+                    <!-- Aviso de fin de vuelo (issue #15): vuelo terminado detectado y sesión abierta sin decisión -->
+                    <Border Background="#0A2A1C" BorderBrush="{StaticResource Brush.Accent.Green.Primary}" BorderThickness="1"
+                            CornerRadius="8" Padding="12" Margin="0,0,0,10"
+                            Visibility="{Binding IsFlightCompletionBannerVisible, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⏹" FontSize="16" Foreground="{StaticResource Brush.Accent.Green.Primary}"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Se detectó la finalización del vuelo (en gate con motores apagados). Podés finalizar la sesión y ver el resumen."
+                                       FontSize="12" Foreground="{StaticResource Brush.Text.Primary}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       MaxWidth="420"/>
+                            <Button Content="FINALIZAR SESIÓN" Height="32" Padding="16,0"
+                                    Command="{Binding ShowFlightCompletionConfirmCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <Border Background="#2A1C0A" BorderBrush="{StaticResource Brush.Border.Warning}" BorderThickness="1"
                             CornerRadius="8" Padding="12" Margin="0,0,0,10"
                             Visibility="{Binding StopConfirmationVisible, Converter={StaticResource BoolToVis}}">
@@ -1141,6 +1159,33 @@
                         </Button>
                     </Grid>
                 </StackPanel>
+
+                <!-- Aviso de fin de vuelo: modal de confirmación Finalizar / Ahora no (issue #15) -->
+                <Grid Grid.RowSpan="3" Background="#C0080A0F"
+                      Visibility="{Binding IsFlightCompletionConfirmVisible, Converter={StaticResource BoolToVis}}">
+                    <Border Width="480" Background="{StaticResource Brush.Background.Card}"
+                            BorderBrush="{StaticResource Brush.Accent.Green.Primary}" BorderThickness="1"
+                            CornerRadius="12" Padding="20"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="✈ VUELO FINALIZADO" FontSize="12" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Accent.Green.Primary}" Margin="0,0,0,10"/>
+                            <TextBlock Text="Se detectó la finalización del vuelo: la aeronave aterrizó y llegó al gate con los motores apagados. ¿Querés finalizar la sesión realista y ver el resumen?"
+                                       FontSize="12" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Ahora no" Height="34" Padding="16,0" Margin="0,0,8,0"
+                                        Command="{Binding CancelFlightCompletionCommand}"
+                                        Style="{StaticResource GhostButtonStyle}"/>
+                                <Button Content="Finalizar sesión" Height="34" Padding="16,0"
+                                        Command="{Binding ConfirmFlightCompletionCommand}"
+                                        Style="{StaticResource PrimaryButtonStyle}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
                 <Grid Grid.RowSpan="3" Background="#C0080A0F"
                       Visibility="{Binding IsVatsimConfirmVisible, Converter={StaticResource BoolToVis}}">

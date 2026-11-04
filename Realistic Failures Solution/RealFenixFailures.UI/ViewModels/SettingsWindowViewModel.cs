@@ -16,6 +16,7 @@ public class SettingsWindowViewModel : ObservableObject {
     private readonly UserPreferencesService _preferences;
     private readonly IUpdateChecker _updateChecker;
     private readonly ILogger<SettingsWindowViewModel> _logger;
+    private readonly IRealisticSessionManager? _realisticSessionManager;
     private CancellationTokenSource? _saveDebounceCts;
 
     private string _simbriefUserId = string.Empty;
@@ -25,17 +26,21 @@ public class SettingsWindowViewModel : ObservableObject {
     private UpdateCheckState _updateState = UpdateCheckState.Idle;
     private bool _hasNewUpdate;
     private string _newUpdateTag = string.Empty;
+    private int _realisticCompletionGraceMinutes;
 
     public SettingsWindowViewModel(
         UserPreferencesService preferences,
         IUpdateChecker updateChecker,
-        ILogger<SettingsWindowViewModel> logger) {
+        ILogger<SettingsWindowViewModel> logger,
+        IRealisticSessionManager? realisticSessionManager = null) {
         _preferences = preferences;
         _updateChecker = updateChecker;
         _logger = logger;
+        _realisticSessionManager = realisticSessionManager;
 
         _simbriefUserId = preferences.SimbriefUserId;
         _telemetryEnabled = !preferences.TelemetryOptOut;
+        _realisticCompletionGraceMinutes = preferences.RealisticCompletionGraceMinutes;
 
         AppVersion = GetDisplayVersion();
 
@@ -112,6 +117,20 @@ public class SettingsWindowViewModel : ObservableObject {
         private set => SetProperty(ref _saveStatusText, value);
     }
 
+    /// <summary>
+    /// Minutos de gracia para el aviso de fin de vuelo del modo Realista (issue #15): tiempo real que pasa
+    /// entre el apagado de motores en gate y el aviso para finalizar la sesión.
+    /// </summary>
+    public int RealisticCompletionGraceMinutes {
+        get => _realisticCompletionGraceMinutes;
+        set {
+            if (SetProperty(ref _realisticCompletionGraceMinutes, Math.Max(0, value))) {
+                SaveStatusText = string.Empty;
+                ScheduleSave();
+            }
+        }
+    }
+
     /// <summary>Telemetría anónima activada (opt-out invertido en preferencias al persistir).</summary>
     public bool TelemetryEnabled {
         get => _telemetryEnabled;
@@ -154,6 +173,10 @@ public class SettingsWindowViewModel : ObservableObject {
         try {
             _preferences.SimbriefUserId = SimbriefUserId?.Trim() ?? string.Empty;
             _preferences.TelemetryOptOut = !TelemetryEnabled;
+            _preferences.RealisticCompletionGraceMinutes = RealisticCompletionGraceMinutes;
+            // Actualización en vivo: si hay sesión activa, el gracia nuevo aplica al próximo countdown.
+            if (_realisticSessionManager is not null)
+                _realisticSessionManager.FlightCompletionGraceDelay = TimeSpan.FromMinutes(_preferences.RealisticCompletionGraceMinutes);
             _logger.LogDebug("Preferencias de usuario guardadas.");
         }
         catch (Exception ex) {

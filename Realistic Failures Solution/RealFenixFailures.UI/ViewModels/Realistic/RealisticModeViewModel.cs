@@ -123,6 +123,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
         DeleteOfpCommand = new RelayCommand(DeleteOfp, () => CanDeleteOfp);
         DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
+        ShowFlightCompletionConfirmCommand = new RelayCommand(() => IsFlightCompletionConfirmVisible = true, () => IsFlightCompletionBannerVisible && !IsOperationPending);
+        ConfirmFlightCompletionCommand = new RelayCommand(async () => await ConfirmFlightCompletionAsync(), () => IsEngineActive && !IsOperationPending);
+        CancelFlightCompletionCommand = new RelayCommand(() => IsFlightCompletionConfirmVisible = false);
 
         SetSimulatedScaleCommand = new RelayCommand<string>(
             s => { if (double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var scale)) _orchestrator.SetSimulatedTimeScale(scale); });
@@ -133,6 +136,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _realisticSessionManager.PropertyChanged += RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered += RealisticSessionManager_FailureTriggered;
         _realisticSessionManager.FailureStateChanged += RealisticSessionManager_FailureStateChanged;
+        _realisticSessionManager.FlightCompletionNoticeDue += RealisticSessionManager_FlightCompletionNoticeDue;
+        // Gracia del aviso de fin de vuelo (issue #15): desde preferencias de usuario, con default de 3 minutos.
+        _realisticSessionManager.FlightCompletionGraceDelay = TimeSpan.FromMinutes(_preferences.RealisticCompletionGraceMinutes);
         IsSessionPaused = _realisticSessionManager.IsPaused;
         IsEngineActive = _orchestrator.IsEngineActive;
         SyncConnectionFromOrchestrator();
@@ -602,6 +608,64 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         set => SetProperty(ref _stopConfirmationVisible, value);
     }
 
+    #region Aviso de fin de vuelo (issue #15)
+
+    /// <summary>
+    /// Vuelo terminado detectado y sesión abierta sin decisión: muestra el banner en el panel Realistic
+    /// (refleja <c>IRealisticSessionManager.IsFlightCompletionPending</c>, volátil por diseño).
+    /// </summary>
+    public bool IsFlightCompletionBannerVisible {
+        get => _isFlightCompletionBannerVisible;
+        private set {
+            if (SetProperty(ref _isFlightCompletionBannerVisible, value))
+                ShowFlightCompletionConfirmCommand.RaiseCanExecuteChanged();
+        }
+    }
+    private bool _isFlightCompletionBannerVisible;
+
+    /// <summary>Modal de confirmación sobre el aviso: Finalizar sesión / Ahora no.</summary>
+    public bool IsFlightCompletionConfirmVisible {
+        get => _isFlightCompletionConfirmVisible;
+        set => SetProperty(ref _isFlightCompletionConfirmVisible, value);
+    }
+    private bool _isFlightCompletionConfirmVisible;
+
+    /// <summary>Pedido a MainWindow de restaurar la app desde segundo plano sin robar foco (flash de taskbar).</summary>
+    public event EventHandler? FlightCompletionPromptRequested;
+
+    public RelayCommand ShowFlightCompletionConfirmCommand { get; }
+    public RelayCommand ConfirmFlightCompletionCommand { get; }
+    public RelayCommand CancelFlightCompletionCommand { get; }
+
+    private void RealisticSessionManager_FlightCompletionNoticeDue(object? sender, FlightCompletionNoticeDueEventArgs e) {
+        System.Windows.Application.Current?.Dispatcher!.InvokeAsync(() => {
+            // No roba foco: solo marca el banner y pide a MainWindow restaurar + flash (decisión de grilling).
+            IsFlightCompletionBannerVisible = true;
+            FlightCompletionPromptRequested?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Finaliza la sesión desde el aviso de fin de vuelo: mismo camino que el botón DETENER
+    /// (cierre consolidado + modal de resultados ya existentes). Sin descarte en este aviso.
+    /// </summary>
+    private async Task ConfirmFlightCompletionAsync() {
+        IsFlightCompletionConfirmVisible = false;
+        if (!IsEngineActive) return;
+        IsOperationPending = true;
+        try {
+            await _orchestrator.StopCurrentModeAsync(CancellationToken.None);
+            _logger.LogInformation("Sesión realista finalizada desde el aviso de fin de vuelo.");
+            await ShowLastSessionResultAsync();
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error al finalizar la sesión desde el aviso de fin de vuelo.");
+        } finally {
+            IsOperationPending = false;
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// La sesión realista está pausada (p. ej. por pérdida de datos del simulador); habilita REANUDAR EVALUACIÓN.
     /// Refleja <c>IRealisticSessionManager.IsPaused</c> vía PropertyChanged.
@@ -995,6 +1059,10 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             if (e.PropertyName == nameof(IRealisticSessionManager.PreparedCount)) {
                 RefreshPreparedState();
             }
+            if (e.PropertyName == nameof(IRealisticSessionManager.IsFlightCompletionPending)) {
+                // Sincroniza el banner con el estado del manager: al limpiarse (sesión cerrada), el banner desaparece.
+                IsFlightCompletionBannerVisible = _realisticSessionManager.IsFlightCompletionPending;
+            }
         });
     }
 
@@ -1103,5 +1171,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         _realisticSessionManager.PropertyChanged -= RealisticSessionManager_PropertyChanged;
         _realisticSessionManager.FailureTriggered -= RealisticSessionManager_FailureTriggered;
         _realisticSessionManager.FailureStateChanged -= RealisticSessionManager_FailureStateChanged;
+        _realisticSessionManager.FlightCompletionNoticeDue -= RealisticSessionManager_FlightCompletionNoticeDue;
     }
 }
