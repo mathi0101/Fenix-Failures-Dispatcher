@@ -269,6 +269,25 @@ namespace RealFenixFailures.Infrastructure.Migrations
                     b.ToTable("AppVersionHistories");
                 });
 
+            modelBuilder.Entity("RealFenixFailures.Domain.Entities.CatalogSyncState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CatalogsHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SyncedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CatalogSyncStates");
+                });
+
             modelBuilder.Entity("RealFenixFailures.Domain.Entities.FailurePreset", b =>
                 {
                     b.Property<int>("Id")
@@ -325,6 +344,11 @@ namespace RealFenixFailures.Infrastructure.Migrations
 
                     b.Property<int>("GroupId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Name")
                         .IsRequired()

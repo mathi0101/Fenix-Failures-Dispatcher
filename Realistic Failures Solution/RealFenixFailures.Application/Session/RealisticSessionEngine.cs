@@ -689,7 +689,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private async Task<IReadOnlyList<PresetFailureDefinition>> GetFlightUniverseAsync(CancellationToken ct) {
         if (_flightUniverse is not null) return _flightUniverse;
         if (_fenixFailureDefinitions is null) return [];
-        var catalog = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        // Solo definiciones activas del catálogo (las de baja lógica del sync quedan fuera; GetAll
+        // sin filtrar es para la reconciliación de fallas disparadas, que sí necesita el historial).
+        var catalog = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x => x.IsActive);
         _flightUniverse = catalog.Select(entity => new PresetFailureDefinition {
             FenixFailureId = entity.FenixFailureId,
             FenixFailure = entity,
@@ -924,7 +926,8 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             .ToDictionary(g => g.Key, g => g.Max(x => x.WearPercentage));
 
         var result = new List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>();
-        var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        // Solo activas: una falla dada de baja lógicamente por el sync de catálogos no vuelve a sembrarse en tierra.
+        var availableFailures = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x => x.IsActive);
         // Solo leves Y recuperables (tipos-de-falla.md §4.1): nunca se arranca una sesión con una falla
         // permanente que el piloto no puede resolver en tierra.
         var eligible = availableFailures

@@ -43,6 +43,9 @@ public static class DependencyInjection {
 
         services.AddScoped<IFailuresPersistenceService, FailuresPersistenceService>();
         services.AddScoped<IPresetsLoader, PresetsLoader>();
+        // Sincronizador de catálogos curados por hash (supersede a FailuresPersistenceService +
+        // PresetService.InitializeAsync como único camino de siembra/refresco en el arranque).
+        services.AddScoped<ICatalogSyncService, CatalogSyncService>();
         services.AddScoped<IUserAircraftService, UserAircraftService>();
 
 #if DEBUG
