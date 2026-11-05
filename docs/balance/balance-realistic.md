@@ -14,24 +14,24 @@ _Generado por `RealisticBalanceReportTests` con el código vigente del motor (Fa
 
 ## Configuración con la que se generó este reporte
 
-_Defaults de código al generar el archivo (`FailureEngineSettings` y perfiles del catálogo — el reporte no lee appsettings). La tabla de desgaste por horas aplica el multiplicador global ×2. Si cambiaron parámetros, regenerar para reflejarlos._
+_Defaults de código al generar el archivo (`FailureEngineSettings` y perfiles del catálogo — el reporte no lee appsettings). La tabla de desgaste por horas aplica el multiplicador global ×0,8. Si cambiaron parámetros, regenerar para reflejarlos._
 
 | Parámetro | Valor |
 |---|---:|
 | Tasa base por falla leve elegible en vuelo, eventos/h (`FailureRatePerHourBase`) | 0,1 |
-| Semillas de tierra esperadas por vuelo, λ₀ (`GroundSeedLambdaBase`) | 0,8 |
+| Semillas de tierra esperadas por vuelo, λ₀ (`GroundSeedLambdaBase`) | 0,6 |
 | Multiplicador de tasa leves / graves / críticas (`SeverityRateMultiplier`) | 1 / 0,4 / 0,14 |
 | Peso de agravamiento leves / graves / críticas (`AggravationWeights`) | 1 / 2 / 4 |
 | Agravación extra por misma ATA simultánea (`SameAtaAggravationExtra`) | 1 |
 | Intervalo de evaluación del motor, s (`EvaluationIntervalSeconds`) | 60 |
 | Semilla de tierra habilitada (`GroundFailureEnabled`) | sí |
-| Multiplicador global de desgaste (`Wear:WearRateMultiplier`) | 2 |
+| Multiplicador global de desgaste (`Wear:WearRateMultiplier`) | 0,8 |
 | Umbral de aviso de sistema castigado, % (`Wear:ThresholdNoticePct`) | 80 |
 
 | Perfil | Multiplicador | Desgaste máx | Tope agravación | Tope tierra | Tregua crítica |
 |---|---:|---:|---:|---:|---:|
 | **Bajo** | ×0,6 | ×3 | 3 | 1 | — |
-| **Moderado** | ×1,2 | ×3 | 5 | 2 | 180 min |
+| **Moderado** | ×1 | ×3 | 5 | 2 | 180 min |
 | **Alto** | ×2,6 | ×3 | 8 | 3 | 120 min |
 | **7700** | ×4 | ×3 | 10 | 5 | 60 min |
 
@@ -44,9 +44,9 @@ _Lo que siente el jugador por vuelo típico —la vista de 10 h de las tablas de
 | **Bajo** | 0 % | 0,25 | 22,3 % | 6,9 % | — | — |
 | **Bajo** | 25 % | 0,38 | 31,5 % | 10,2 % | — | — |
 | **Bajo** | 100 % | 0,76 | 53,0 % | 19,4 % | — | — |
-| **Moderado** | 0 % | 0,55 | 42,6 % | 13,4 % | 4,9 % | **20 vuelos** |
-| **Moderado** | 25 % | 0,83 | 56,5 % | 19,4 % | 7,3 % | **13 vuelos** |
-| **Moderado** | 100 % | 1,66 | 81,0 % | 35,1 % | 14,0 % | **7 vuelos** |
+| **Moderado** | 0 % | 0,46 | 37,0 % | 11,3 % | 4,1 % | **24 vuelos** |
+| **Moderado** | 25 % | 0,69 | 50,0 % | 16,5 % | 6,1 % | **16 vuelos** |
+| **Moderado** | 100 % | 1,39 | 75,0 % | 30,2 % | 11,8 % | **8 vuelos** |
 | **Alto** | 0 % | 1,2 | 69,9 % | 26,8 % | 10,3 % | **9 vuelos** |
 | **Alto** | 25 % | 1,8 | 83,5 % | 37,4 % | 15,1 % | **6 vuelos** |
 | **Alto** | 100 % | 3,6 | 97,3 % | 60,8 % | 27,9 % | **3 vuelos** |
@@ -54,19 +54,19 @@ _Lo que siente el jugador por vuelo típico —la vista de 10 h de las tablas de
 | **7700** | 25 % | 2,77 | 93,7 % | 51,3 % | 22,3 % | **4 vuelos** |
 | **7700** | 100 % | 5,54 | 99,6 % | 76,3 % | 39,6 % | **2 vuelos** |
 
-### Desgaste por horas de vuelo (desgaste ×2; 25 / 50 / 80 aviso / 100 %)
+### Desgaste por horas de vuelo (desgaste ×0,8; 25 / 50 / 80 aviso / 100 %)
 
-El desgaste acumula la tasa del sistema × horas de vuelo **solo en los sistemas sorteados** al cerrar cada sesión: con vuelos de 3 h salen 5 de 19 sistemas (escala 1,5 sistemas/h, mínimo 3). Horas de vuelo esperadas de la aeronave hasta cada nivel, por tasa del seed (`WearPerFlightHour`, 0,15–1 %/h); entre paréntesis, vuelos de 3 h. Multiplicador global de desgaste activo: ×2.
+El desgaste acumula la tasa del sistema × horas de vuelo **solo en los sistemas sorteados** al cerrar cada sesión: con vuelos de 3 h salen 5 de 19 sistemas (escala 1,5 sistemas/h, mínimo 3). Horas de vuelo esperadas de la aeronave hasta cada nivel, por tasa del seed (`WearPerFlightHour`, 0,38–2,5 %/h); entre paréntesis, vuelos de 3 h. Multiplicador global de desgaste activo: ×0,8.
 
 | Tasa del sistema | Hasta 25 % | Hasta 50 % | Hasta 80 % (aviso) | Hasta 100 % |
 |---|---:|---:|---:|---:|
-| 0,15 %/h (4 sist.) | 316,67 h (106 vuelos) | 633,33 h (211 vuelos) | 1013,33 h (338 vuelos) | 1266,67 h (422 vuelos) |
-| 0,3 %/h (3 sist.) | 158,33 h (53 vuelos) | 316,67 h (106 vuelos) | 506,67 h (169 vuelos) | 633,33 h (211 vuelos) |
-| 0,4 %/h (5 sist.) | 118,75 h (40 vuelos) | 237,5 h (79 vuelos) | 380 h (127 vuelos) | 475 h (158 vuelos) |
-| 0,5 %/h (2 sist.) | 95 h (32 vuelos) | 190 h (63 vuelos) | 304 h (101 vuelos) | 380 h (127 vuelos) |
-| 0,7 %/h (1 sist.) | 67,86 h (23 vuelos) | 135,71 h (45 vuelos) | 217,14 h (72 vuelos) | 271,43 h (90 vuelos) |
-| 0,75 %/h (3 sist.) | 63,33 h (21 vuelos) | 126,67 h (42 vuelos) | 202,67 h (68 vuelos) | 253,33 h (84 vuelos) |
-| 1 %/h (1 sist.) | 47,5 h (16 vuelos) | 95 h (32 vuelos) | 152 h (51 vuelos) | 190 h (63 vuelos) |
+| 0,38 %/h (4 sist.) | 316,67 h (106 vuelos) | 633,33 h (211 vuelos) | 1013,33 h (338 vuelos) | 1266,67 h (422 vuelos) |
+| 0,75 %/h (3 sist.) | 158,33 h (53 vuelos) | 316,67 h (106 vuelos) | 506,67 h (169 vuelos) | 633,33 h (211 vuelos) |
+| 1 %/h (5 sist.) | 118,75 h (40 vuelos) | 237,5 h (79 vuelos) | 380 h (127 vuelos) | 475 h (158 vuelos) |
+| 1,25 %/h (2 sist.) | 95 h (32 vuelos) | 190 h (63 vuelos) | 304 h (101 vuelos) | 380 h (127 vuelos) |
+| 1,75 %/h (1 sist.) | 67,86 h (23 vuelos) | 135,71 h (45 vuelos) | 217,14 h (72 vuelos) | 271,43 h (90 vuelos) |
+| 1,88 %/h (3 sist.) | 63,33 h (21 vuelos) | 126,67 h (42 vuelos) | 202,67 h (68 vuelos) | 253,33 h (84 vuelos) |
+| 2,5 %/h (1 sist.) | 47,5 h (16 vuelos) | 95 h (32 vuelos) | 152 h (51 vuelos) | 190 h (63 vuelos) |
 
 ## Perfil Bajo (nivel 1)
 
@@ -98,11 +98,11 @@ Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la proba
 
 | Desgaste | P(0) | P(1) | Media |
 |---|---:|---:|---:|
-| 0 % | 61,9 % | 38,1 % | 0,38 |
-| 25 % | 48,7 % | 51,3 % | 0,51 |
-| 50 % | 38,3 % | 61,7 % | 0,62 |
-| 75 % | 30,1 % | 69,9 % | 0,70 |
-| 100 % | 23,7 % | 76,3 % | 0,76 |
+| 0 % | 69,8 % | 30,2 % | 0,30 |
+| 25 % | 58,3 % | 41,7 % | 0,42 |
+| 50 % | 48,7 % | 51,3 % | 0,51 |
+| 75 % | 40,7 % | 59,3 % | 0,59 |
+| 100 % | 34,0 % | 66,0 % | 0,66 |
 
 ### Experiencia por vuelo (3 h)
 
@@ -116,27 +116,27 @@ Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la proba
 
 ## Perfil Moderado (nivel 2)
 
-Multiplicador ×1,2 · desgaste máx ×3 · tope agravación 5 · tope tierra 2 · tregua crítica 180 min
+Multiplicador ×1 · desgaste máx ×3 · tope agravación 5 · tope tierra 2 · tregua crítica 180 min
 
 ### Fallas en vuelo por severidad
 
 | Desgaste | Escala | Leves | Graves | Críticas | Total |
 |---|---|---:|---:|---:|---:|
-| 0 % | 1 h | 0,12 | 0,05 | 0,02 | 0,18 |
-| 0 % | 10 h | 1,2 | 0,48 | 0,17 | 1,85 |
-| 0 % | 100 h | 12 | 4,8 | 1,68 | 18,48 |
-| 25 % | 1 h | 0,18 | 0,07 | 0,03 | 0,28 |
-| 25 % | 10 h | 1,8 | 0,72 | 0,25 | 2,77 |
-| 25 % | 100 h | 18 | 7,2 | 2,52 | 27,72 |
-| 50 % | 1 h | 0,24 | 0,1 | 0,03 | 0,37 |
-| 50 % | 10 h | 2,4 | 0,96 | 0,34 | 3,7 |
-| 50 % | 100 h | 24 | 9,6 | 3,36 | 36,96 |
-| 75 % | 1 h | 0,3 | 0,12 | 0,04 | 0,46 |
-| 75 % | 10 h | 3 | 1,2 | 0,42 | 4,62 |
-| 75 % | 100 h | 30 | 12 | 4,2 | 46,2 |
-| 100 % | 1 h | 0,36 | 0,14 | 0,05 | 0,55 |
-| 100 % | 10 h | 3,6 | 1,44 | 0,5 | 5,54 |
-| 100 % | 100 h | 36 | 14,4 | 5,04 | 55,44 |
+| 0 % | 1 h | 0,1 | 0,04 | 0,01 | 0,15 |
+| 0 % | 10 h | 1 | 0,4 | 0,14 | 1,54 |
+| 0 % | 100 h | 10 | 4 | 1,4 | 15,4 |
+| 25 % | 1 h | 0,15 | 0,06 | 0,02 | 0,23 |
+| 25 % | 10 h | 1,5 | 0,6 | 0,21 | 2,31 |
+| 25 % | 100 h | 15 | 6 | 2,1 | 23,1 |
+| 50 % | 1 h | 0,2 | 0,08 | 0,03 | 0,31 |
+| 50 % | 10 h | 2 | 0,8 | 0,28 | 3,08 |
+| 50 % | 100 h | 20 | 8 | 2,8 | 30,8 |
+| 75 % | 1 h | 0,25 | 0,1 | 0,04 | 0,39 |
+| 75 % | 10 h | 2,5 | 1 | 0,35 | 3,85 |
+| 75 % | 100 h | 25 | 10 | 3,5 | 38,5 |
+| 100 % | 1 h | 0,3 | 0,12 | 0,04 | 0,46 |
+| 100 % | 10 h | 3 | 1,2 | 0,42 | 4,62 |
+| 100 % | 100 h | 30 | 12 | 4,2 | 46,2 |
 
 ### Semilla de tierra al iniciar cada vuelo (distribución)
 
@@ -144,21 +144,21 @@ Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la proba
 
 | Desgaste | P(0) | P(1) | P(2) | Media |
 |---|---:|---:|---:|---:|
-| 0 % | 38,3 % | 36,8 % | 25,0 % | 0,87 |
-| 25 % | 23,7 % | 34,1 % | 42,2 % | 1,18 |
-| 50 % | 14,7 % | 28,1 % | 57,2 % | 1,43 |
-| 75 % | 9,1 % | 21,8 % | 69,2 % | 1,60 |
-| 100 % | 5,6 % | 16,2 % | 78,2 % | 1,73 |
+| 0 % | 54,9 % | 32,9 % | 12,2 % | 0,57 |
+| 25 % | 40,7 % | 36,6 % | 22,8 % | 0,82 |
+| 50 % | 30,1 % | 36,1 % | 33,7 % | 1,04 |
+| 75 % | 22,3 % | 33,5 % | 44,2 % | 1,22 |
+| 100 % | 16,5 % | 29,8 % | 53,7 % | 1,37 |
 
 ### Experiencia por vuelo (3 h)
 
 | Desgaste | E[fallas] | P(≥1 falla) | P(≥1 grave) | P(≥1 crítica) | 1 crítica cada |
 |---|---:|---:|---:|---:|---:|
-| 0 % | 0,55 | 42,6 % | 13,4 % | 4,9 % | **20 vuelos** |
-| 25 % | 0,83 | 56,5 % | 19,4 % | 7,3 % | **13 vuelos** |
-| 50 % | 1,11 | 67,0 % | 25,0 % | 9,6 % | **10 vuelos** |
-| 75 % | 1,39 | 75,0 % | 30,2 % | 11,8 % | **8 vuelos** |
-| 100 % | 1,66 | 81,0 % | 35,1 % | 14,0 % | **7 vuelos** |
+| 0 % | 0,46 | 37,0 % | 11,3 % | 4,1 % | **24 vuelos** |
+| 25 % | 0,69 | 50,0 % | 16,5 % | 6,1 % | **16 vuelos** |
+| 50 % | 0,92 | 60,3 % | 21,3 % | 8,1 % | **12 vuelos** |
+| 75 % | 1,16 | 68,5 % | 25,9 % | 10,0 % | **10 vuelos** |
+| 100 % | 1,39 | 75,0 % | 30,2 % | 11,8 % | **8 vuelos** |
 
 ## Perfil Alto (nivel 3)
 
@@ -190,11 +190,11 @@ Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la proba
 
 | Desgaste | P(0) | P(1) | P(2) | P(3) | Media |
 |---|---:|---:|---:|---:|---:|
-| 0 % | 12,5 % | 26,0 % | 27,0 % | 34,5 % | 1,84 |
-| 25 % | 4,4 % | 13,8 % | 21,5 % | 60,3 % | 2,38 |
-| 50 % | 1,6 % | 6,5 % | 13,5 % | 78,4 % | 2,69 |
-| 75 % | 0,6 % | 2,9 % | 7,5 % | 89,1 % | 2,85 |
-| 100 % | 0,2 % | 1,2 % | 3,8 % | 94,8 % | 2,93 |
+| 0 % | 21,0 % | 32,8 % | 25,6 % | 20,6 % | 1,46 |
+| 25 % | 9,6 % | 22,5 % | 26,4 % | 41,5 % | 2,00 |
+| 50 % | 4,4 % | 13,8 % | 21,5 % | 60,3 % | 2,38 |
+| 75 % | 2,0 % | 7,9 % | 15,4 % | 74,7 % | 2,63 |
+| 100 % | 0,9 % | 4,3 % | 10,2 % | 84,6 % | 2,78 |
 
 ### Experiencia por vuelo (3 h)
 
@@ -236,11 +236,11 @@ Cada vuelo **sortea** su arranque entre 0 y el tope del perfil: P(k) es la proba
 
 | Desgaste | P(0) | P(1) | P(2) | P(3) | P(4) | P(5) | Media |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| 0 % | 4,1 % | 13,0 % | 20,9 % | 22,3 % | 17,8 % | 21,9 % | 3,03 |
-| 25 % | 0,8 % | 4,0 % | 9,5 % | 15,2 % | 18,2 % | 52,4 % | 4,03 |
-| 50 % | 0,2 % | 1,1 % | 3,4 % | 7,3 % | 11,6 % | 76,5 % | 4,59 |
-| 75 % | 0,0 % | 0,3 % | 1,1 % | 2,9 % | 5,7 % | 90,0 % | 4,84 |
-| 100 % | 0,0 % | 0,1 % | 0,3 % | 1,0 % | 2,4 % | 96,2 % | 4,94 |
+| 0 % | 9,1 % | 21,8 % | 26,1 % | 20,9 % | 12,5 % | 9,6 % | 2,35 |
+| 25 % | 2,7 % | 9,8 % | 17,7 % | 21,2 % | 19,1 % | 29,4 % | 3,32 |
+| 50 % | 0,8 % | 4,0 % | 9,5 % | 15,2 % | 18,2 % | 52,4 % | 4,03 |
+| 75 % | 0,2 % | 1,5 % | 4,5 % | 8,9 % | 13,4 % | 71,5 % | 4,48 |
+| 100 % | 0,1 % | 0,5 % | 1,9 % | 4,6 % | 8,4 % | 84,4 % | 4,74 |
 
 ### Experiencia por vuelo (3 h)
 

@@ -46,7 +46,7 @@ public class RealisticModeSettings {
     };
     /// <summary>Perfil Moderado (nivel 2): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:Moderate</c>).</summary>
     public RealisticProfileSettings Moderate { get; set; } = new() {
-        RiskLevel = 2, ProbabilityMultiplier = 1.2, WearMaxMultiplier = 3,
+        RiskLevel = 2, ProbabilityMultiplier = 1, WearMaxMultiplier = 3,
         AggravationCap = 5, GroundFailuresCap = 2, CriticalRespiteSeconds = 180 * 60
     };
     /// <summary>Perfil Alto (nivel 3): default del perfil; appsettings puede pisar cualquier campo parcialmente (<c>FailureEngine:RealisticMode:High</c>).</summary>
@@ -98,7 +98,7 @@ public class RealisticPhysicsSettings {
     /// Calibración rápida con los perfiles por defecto (tope entre paréntesis), de desgaste 0 % a 100 %:
     /// Bajo 0,45→0,83 (1) · Moderado 1,04→1,85 (2) · Alto 2,14→2,98 (3) · 7700 3,59→4,99 (5).
     /// </summary>
-    public double GroundSeedLambdaBase { get; set; } = 0.8;
+    public double GroundSeedLambdaBase { get; set; } = 0.6;
     /// <summary>Cuánto más rara es cada severidad a igualdad de todo lo demás (multiplicador de λ en vuelo y de p en tierra).</summary>
     public PhysicsSeverityRateMultipliers SeverityRateMultiplier { get; set; } = new();
     /// <summary>Pesos con que cada falla activa suma al score de agravamiento de la sesión (contra el tope del perfil).</summary>
@@ -162,5 +162,5 @@ public class WearSettings {
     /// el seed ni la base. Config: `FailureEngine:RealisticMode:Wear:WearRateMultiplier`. 2 = los sistemas se desgastan
     /// al doble de velocidad (el 50 % llega en la mitad de horas); 0.5, a la mitad. 1 = tasas del seed tal cual (default).
     /// </summary>
-    public double WearRateMultiplier { get; set; } = 2.0;
+    public double WearRateMultiplier { get; set; } = 0.8;
 }
