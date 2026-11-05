@@ -12,7 +12,7 @@ Documento de estado y diseño del subsistema de localización de `RealFenixFailu
 
 **Verificado** (2026-11-04): build verde; suite completa 313/314 (el único fallo, `FailureEngineSettings_RealisticMode_HasObjectiveDefaults`, es del WIP de calibración de otra tarea, ajeno a localización); suite de localización 34/34; publish Release con el satélite `es/RealFenixFailures.resources.dll` en la salida; smoke test de arranque real: primera ejecución detectó Windows en inglés y persistió `Language: "en"` en `userprefs.json` sin tocar el resto de las preferencias.
 
-**No verificado visualmente**: el cambio de idioma en vivo en pantalla (selector de Ajustes, bandeja, refresco de paneles) requiere QA manual en la PC de testing; el mecanismo está cubierto por tests unitarios de eventos (`Item[]`/`LanguageChanged`).
+**Verificado visualmente** (QA manual en la PC de testing, 2026-11-05 — cierre de v0.6.0-pre): el cambio de idioma en vivo en pantalla (selector de Ajustes, bandeja, refresco de paneles) quedó verificado en sesión real; el mecanismo sigue cubierto además por tests unitarios de eventos (`Item[]`/`LanguageChanged`).
 
 ## Decisiones de diseño
 
@@ -60,7 +60,7 @@ Validador de olvidos: `tools/check-hardcoded-strings.py` (best-effort; excluye l
 ## Pendiente / limitaciones
 
 - **Re-sembrado de presets en BDs existentes — resuelto (2026-11-04)**: la BD se autocorrige al primer arranque con el sincronizador de catálogos por hash ([`docs/persistence/catalog-sync.md`](../persistence/catalog-sync.md)); hasta verificar en sesión real, el refresco queda sujeto a esa verificación.
-- **QA manual en la PC de testing**: recorrer las 12 superficies en ES y EN (con sesión real MSFS/Fenix no es requisito: es capa UI, pero el cierre del milestone lo incluye). Verificar cambio en vivo desde Ajustes, refresco de la bandeja, primer arranque con Windows en es/en/otro y persistencia.
+- **QA manual en la PC de testing — completado (2026-11-05)**: recorrido de las superficies en ES y EN con la sesión real MSFS/Fenix del cierre de v0.6.0-pre: cambio en vivo desde Ajustes, refresco de la bandeja, primer arranque con detección de idioma y persistencia.
 - **Modal de resultados**: `SessionResultWindowViewModel` resuelve sus textos al construirse (ventana efímera); si el usuario cambia de idioma con el modal abierto, el texto nuevo se ve al reabrirlo. Aceptado para v1; re-notificación vía `LocalizedViewModelBase` si se pide refresco en vivo dentro del modal.
 - **`RealisticRiskProfileWindow`**: al cambiar de idioma con la ventana abierta, el VM reconstruye las tarjetas y re-aplica la última estimación (re-pide el servicio); verificado por compilación y tests de eventos, no visualmente.
 - **Textos con `{0}` y números**: el separador decimal sigue la cultura del idioma activo; revisar en QA que las tasas del panel Realista se lean bien en ambos idiomas.

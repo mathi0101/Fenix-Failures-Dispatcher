@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-11-05 — test(qa): verificación manual de la v0.6.0-pre completada en la PC de testing
+
+- QA manual en la PC de testing (`\\PC-MATHIAS\RealFenixFailures`, sesión real MSFS/Fenix) **completado por el usuario**: cubre el cierre de la v0.6.0-pre — app bilingüe con cambio en vivo, aviso de fin de vuelo con gracia, motor detenido tras el fin del vuelo, sync de catálogos al primer arranque, calibración de perfiles y la UI nueva (log ampliado, cartel de rendimiento, texto de preparación).
+- Actualizadas en consecuencia las notas «pendiente de verificación» de esta versión: `docs/realistic-mode/estado-y-diseno.md` (§8 y aviso de fin de vuelo) y `docs/ui/localizacion.md` (cambio en vivo + checklist de QA). Los «No verificado en sesión real» de secciones históricas anteriores (motor v2, desgaste, reloj de debug) quedan como están: son de releases previas, no de esta versión.
+- Registro de lo observado: en los logs de la PC de testing (`logs/realfenix-<fecha>.log` en el share).
+
 ### 2026-11-05 — fix(realistic): calibración lean de perfiles — Moderado ×1, semilla λ₀ 0.6 y desgaste ×0.8
 
 - `Moderate.ProbabilityMultiplier` 1.2 → **1** (el moderado ya no corre por encima de su nombre); `GroundSeedLambdaBase` 0.8 → **0.6** (menos semillas de tierra por vuelo con perfil ×1 y desgaste 0); `WearRateMultiplier` global 2.0 → **0.8** (el desgaste acumula más lento en la configuración default). Objetivo: que cada perfil represente mejor lo que su nombre promete (documentado así en las release notes de v0.6.0-pre). Reporte de balance regenerado.
