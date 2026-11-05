@@ -8,7 +8,7 @@ Toda la documentación **orientada al público** (README, templates, archivos de
 
 | Archivo | Propósito |
 |---|---|
-| [.github/ISSUE_TEMPLATE/bug.yml](../../.github/ISSUE_TEMPLATE/bug.yml) | Formulario guiado de bug: qué pasó / pasos / esperado / modo / simulador / versión / log del día / checklist |
+| [.github/ISSUE_TEMPLATE/bug.yml](../../.github/ISSUE_TEMPLATE/bug.yml) | Formulario guiado de bug: qué pasó / pasos / esperado / modo / simulador / versión / adjunto obligatorio del log (.txt) / checklist |
 | [.github/ISSUE_TEMPLATE/feature_request.yml](../../.github/ISSUE_TEMPLATE/feature_request.yml) | Formulario para propuestas concretas (las ideas abiertas van a Discussions → Ideas) |
 | [.github/ISSUE_TEMPLATE/config.yml](../../.github/ISSUE_TEMPLATE/config.yml) | Routing: bloquea issues en blanco y manda preguntas → Q&A, ideas abiertas → Ideas, capturas → Show and tell, seguridad → SECURITY.md |
 | [.github/PULL_REQUEST_TEMPLATE.md](../../.github/PULL_REQUEST_TEMPLATE.md) | Checklist de PR: build, suite, sesión manual si cambió integración, docs + CHANGELOG, bilingüismo de docs públicas |
@@ -45,7 +45,15 @@ Las categorías de Discussions ya existen (son las default de GitHub: Announceme
 ### 3. Labels nuevas (Issues → Labels → New label)
 
 - `triage` — color gris/azul, descripción: "Needs review / Requiere revisión". Los dos formularios de issue la aplican al crear el issue; si no existe, crearla antes o después (GitHub la crea sola si falta al abrir un issue con template).
+- `needs-logs` — color rojo (`B60205`), descripción: "Missing mandatory log attachment / Falta el log obligatorio adjunto". La crea y administra sola el workflow `bug-log-guard.yml` (también la crea por API si falta); no hace falta crearla a mano.
 - Opcionales para el flujo de triage: `confirmed` ("Reproducido y confirmado / Reproduced and confirmed"), `waiting-for-info` ("Falta info del reportante / Awaiting reporter info").
+
+### 3b. Adjunto obligatorio de log en bugs (`bug.yml` + `bug-log-guard.yml`)
+
+Los reportes de bug **exigen adjuntar el archivo completo del log de la última ejecución** (el `realfenix-<AAAAMMDD>.log` más reciente de `%AppData%\RealFenixFailures\logs\`, arrastrado directo al issue — GitHub lo acepta como adjunto; si la subida se rechaza, la alternativa es renombrar la copia a `.txt`); pegar el contenido como texto no cuenta. Como los formularios de issues de GitHub no tienen un tipo de campo "archivo", la obligación es de dos capas:
+
+- **`bug.yml`**: el campo «Log file» ya no invita a pegar texto, el checkbox del adjunto es `required` (gate nativo del formulario) y el intro explica el paso a paso (copiar, renombrar a `.txt`, arrastrar y soltar).
+- **`.github/workflows/bug-log-guard.yml`** (el mecanismo que realmente obliga): en `opened`/`reopened` de un issue con label `bug`, valida que el body tenga un adjunto de GitHub (`user-attachments`) cuyo link nombre `realfenix`/`simconnect` o extensión `.txt`/`.log`. Si falta: label `needs-logs` + comentario bilingüe con las instrucciones + cierre automático (`not_planned`). Al **editar** el issue agregando el adjunto, lo reabre y quita el label. Los cierres de maintainers no los toca (solo reacciona a abrir/reabrir/editar).
 
 ### 4. Descripciones bilingües de categorías de Discussions (Discussions → categorías → ✏️ Edit)
 

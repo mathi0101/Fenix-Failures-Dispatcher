@@ -1,0 +1,87 @@
+name: Bug log guard
+
+on:
+  issues:
+    types: [opened, reopened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  require-log-attachment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bug issues must attach the log file (.txt)
+        if: contains(github.event.issue.labels.*.name, 'bug')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+            const guardLabel = 'needs-logs';
+            const labels = issue.labels.map((l) => l.name);
+
+            // Adjunto válido: link de subida de GitHub cuyo texto de link nombra el log
+            // (realfenix-*.log/.txt o simconnect-diagnostic-*); también acepta .log subido directo o renombrado .txt.
+            const body = issue.body || '';
+            const hasLogAttachment = /\[[^\]\n]*(realfenix|simconnect|\.txt|\.log)[^\]\n]*\]\(https:\/\/github\.com\/user-attachments\/\S+\)/i.test(body);
+
+            const ensureGuardLabel = async () => {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: guardLabel });
+              } catch {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: guardLabel, color: 'B60205',
+                  description: 'Missing mandatory log attachment / Falta el log obligatorio adjunto',
+                });
+              }
+            };
+
+            if (!hasLogAttachment) {
+              // Al editar no se castiga de nuevo: solo se cierra al abrir/reabrir.
+              if (action === 'edited' || issue.state !== 'open') return;
+
+              await ensureGuardLabel();
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: [guardLabel] });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: [
+                  '⚠️ **This bug report was closed automatically because the log file is missing.**',
+                  '',
+                  'To reopen it, **edit the issue** and drag & drop the **complete** log file of your last run:',
+                  '',
+                  '1. Open `%AppData%\\RealFenixFailures\\logs\\`.',
+                  '2. Take the most recent `realfenix-<YYYYMMDD>.log` (the day of your last run) — the whole file, not an excerpt.',
+                  '3. Drag & drop that `.log` into the issue and save the edit. It reopens automatically.',
+                  '',
+                  '---',
+                  '',
+                  '⚠️ **Este reporte de bug se cerró automáticamente porque falta el archivo de log.**',
+                  '',
+                  'Para reabrirlo, **editá el issue** y arrastrá y soltá el archivo de log **completo** de tu última ejecución:',
+                  '',
+                  '1. Abrí `%AppData%\\RealFenixFailures\\logs\\`.',
+                  '2. Tomá el `realfenix-<AAAAMMDD>.log` más reciente (el del día de tu última ejecución) — el archivo completo, no un fragmento.',
+                  '3. Arrastrá ese `.log` al issue y guardá la edición. Se reabre automáticamente.',
+                ].join('\n'),
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number,
+                state: 'closed', state_reason: 'not_planned',
+              });
+              return;
+            }
+
+            // Adjunto presente (por creación o edición): reabrir si este guard lo había cerrado.
+            if (labels.includes(guardLabel)) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: guardLabel });
+              if (issue.state !== 'open') {
+                await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'open' });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: '✅ Log file attached — the issue was reopened. Thanks! / Log adjuntado — el issue fue reabierto. ¡Gracias!',
+                });
+              }
+            }

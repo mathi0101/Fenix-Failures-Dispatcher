@@ -7,13 +7,25 @@ body:
       value: |
         Thanks for taking the time to report a bug! ✍️ You can write in **English or Spanish**.
 
-        📋 The most useful attachment is the **app log for the day**: you'll find it in `%AppData%\RealFenixFailures\logs\` (file `realfenix-<YYYYMMDD>.log`). Remove anything you consider personal before pasting.
+        ⚠️ **A log file attachment is MANDATORY** — issues without it are closed automatically.
+
+        📋 How to attach the log of your last run:
+        1. Open `%AppData%\RealFenixFailures\logs\` (paste that path in the Windows address bar).
+        2. Take the **most recent** `realfenix-<YYYYMMDD>.log` file (the one from the day of your last run) — the **complete file**, not an excerpt. Optionally remove personal data first.
+        3. Drag & drop that `.log` file into the **Log file** field below (or into any field of this form). If GitHub rejects it, rename the copy to `.txt` and attach that.
+        4. Submit and, if the issue is closed automatically, **edit it after attaching the file** — it will be reopened.
 
         ---
 
         ¡Gracias por tomarte el tiempo de reportar un bug! ✍️ Podés escribir en **inglés o español**.
 
-        📋 Lo más útil que podés adjuntar es el **log del día de la app**: está en `%AppData%\RealFenixFailures\logs\` (archivo `realfenix-<AAAAMMDD>.log`). Borrá todo lo que consideres personal antes de pegarlo.
+        ⚠️ **El adjunto del log es OBLIGATORIO** — los issues sin el archivo se cierran automáticamente.
+
+        📋 Cómo adjuntar el log de tu última ejecución:
+        1. Abrí `%AppData%\RealFenixFailures\logs\` (pegá esa ruta en la barra de direcciones del Explorador).
+        2. Tomá el archivo `realfenix-<AAAAMMDD>.log` **más reciente** (el del día de tu última ejecución) — el **archivo completo**, no un fragmento. Antes, borrá todo lo que consideres personal.
+        3. Arrastrá y soltá ese `.log` en el campo **Log file** de abajo (o en cualquier campo del formulario). Si GitHub lo rechaza, renombrá la copia a `.txt` y adjuntá esa.
+        4. Enviá y, si el issue se cierra solo, **editálo después de adjuntar el archivo** — se reabre solo.
   - type: textarea
     id: what-happened
     attributes:
@@ -73,9 +85,9 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: "Log of the day / Log del día"
-      description: "Paste the relevant part of `%AppData%\\RealFenixFailures\\logs\\realfenix-<YYYYMMDD>.log`, or attach the file / Pegá la parte relevante de `%AppData%\\RealFenixFailures\\logs\\realfenix-<AAAAMMDD>.log`, o adjuntá el archivo."
-      placeholder: "Paste the log excerpt here / Pegá acá el fragmento del log"
+      label: "📎 Log file (.log) — attach, do not paste / Archivo de log (.log) — adjuntá, no pegues"
+      description: "Drag & drop the complete .log file of your last run here. Do NOT paste the content: issues without the attached file are closed automatically. / Arrastrá y soltá acá el archivo de log .log completo de tu última ejecución. NO pegues el contenido: los issues sin el archivo adjunto se cierran automáticamente."
+      placeholder: "Nothing to write here — just drag & drop the .log file / Nada que escribir acá — solo arrastrá y soltá el archivo .log"
   - type: textarea
     id: screenshots
     attributes:
@@ -88,5 +100,6 @@ body:
       options:
         - label: "I searched existing issues and discussions for duplicates / Busqué issues y discussions similares antes de crear este reporte"
           required: true
-        - label: "I attached the app log of the day, or explained why I can't / Adjunté el log del día de la app, o expliqué por qué no puedo"
-        - label: "I removed personal or sensitive information / Borré información personal o sensible"
+        - label: "I attached the COMPLETE log file of my last execution (most recent realfenix-<YYYYMMDD>.log) / Adjunté el archivo COMPLETO del log de mi última ejecución (el realfenix-<AAAAMMDD>.log más reciente)"
+          required: true
+        - label: "I removed personal or sensitive information from the attached file / Borré información personal o sensible del archivo adjunto"

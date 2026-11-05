@@ -23,7 +23,7 @@ The more reproducible a report, the faster the fix. The bug form asks for this, 
 1. **What you were doing** (flight phase, app mode, what you had configured).
 2. **What you expected to happen** and **what actually happened**.
 3. **App version** (e.g. `v0.4.1-beta.1`).
-4. **The log for the day**: `%AppData%\RealFenixFailures\logs\realfenix-<YYYYMMDD>.log` — remove anything you consider personal before attaching.
+4. **The complete log of your last run (mandatory)**: drag & drop the most recent `%AppData%\RealFenixFailures\logs\realfenix-<YYYYMMDD>.log` straight into the bug form (remove anything personal first). If the upload is rejected, rename the copy to `.txt` and attach it — issues without the file are closed automatically.
 5. A screenshot or short recording, if it's visual.
 
 Please search [existing issues](https://github.com/mathi0101/Fenix-Failures-Dispatcher/issues) and [discussions](https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions) before opening a new one; if you find a duplicate, add a 👍 and your details there.
@@ -98,7 +98,7 @@ Cuanto más reproducible es un reporte, más rápido sale el fix. El formulario 
 1. **Qué estabas haciendo** (fase de vuelo, modo de la app, qué tenías configurado).
 2. **Qué esperabas que pasara** y **qué pasó finalmente**.
 3. **Versión de la app** (ej. `v0.4.1-beta.1`).
-4. **El log del día**: `%AppData%\RealFenixFailures\logs\realfenix-<AAAAMMDD>.log` — borrá todo lo que consideres personal antes de adjuntarlo.
+4. **El log completo de tu última ejecución (obligatorio)**: arrastrá y soltá el `realfenix-<AAAAMMDD>.log` más reciente de `%AppData%\RealFenixFailures\logs\` directo en el formulario de bug (antes borrá todo lo que consideres personal). Si GitHub rechaza la subida, renombrá la copia a `.txt` y adjuntá esa — los issues sin el adjunto se cierran automáticamente.
 5. Una captura o grabación corta, si es visual.
 
 Por favor buscá en los [issues existentes](https://github.com/mathi0101/Fenix-Failures-Dispatcher/issues) y las [discussions](https://github.com/mathi0101/Fenix-Failures-Dispatcher/discussions) antes de abrir uno nuevo; si encontrás un duplicado, sumá un 👍 y tus datos ahí.
