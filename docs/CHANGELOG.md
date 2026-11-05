@@ -1,5 +1,33 @@
 # CHANGELOG
 
+### 2026-11-05 — fix(realistic): calibración lean de perfiles — Moderado ×1, semilla λ₀ 0.6 y desgaste ×0.8
+
+- `Moderate.ProbabilityMultiplier` 1.2 → **1** (el moderado ya no corre por encima de su nombre); `GroundSeedLambdaBase` 0.8 → **0.6** (menos semillas de tierra por vuelo con perfil ×1 y desgaste 0); `WearRateMultiplier` global 2.0 → **0.8** (el desgaste acumula más lento en la configuración default). Objetivo: que cada perfil represente mejor lo que su nombre promete (documentado así en las release notes de v0.6.0-pre). Reporte de balance regenerado.
+- `Integrations.SimBrief/DependencyInjection.cs`: en DEBUG se vuelve a usar `MockSimBriefApiClient` (`#if DEBUG && true`) — el cliente real queda para Release (o para volver a `false`). **Atención**: si era un toggle local de prueba, revertir esa línea antes de seguir desarrollando.
+
+### 2026-11-05 — feat(ui): cartel de rendimiento en el panel Realista mientras la sesión está activa
+
+- Banner estático chico nuevo en `RealisticModePanel.xaml` (fila propia entre el encabezado y el contenido de pasos, estilo info ámbar): «Para un mejor rendimiento, dejá la app minimizada o en segundo plano en la bandeja para optimizar recursos» — visible solo con `IsEngineActive` (sesión corriendo), en cualquier paso del flujo. Localizado en ES/EN (clave `Rmv_PerfHintBanner`, paridad de resx intacta). Verificado: build UI 0 errores; visual en la app: pendiente.
+
+### 2026-11-05 — chore(comunidad): el reporte de bug exige el adjunto del log completo (workflow que cierra los issues sin él)
+
+- **`bug.yml`**: el campo de logs ya no invita a pegar texto (label «attach, do not paste») y el checkbox «Adjunté el archivo COMPLETO del log de mi última ejecución» es `required`. El intro explica el paso a paso: tomar el `realfenix-<AAAAMMDD>.log` más reciente de `%AppData%\RealFenixFailures\logs\` y arrastrarlo directo al issue (fallback: copia renombrada a `.txt`).
+- **Workflow nuevo `.github/workflows/bug-log-guard.yml`** (los formularios de issues de GitHub no tienen campo «archivo», así que la obligación real es esta): en `opened`/`reopened` de un issue con label `bug`, valida que el body tenga un adjunto `user-attachments` cuyo link nombre `realfenix`/`simconnect` o extensión `.txt`/`.log`. Si falta: label `needs-logs` + comentario bilingüe + cierre automático (`not_planned`); al editar el issue con el adjunto, lo reabre y quita el label. Regex validada contra 5 cuerpos de ejemplo (adjunto pasa; log pegado como texto, solo screenshots y sin nada no pasan).
+- **Docs**: `docs/comunidad/canales-y-configuracion.md` (§3b nueva, labels) y `CONTRIBUTING.md` (paso del log) alineados con la regla. No verificado en vivo: el guard corre en GitHub Actions al crear el próximo bug issue.
+
+### 2026-11-05 — feat(ui): el texto bajo el desgaste medio del paso 3 pasa a una sola frase de aumento por desgaste
+
+- El header de preparación (§8.7) mostraba dos frases según hubiera OFP cargado («Probabilidad de una falla seria en este vuelo…» / «Sin vuelo cargado · referencia…»). Ahora muestra siempre una sola: **«Probabilidad de fallas aumentada un N% debido al desgaste»** (EN: «Failure probability increased by N% due to wear»).
+- N = `(WearFactor − 1) × 100` del desgaste medio actual (lineal hacia `WearMaxMultiplier`, referencia Moderado sin perfil): nuevo campo `WearIncreasePct` en `RealisticExpectationDto`, calculado en `RealisticExpectationService.Compute`; `RefreshExpectation` en `RealisticModeViewModel` consume solo ese valor.
+- Cadenas `Rmv_ExpectationFlight`/`Rmv_ExpectationNoFlight` eliminadas de `Strings.resx`/`Strings.es.resx` (quedaron sin uso) y nueva `Rmv_WearProbIncrease`. El tooltip `Rmv_EstimateExplainer` y el default inicial `Rmv_NoEstimate` quedan como estaban.
+- Verificado: build de UI + Application con **0 errores** (solo copiado de DLLs bloqueado por la app corriendo — ver entrada anterior). Tests automatizados no cubren Application/UI; verificación visual en la app: pendiente.
+
+### 2026-11-05 — feat(ui): el log en tiempo real ocupa el lugar del botón de donación en la ventana principal
+
+- `MainWindow.xaml`: botón «Support the project» comentado temporalmente (queda como bloque XML listo para reactivar); su fila colapsa y el `LogPanel` (fila `*`) pasa a ocupar todo el espacio inferior del panel izquierdo.
+- Columna izquierda (modos + log) ensanchada de 260 a 300 para aprovechar mejor el ancho.
+- Sin cambios de lógica ni bindings: la donación sigue accesible desde Ajustes (pestaña Donate); el handler `OpenDonationPage` del code-behind queda sin uso mientras dure el ocultado.
+
 ### 2026-11-05 — feat(infrastructure): migración `RebalanceWearRatesLean` para el rebalance de tasas de desgaste
 
 - Scaffold de la migración para las nuevas tasas de `SeedData.WearableSystems` (ATA 23→0.7, 27→0.55, 29→0.875, 36→0.875, 49→0.95, 70→0.75, 80→0.5): `Up` actualiza las 7 filas y `Down` restaura los valores ×2.5. Las bases existentes la reciben solas al arrancar la app (`MigrateAsync`); las nuevas la incluyen en la cadena completa.
@@ -17,12 +45,6 @@
 
 - El detector de eventos de vuelo ahora reporta «Crucero FLXXX alcanzado» (p. ej. «Crucero FL360 alcanzado»), con el nivel calculado de la altitud MSL con la misma convención FL (MSL/100) de los eventos «Cruzando FL…».
 - Tests del detector actualizados: el FL esperado se deriva de la altitud del fixture (regla anti-hardcodeo de `docs/desarrollo.md`).
-
-### 2026-11-04 — docs(release): notas de usuario `vX.Y.Z-user.md` como body del release + announcement manual desde las completas
-
-- **Dos archivos por release** (receta en el paso 7 del runbook de [docs/desarrollo.md](desarrollo.md), regla en [AGENTS.md](../AGENTS.md)): `vX.Y.Z.md` — release notes **completas** (todos los cambios + Full Changelog), fuente del **announcement manual en Announcements** que publica el usuario tras cada release — y `vX.Y.Z-user.md` — notas de **usuario** en paralelo: escueta y pensada 100 % para quien usa la app (qué le cambió, qué hay de nuevo y cómo usarlo ahora), sin detalles técnicos ni internos (sin jerga de implementación, sin Full Changelog, sin CI/migraciones). Secciones sugeridas de la user: Novedades / Correcciones / Cómo usarlo en esta versión.
-- **Wiring en `release.yml`**: el **body del GitHub Release** ahora sale de `vX.Y.Z-user.md` (`--notes-file`), con fallback a la completa si faltan las user y a `--generate-notes` si no hay curadas; al final del body curado el workflow agrega el **link a Announcements** (`discussions/categories/announcements`, URL construida del repo) para quien quiera las notas completas. El **README del ZIP** lleva la guía de instalación + `vX.Y.Z-user.md` (sin user, apunta a la página del release). La completa ya no es body ni asset del release.
-- Retroactivo: los releases anteriores no tienen `-user.md`; los fallbacks del workflow los cubren.
 
 ### 2026-11-04 — test(testunits): auditoría anti-hardcodeo — 4 tests borrados, 11 de-hardcodeados, política documentada
 
