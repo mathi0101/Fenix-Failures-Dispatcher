@@ -305,19 +305,21 @@ public class RealisticSessionEnginePersistenceTests {
             .Returns(ComplexFlightPhaseEnum.Climb);
         await engine.EvaluateAsync(CancellationToken.None);
 
-        // +10 h de vuelo y tick de detección (OnGate con motores apagados): ancla el fin del desgaste.
-        clock = clock.AddHours(10);
+        // +14 h de vuelo y tick de detección (OnGate con motores apagados): ancla el fin del desgaste.
+        // 14 h → 1,5 sistemas/h cubre los 20 elegibles (acumulan todos, selección determinística,
+        // mismo criterio que los tests hermanos); con 10 h el sorteo podía dejar afuera al ATA 999.
+        clock = clock.AddHours(14);
         _flightEventDetector
             .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
             .Returns(ComplexFlightPhaseEnum.OnGate);
         await engine.EvaluateAsync(CancellationToken.None);
 
-        // +3 h de gracia en gate antes del cierre: no deben contar para el desgaste (10 h, no 13).
+        // +3 h de gracia en gate antes del cierre: no deben contar para el desgaste (14 h, no 17).
         clock = clock.AddHours(3);
         await engine.StopSession(CancellationToken.None);
         db.ChangeTracker.Clear();
 
-        var expectedDelta = wearable.WearPerFlightHour * 10;
+        var expectedDelta = wearable.WearPerFlightHour * 14;
         var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
         Assert.Equal(Math.Clamp(expectedDelta, 0, 100), wear.WearPercentage, 6);
         var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
