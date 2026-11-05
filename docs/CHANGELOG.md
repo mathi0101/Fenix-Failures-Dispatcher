@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-11-04 — fix(application): el evento de crucero alcanzado incluye el nivel de vuelo
+
+- El detector de eventos de vuelo ahora reporta «Crucero FLXXX alcanzado» (p. ej. «Crucero FL360 alcanzado»), con el nivel calculado de la altitud MSL con la misma convención FL (MSL/100) de los eventos «Cruzando FL…».
+- Tests del detector actualizados: el FL esperado se deriva de la altitud del fixture (regla anti-hardcodeo de `docs/desarrollo.md`).
+
 ### 2026-11-04 — docs(release): notas de usuario `vX.Y.Z-user.md` como body del release + announcement manual desde las completas
 
 - **Dos archivos por release** (receta en el paso 7 del runbook de [docs/desarrollo.md](desarrollo.md), regla en [AGENTS.md](../AGENTS.md)): `vX.Y.Z.md` — release notes **completas** (todos los cambios + Full Changelog), fuente del **announcement manual en Announcements** que publica el usuario tras cada release — y `vX.Y.Z-user.md` — notas de **usuario** en paralelo: escueta y pensada 100 % para quien usa la app (qué le cambió, qué hay de nuevo y cómo usarlo ahora), sin detalles técnicos ni internos (sin jerga de implementación, sin Full Changelog, sin CI/migraciones). Secciones sugeridas de la user: Novedades / Correcciones / Cómo usarlo en esta versión.

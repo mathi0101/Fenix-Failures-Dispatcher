@@ -58,7 +58,7 @@ public class FlightEventDetector : IFlightEventDetector {
             DetectEngineTransition(snapshot, events);
             newPhase = DeterminePhase(snapshot);
             newPhase = ApplyPhaseDebounce(snapshot.ObservedAt, newPhase);
-            DetectPhaseTransition(newPhase, events);
+            DetectPhaseTransition(newPhase, snapshot.AltitudeMSL, events);
             DetectAltitudeCrossings(snapshot, events);
 
             _lastAltitudeMSL = snapshot.AltitudeMSL;
@@ -191,11 +191,11 @@ public class FlightEventDetector : IFlightEventDetector {
         _enginesWereRunning = anyEngineRunning;
     }
 
-    private void DetectPhaseTransition(ComplexFlightPhaseEnum newPhase, List<FlightEventDto> events) {
+    private void DetectPhaseTransition(ComplexFlightPhaseEnum newPhase, int altitudeMSL, List<FlightEventDto> events) {
         if (newPhase == _previousPhase) return;
 
         if (_previousPhase != ComplexFlightPhaseEnum.Unknown) {
-            var message = DescribePhase(newPhase);
+            var message = DescribePhase(newPhase, altitudeMSL);
             if (message != null) events.Add(new FlightEventDto(DateTime.UtcNow, FlightEventKind.PhaseChanged, message));
         }
 
@@ -206,11 +206,12 @@ public class FlightEventDetector : IFlightEventDetector {
         _previousPhase = newPhase;
     }
 
-    private string? DescribePhase(ComplexFlightPhaseEnum phase) => phase switch {
+    private string? DescribePhase(ComplexFlightPhaseEnum phase, int altitudeMSL) => phase switch {
         ComplexFlightPhaseEnum.Taxi => _hasLandedThisFlight ? "Taxi final hacia el gate" : "Iniciando rodaje (taxi)",
         ComplexFlightPhaseEnum.Takeoff => "Despegue",
         ComplexFlightPhaseEnum.Climb => "Ascenso",
-        ComplexFlightPhaseEnum.Cruise => "Crucero alcanzado",
+        // Nivel de crucero con la misma convención FL (MSL/100) de los eventos de cruce de altitud.
+        ComplexFlightPhaseEnum.Cruise => $"Crucero FL{Math.Round(altitudeMSL / 100.0)} alcanzado",
         ComplexFlightPhaseEnum.Descent => "Iniciando descenso",
         ComplexFlightPhaseEnum.Approach => "Aproximación",
         ComplexFlightPhaseEnum.Landing => "Aterrizaje",
