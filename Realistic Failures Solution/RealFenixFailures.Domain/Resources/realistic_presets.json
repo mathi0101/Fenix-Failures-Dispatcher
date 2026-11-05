@@ -1,8 +1,8 @@
 [
   {
-    "Name": "Falla del bus de batería en preflight",
-    "Description": "Falla del bus de batería durante la preparación inicial de la aeronave.",
-    "TriggerDescription": "Falla eléctrica compatible con la energización inicial en tierra.",
+    "Name": "Battery bus failure during preflight",
+    "Description": "Battery bus failure during initial aircraft preparation.",
+    "TriggerDescription": "Electrical failure consistent with initial power-up on the ground.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -13,9 +13,9 @@
     ]
   },
   {
-    "Name": "Falla de bus eléctrico en preflight",
-    "Description": "Falla de un bus eléctrico de corriente alterna durante el preflight en frío, detectada antes de la puesta en marcha.",
-    "TriggerDescription": "Falla eléctrica razonable en rampa con la aeronave aún sin energizar por completo.",
+    "Name": "AC bus failure during preflight",
+    "Description": "Failure of an AC electrical bus during cold preflight, detected before engine start.",
+    "TriggerDescription": "Plausible electrical failure on the ramp with the aircraft not yet fully powered.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -32,9 +32,9 @@
     ]
   },
   {
-    "Name": "Falla de alineación de IR en preflight",
-    "Description": "Falla en la alineación de una unidad inercial durante el preflight; la IR correspondiente no queda operativa.",
-    "TriggerDescription": "Falla de navegación propia del arranque y la alineación en tierra.",
+    "Name": "IR alignment failure during preflight",
+    "Description": "Failure in the alignment of an inertial unit during preflight; the affected IR does not become operational.",
+    "TriggerDescription": "Navigation failure typical of ground startup and alignment.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -56,9 +56,9 @@
     ]
   },
   {
-    "Name": "Falla de indicación de puertas en rampa",
-    "Description": "Falla en la indicación de una puerta de la aeronave durante las operaciones en rampa.",
-    "TriggerDescription": "Falla de sistema en tierra, compatible con el proceso de embarque o desembarque.",
+    "Name": "Door indication failure on the ramp",
+    "Description": "Failure in the door indication of an aircraft door during ramp operations.",
+    "TriggerDescription": "Ground system failure consistent with the boarding or deboarding process.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -85,9 +85,9 @@
     ]
   },
   {
-    "Name": "Falla del controlador del APU en preflight",
-    "Description": "Falla del controlador electrónico del APU durante su preparación en tierra.",
-    "TriggerDescription": "Falla del sistema de control del APU antes de iniciar el vuelo.",
+    "Name": "APU controller failure during preflight",
+    "Description": "Failure of the electronic APU controller during its ground preparation.",
+    "TriggerDescription": "Failure of the APU control system before the flight begins.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -98,9 +98,9 @@
     ]
   },
   {
-    "Name": "Falla del generador del APU en preflight",
-    "Description": "El generador del APU no suministra energía eléctrica durante la preparación en tierra.",
-    "TriggerDescription": "Falla de generación eléctrica mientras la aeronave permanece en tierra.",
+    "Name": "APU generator failure during preflight",
+    "Description": "The APU generator fails to supply electrical power during ground preparation.",
+    "TriggerDescription": "Electrical generation failure while the aircraft is still on the ground.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -111,9 +111,9 @@
     ]
   },
   {
-    "Name": "Falla de bomba de combustible en preflight",
-    "Description": "Falla de una bomba de combustible durante las verificaciones en tierra.",
-    "TriggerDescription": "Falla de bomba de alimentación detectada antes del despegue.",
+    "Name": "Fuel pump failure during preflight",
+    "Description": "Failure of a fuel pump during ground checks.",
+    "TriggerDescription": "Boost pump failure detected before takeoff.",
     "Phase": 1,
     "Difficulty": 1,
     "Failures": [
@@ -130,9 +130,9 @@
     ]
   },
   {
-    "Name": "Falla de rectificador con avión energizado",
-    "Description": "Falla de un rectificador (TR) con la aeronave energizada en tierra.",
-    "TriggerDescription": "Falla eléctrica estática, sin requerimiento de movimiento.",
+    "Name": "Transformer rectifier failure with aircraft powered",
+    "Description": "Failure of a transformer rectifier (TR) with the aircraft powered on the ground.",
+    "TriggerDescription": "Static electrical failure, no movement required.",
     "Phase": 9,
     "Difficulty": 1,
     "Failures": [
@@ -154,9 +154,9 @@
     ]
   },
   {
-    "Name": "Falla de frenos durante el rodaje",
-    "Description": "Pérdida de capacidad de frenado en una rueda durante el rodaje.",
-    "TriggerDescription": "Falla de freno compatible con baja velocidad y operación en tierra.",
+    "Name": "Brake failure during taxi",
+    "Description": "Loss of braking capability on one wheel during taxi.",
+    "TriggerDescription": "Brake failure consistent with low-speed ground operation.",
     "Phase": 2,
     "Difficulty": 1,
     "Failures": [
@@ -183,9 +183,9 @@
     ]
   },
   {
-    "Name": "Falla de presión de neumáticos durante el rodaje",
-    "Description": "Pérdida de presión en un neumático durante el rodaje.",
-    "TriggerDescription": "Falla de tren de aterrizaje compatible con el movimiento a baja velocidad.",
+    "Name": "Tyre pressure failure during taxi",
+    "Description": "Loss of pressure in a tyre during taxi.",
+    "TriggerDescription": "Landing gear failure consistent with low-speed movement.",
     "Phase": 2,
     "Difficulty": 1,
     "Failures": [
@@ -222,9 +222,9 @@
     ]
   },
   {
-    "Name": "Falla de dirección de rueda de morro durante el rodaje",
-    "Description": "Pérdida de la dirección de la rueda de morro (NWS) durante el rodaje.",
-    "TriggerDescription": "Falla de control en tierra, sensible durante el rodaje.",
+    "Name": "Nose wheel steering failure during taxi",
+    "Description": "Loss of nose wheel steering (NWS) during taxi.",
+    "TriggerDescription": "Ground control failure, noticeable during taxi.",
     "Phase": 2,
     "Difficulty": 2,
     "Failures": [
@@ -235,9 +235,9 @@
     ]
   },
   {
-    "Name": "Falla del sistema hidráulico amarillo durante el rodaje",
-    "Description": "Pérdida de presión o fuga en el sistema hidráulico amarillo durante el rodaje.",
-    "TriggerDescription": "Falla de un sistema hidráulico en servicio durante la operación en tierra.",
+    "Name": "Yellow hydraulic system failure during taxi",
+    "Description": "Loss of pressure or leak in the yellow hydraulic system during taxi.",
+    "TriggerDescription": "Failure of an in-service hydraulic system during ground operation.",
     "Phase": 2,
     "Difficulty": 2,
     "Failures": [
@@ -259,9 +259,9 @@
     ]
   },
   {
-    "Name": "Falla de motor durante el despegue",
-    "Description": "Falla o daño de uno de los motores durante la carrera de despegue.",
-    "TriggerDescription": "Falla de motor asociada a la alta demanda de la fase de despegue.",
+    "Name": "Engine failure during takeoff",
+    "Description": "Failure or damage of one of the engines during the takeoff roll.",
+    "TriggerDescription": "Engine failure associated with the high demand of the takeoff phase.",
     "Phase": 3,
     "Difficulty": 4,
     "Failures": [
@@ -288,9 +288,9 @@
     ]
   },
   {
-    "Name": "Surge de motor durante el despegue",
-    "Description": "Surge de un motor durante la carrera de despegue.",
-    "TriggerDescription": "Falla de motor de alta carga, propia de la demanda del despegue.",
+    "Name": "Engine surge during takeoff",
+    "Description": "Surge of one engine during the takeoff roll.",
+    "TriggerDescription": "High-load engine failure, typical of takeoff demand.",
     "Phase": 3,
     "Difficulty": 3,
     "Failures": [
@@ -307,9 +307,9 @@
     ]
   },
   {
-    "Name": "Falla de FADEC durante el despegue",
-    "Description": "Falla de un canal FADEC de uno de los motores durante el despegue.",
-    "TriggerDescription": "Falla de control de motor, propia de la alta demanda del despegue.",
+    "Name": "FADEC failure during takeoff",
+    "Description": "Failure of one FADEC channel on one of the engines during takeoff.",
+    "TriggerDescription": "Engine control failure, typical of the high demand of takeoff.",
     "Phase": 3,
     "Difficulty": 3,
     "Failures": [
@@ -336,9 +336,9 @@
     ]
   },
   {
-    "Name": "Falla de flaps o slats durante el despegue",
-    "Description": "Falla de una computadora SFCC de flaps o slats durante la configuración de despegue.",
-    "TriggerDescription": "Falla de sistema de vuelo, asociada a la selección de configuración de despegue.",
+    "Name": "Flap or slat failure during takeoff",
+    "Description": "Failure of a flap or slat SFCC computer during takeoff configuration.",
+    "TriggerDescription": "Flight system failure associated with takeoff configuration selection.",
     "Phase": 3,
     "Difficulty": 3,
     "Failures": [
@@ -365,9 +365,9 @@
     ]
   },
   {
-    "Name": "Falla de canal FAC durante el despegue",
-    "Description": "Falla de uno de los computadores FAC durante la fase de despegue.",
-    "TriggerDescription": "Falla de control de vuelo asociada a las operaciones de despegue.",
+    "Name": "FAC channel failure during takeoff",
+    "Description": "Failure of one of the FAC computers during the takeoff phase.",
+    "TriggerDescription": "Flight control failure associated with takeoff operations.",
     "Phase": 3,
     "Difficulty": 2,
     "Failures": [
@@ -384,9 +384,9 @@
     ]
   },
   {
-    "Name": "Falla de canal de autothrust durante el despegue",
-    "Description": "Falla de uno de los canales de autothrust durante el despegue.",
-    "TriggerDescription": "Falla del sistema A/THR durante la fase de despegue.",
+    "Name": "Autothrust channel failure during takeoff",
+    "Description": "Failure of one of the autothrust channels during takeoff.",
+    "TriggerDescription": "Failure of the A/THR system during the takeoff phase.",
     "Phase": 3,
     "Difficulty": 2,
     "Failures": [
@@ -403,9 +403,9 @@
     ]
   },
   {
-    "Name": "Impacto de ave en motor durante el ascenso",
-    "Description": "Impacto de ave en un motor durante el ascenso inicial.",
-    "TriggerDescription": "Evento externo propio del ascenso a baja altitud.",
+    "Name": "Birdstrike on engine during climb",
+    "Description": "Birdstrike on one engine during the initial climb.",
+    "TriggerDescription": "External event typical of a low-altitude climb.",
     "Phase": 4,
     "Difficulty": 3,
     "Failures": [
@@ -422,9 +422,9 @@
     ]
   },
   {
-    "Name": "Falla de controlador de presurización durante el ascenso",
-    "Description": "Falla de uno de los controladores de presurización de cabina durante el ascenso.",
-    "TriggerDescription": "Falla del control de presurización mientras aumenta la altitud de cabina.",
+    "Name": "Pressurization controller failure during climb",
+    "Description": "Failure of one of the cabin pressurization controllers during the climb.",
+    "TriggerDescription": "Pressurization control failure while cabin altitude increases.",
     "Phase": 4,
     "Difficulty": 2,
     "Failures": [
@@ -441,9 +441,9 @@
     ]
   },
   {
-    "Name": "Válvula de salida bloqueada durante el ascenso",
-    "Description": "La válvula de salida de aire de cabina queda atascada durante el ascenso.",
-    "TriggerDescription": "Falla del sistema de control de presión de cabina durante el ascenso.",
+    "Name": "Outflow valve stuck during climb",
+    "Description": "The cabin air outflow valve becomes stuck during the climb.",
+    "TriggerDescription": "Failure of the cabin pressure control system during the climb.",
     "Phase": 4,
     "Difficulty": 3,
     "Failures": [
@@ -454,9 +454,9 @@
     ]
   },
   {
-    "Name": "Obstrucción de pitot durante el ascenso",
-    "Description": "Obstrucción de uno de los tubos pitot durante el ascenso inicial.",
-    "TriggerDescription": "Falla de datos de aire que afecta una de las fuentes de velocidad indicada.",
+    "Name": "Pitot obstruction during climb",
+    "Description": "Obstruction of one of the pitot tubes during the initial climb.",
+    "TriggerDescription": "Air data failure affecting one of the indicated airspeed sources.",
     "Phase": 4,
     "Difficulty": 2,
     "Failures": [
@@ -478,9 +478,9 @@
     ]
   },
   {
-    "Name": "Falla de sangrado durante el ascenso",
-    "Description": "Falla de una válvula de sangrado o de control neumático durante el ascenso.",
-    "TriggerDescription": "Falla neumática que puede afectar la presurización durante el ascenso.",
+    "Name": "Bleed failure during climb",
+    "Description": "Failure of a bleed or pneumatic control valve during the climb.",
+    "TriggerDescription": "Pneumatic failure that can affect pressurization during the climb.",
     "Phase": 4,
     "Difficulty": 3,
     "Failures": [
@@ -507,9 +507,9 @@
     ]
   },
   {
-    "Name": "Falla hidráulica o PTU durante el ascenso",
-    "Description": "Falla de una bomba hidráulica o del PTU durante el ascenso.",
-    "TriggerDescription": "Falla de sistema hidráulico ante la alta demanda de potencia del ascenso.",
+    "Name": "Hydraulic or PTU failure during climb",
+    "Description": "Failure of a hydraulic pump or of the PTU during the climb.",
+    "TriggerDescription": "Hydraulic system failure under the high power demand of the climb.",
     "Phase": 4,
     "Difficulty": 2,
     "Failures": [
@@ -531,9 +531,9 @@
     ]
   },
   {
-    "Name": "Falla de generador durante el ascenso",
-    "Description": "Sobrecalentamiento o falla de accionamiento de un generador (IDG) durante el ascenso.",
-    "TriggerDescription": "Falla eléctrica ante la alta carga del ascenso.",
+    "Name": "Generator failure during climb",
+    "Description": "Overheat or drive failure of a generator (IDG) during the climb.",
+    "TriggerDescription": "Electrical failure under the high load of the climb.",
     "Phase": 4,
     "Difficulty": 2,
     "Failures": [
@@ -560,9 +560,9 @@
     ]
   },
   {
-    "Name": "Fuga o baja presión hidráulica en crucero",
-    "Description": "Fuga o pérdida de presión en un sistema hidráulico durante el crucero.",
-    "TriggerDescription": "Falla de sistema hidráulico compatible con vuelo estabilizado.",
+    "Name": "Hydraulic leak or low pressure in cruise",
+    "Description": "Leak or loss of pressure in a hydraulic system during cruise.",
+    "TriggerDescription": "Hydraulic system failure consistent with stabilized flight.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -599,9 +599,9 @@
     ]
   },
   {
-    "Name": "Fuga de combustible en crucero",
-    "Description": "Fuga de combustible en un tanque durante el crucero.",
-    "TriggerDescription": "Falla de sistema de combustible compatible con vuelo nivelado.",
+    "Name": "Fuel leak in cruise",
+    "Description": "Fuel leak in a tank during cruise.",
+    "TriggerDescription": "Fuel system failure consistent with level flight.",
     "Phase": 5,
     "Difficulty": 3,
     "Failures": [
@@ -633,9 +633,9 @@
     ]
   },
   {
-    "Name": "Falla de IR en crucero",
-    "Description": "Falla total de una unidad inercial (IR) durante el crucero.",
-    "TriggerDescription": "Falla de navegación compatible con vuelo estabilizado.",
+    "Name": "IR failure in cruise",
+    "Description": "Complete failure of an inertial reference unit (IR) during cruise.",
+    "TriggerDescription": "Navigation failure consistent with stabilized flight.",
     "Phase": 5,
     "Difficulty": 3,
     "Failures": [
@@ -657,9 +657,9 @@
     ]
   },
   {
-    "Name": "Fuga de aceite de motor en crucero",
-    "Description": "Fuga de aceite en un motor durante el crucero.",
-    "TriggerDescription": "Falla de motor de evolución lenta, compatible con vuelo de larga duración.",
+    "Name": "Engine oil leak in cruise",
+    "Description": "Oil leak on one engine during cruise.",
+    "TriggerDescription": "Slow-developing engine failure, consistent with long-duration flight.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -676,9 +676,9 @@
     ]
   },
   {
-    "Name": "Pérdida de GPS durante el crucero",
-    "Description": "Falla de uno de los receptores GPS durante el crucero.",
-    "TriggerDescription": "Falla de navegación compatible con una fase de vuelo estabilizada.",
+    "Name": "GPS loss in cruise",
+    "Description": "Failure of one of the GPS receivers during cruise.",
+    "TriggerDescription": "Navigation failure consistent with a stabilized flight phase.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -695,9 +695,9 @@
     ]
   },
   {
-    "Name": "Falla de TR durante el crucero",
-    "Description": "Falla de uno de los transformadores rectificadores durante el crucero.",
-    "TriggerDescription": "Falla de conversión eléctrica durante el vuelo estabilizado.",
+    "Name": "TR failure in cruise",
+    "Description": "Failure of one of the transformer rectifiers during cruise.",
+    "TriggerDescription": "Electrical conversion failure during stabilized flight.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -719,9 +719,9 @@
     ]
   },
   {
-    "Name": "Falla de acondicionamiento de aire en crucero",
-    "Description": "Sobrecalentamiento o falla de regulación en uno de los packs durante el crucero.",
-    "TriggerDescription": "Falla de acondicionamiento de aire durante el vuelo estabilizado.",
+    "Name": "Air conditioning failure in cruise",
+    "Description": "Overheat or regulation failure in one of the packs during cruise.",
+    "TriggerDescription": "Air conditioning failure during stabilized flight.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -748,9 +748,9 @@
     ]
   },
   {
-    "Name": "Falla de trim air en crucero",
-    "Description": "Falla del sistema de trim air durante el crucero.",
-    "TriggerDescription": "Falla de regulación térmica de cabina durante el vuelo estabilizado.",
+    "Name": "Trim air failure in cruise",
+    "Description": "Failure of the trim air system during cruise.",
+    "TriggerDescription": "Cabin temperature regulation failure during stabilized flight.",
     "Phase": 5,
     "Difficulty": 1,
     "Failures": [
@@ -761,9 +761,9 @@
     ]
   },
   {
-    "Name": "Descompresión durante el descenso",
-    "Description": "Descompresión (menor o mayor) de la cabina durante el descenso.",
-    "TriggerDescription": "Falla de presurización compatible con el cambio de altitud del descenso.",
+    "Name": "Decompression during descent",
+    "Description": "Cabin decompression (minor or major) during the descent.",
+    "TriggerDescription": "Pressurization failure consistent with the altitude change of the descent.",
     "Phase": 6,
     "Difficulty": 3,
     "Failures": [
@@ -780,9 +780,9 @@
     ]
   },
   {
-    "Name": "Falla de ELAC durante el descenso",
-    "Description": "Falla de una computadora ELAC de control de vuelo durante el descenso.",
-    "TriggerDescription": "Falla de sistema de control de vuelo compatible con las maniobras del descenso.",
+    "Name": "ELAC failure during descent",
+    "Description": "Failure of one ELAC flight control computer during the descent.",
+    "TriggerDescription": "Flight control system failure consistent with descent maneuvers.",
     "Phase": 6,
     "Difficulty": 2,
     "Failures": [
@@ -799,9 +799,9 @@
     ]
   },
   {
-    "Name": "Tren de aterrizaje sin desplegar en aproximación",
-    "Description": "Falla de extensión o de traba del tren de aterrizaje en la aproximación.",
-    "TriggerDescription": "Falla de tren propia de la selección de gear down en la aproximación.",
+    "Name": "Landing gear not extended on approach",
+    "Description": "Landing gear extension or locking failure on approach.",
+    "TriggerDescription": "Gear failure typical of gear down selection on approach.",
     "Phase": 7,
     "Difficulty": 2,
     "Failures": [
@@ -828,9 +828,9 @@
     ]
   },
   {
-    "Name": "Falla de receptor ILS en aproximación",
-    "Description": "Falla del localizador o de la senda de planeo en uno de los receptores ILS.",
-    "TriggerDescription": "Falla de navegación instrumental durante una aproximación ILS.",
+    "Name": "ILS receiver failure on approach",
+    "Description": "Failure of the localizer or glide path on one of the ILS receivers.",
+    "TriggerDescription": "Instrument navigation failure during an ILS approach.",
     "Phase": 7,
     "Difficulty": 2,
     "Failures": [
@@ -857,9 +857,9 @@
     ]
   },
   {
-    "Name": "Falla de radioaltímetro en aproximación",
-    "Description": "Falla de uno de los radioaltímetros durante la aproximación.",
-    "TriggerDescription": "Falla de datos de altura radioeléctrica durante la aproximación final.",
+    "Name": "Radio altimeter failure on approach",
+    "Description": "Failure of one of the radio altimeters during the approach.",
+    "TriggerDescription": "Failure of radio altitude data during the final approach.",
     "Phase": 7,
     "Difficulty": 2,
     "Failures": [
@@ -876,9 +876,9 @@
     ]
   },
   {
-    "Name": "Falla de flaps o slats en aproximación",
-    "Description": "Falla de una computadora SFCC de flaps o slats durante la configuración de aterrizaje.",
-    "TriggerDescription": "Falla de control de superficies hipersustentadoras durante la aproximación.",
+    "Name": "Flap or slat failure on approach",
+    "Description": "Failure of a flap or slat SFCC computer during landing configuration.",
+    "TriggerDescription": "Failure of high-lift surface control during the approach.",
     "Phase": 7,
     "Difficulty": 3,
     "Failures": [
@@ -905,9 +905,9 @@
     ]
   },
   {
-    "Name": "Falla de autobrake en aproximación",
-    "Description": "Falla de la unidad ABCU o del sistema de autobrake en la aproximación.",
-    "TriggerDescription": "Falla de sistema de frenado asociada al armado del autobrake.",
+    "Name": "Autobrake failure on approach",
+    "Description": "Failure of the ABCU unit or the autobrake system on approach.",
+    "TriggerDescription": "Braking system failure associated with autobrake arming.",
     "Phase": 7,
     "Difficulty": 2,
     "Failures": [
@@ -924,9 +924,9 @@
     ]
   },
   {
-    "Name": "Falla de frenos durante el aterrizaje",
-    "Description": "Pérdida de capacidad de frenado en una rueda durante la carrera de aterrizaje.",
-    "TriggerDescription": "Falla de frenos durante la desaceleración posterior al toque.",
+    "Name": "Brake failure during landing",
+    "Description": "Loss of braking capability on one wheel during the landing roll.",
+    "TriggerDescription": "Brake failure during deceleration after touchdown.",
     "Phase": 8,
     "Difficulty": 2,
     "Failures": [
@@ -953,9 +953,9 @@
     ]
   },
   {
-    "Name": "Falla hidráulica amarilla durante el aterrizaje",
-    "Description": "Fuga, baja presión o falla de la bomba eléctrica del sistema hidráulico amarillo.",
-    "TriggerDescription": "Falla hidráulica durante la carrera de aterrizaje; no presupone efectos secundarios adicionales.",
+    "Name": "Yellow hydraulic failure during landing",
+    "Description": "Leak, low pressure, or failure of the electric pump of the yellow hydraulic system.",
+    "TriggerDescription": "Hydraulic failure during the landing roll; does not imply additional side effects.",
     "Phase": 8,
     "Difficulty": 3,
     "Failures": [
@@ -977,9 +977,9 @@
     ]
   },
   {
-    "Name": "Falla de reversores durante el aterrizaje",
-    "Description": "Falla de presión o de desbloqueo de un reversor durante la carrera de aterrizaje.",
-    "TriggerDescription": "Falla de sistema de reversa, propia de la desaceleración posterior al toque.",
+    "Name": "Thrust reverser failure during landing",
+    "Description": "Pressure or unlocking failure of a thrust reverser during the landing roll.",
+    "TriggerDescription": "Reverse system failure, typical of deceleration after touchdown.",
     "Phase": 8,
     "Difficulty": 3,
     "Failures": [
@@ -1006,9 +1006,9 @@
     ]
   },
   {
-    "Name": "Falla de presión de neumático durante el aterrizaje",
-    "Description": "Pérdida de presión en un neumático durante la carrera de aterrizaje.",
-    "TriggerDescription": "Falla de tren de aterrizaje compatible con el toque y la rodadura posterior.",
+    "Name": "Tyre pressure failure during landing",
+    "Description": "Loss of pressure in a tyre during the landing roll.",
+    "TriggerDescription": "Landing gear failure consistent with touchdown and the subsequent roll.",
     "Phase": 8,
     "Difficulty": 2,
     "Failures": [

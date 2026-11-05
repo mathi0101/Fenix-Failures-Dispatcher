@@ -1,8 +1,8 @@
 [
   {
     "Name": "Engine Failure Before V1",
-    "Description": "Falla de motor antes de V1. Requiere rejected takeoff.",
-    "TriggerDescription": "Se dispara antes de alcanzar V1. Procedimiento: RTO.",
+    "Description": "Engine failure before V1. Requires a rejected takeoff.",
+    "TriggerDescription": "Triggers before reaching V1. Procedure: RTO.",
     "Phase": 3,
     "Difficulty": 2,
     "Failures": [
@@ -61,8 +61,8 @@
   },
   {
     "Name": "Engine Failure After V1",
-    "Description": "Falla de motor durante el roll de despegue, después de alcanzar V1.",
-    "TriggerDescription": "Se dispara automáticamente luego de detectar V1 durante el despegue.",
+    "Description": "Engine failure during the takeoff roll, after reaching V1.",
+    "TriggerDescription": "Triggers automatically after V1 is detected during takeoff.",
     "Phase": 3,
     "Difficulty": 4,
     "Failures": [
@@ -84,8 +84,8 @@
   },
   {
     "Name": "Engine Birdstrike After V2",
-    "Description": "Engine Birdstrike en ascenso inicial.",
-    "TriggerDescription": "Se dispara luego de despegar en el ascenso inicial.",
+    "Description": "Engine birdstrike during initial climb.",
+    "TriggerDescription": "Triggers after liftoff, during the initial climb.",
     "Phase": "Climb",
     "Difficulty": 3,
     "Failures": [
@@ -107,8 +107,8 @@
   },
   {
     "Name": "Dual Hydraulic System Failure",
-    "Description": "Falla de dos sistemas hidráulicos aleatorios en vuelo.",
-    "TriggerDescription": "Se dispara de forma aleatoria al subir por encima de FL150",
+    "Description": "Failure of two random hydraulic systems in flight.",
+    "TriggerDescription": "Triggers at random when climbing above FL150.",
     "Phase": 5,
     "Difficulty": 2,
     "Failures": [
@@ -190,8 +190,8 @@
   },
   {
     "Name": "Bleed Failure",
-    "Description": "Falla de sangrado de aire en motores. Pérdida de presurización. Puede requerir descenso de emergencia.",
-    "TriggerDescription": "Se dispara en crucero. ",
+    "Description": "Engine bleed air failure. Loss of pressurization. May require an emergency descent.",
+    "TriggerDescription": "Triggers in cruise.",
     "Phase": 0,
     "Difficulty": 3,
     "Failures": [
@@ -229,8 +229,8 @@
   },
   {
     "Name": "Gear Not Down on Final",
-    "Description": "Tren de aterrizaje no baja correctamente en la final.",
-    "TriggerDescription": "Se dispara al seleccionar gear down en la aproximación.",
+    "Description": "Landing gear does not extend properly on final.",
+    "TriggerDescription": "Triggers when gear down is selected on approach.",
     "Phase": 7,
     "Difficulty": 2,
     "Failures": [
