@@ -102,7 +102,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 3,
                             Name = "Communications",
                             ShortName = "Communications",
-                            WearPerFlightHour = 1.0
+                            WearPerFlightHour = 0.69999999999999996
                         },
                         new
                         {
@@ -129,7 +129,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 6,
                             Name = "Flight controls",
                             ShortName = "Flight controls",
-                            WearPerFlightHour = 1.25
+                            WearPerFlightHour = 0.55000000000000004
                         },
                         new
                         {
@@ -147,7 +147,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 8,
                             Name = "Hydraulic power",
                             ShortName = "Hydraulic",
-                            WearPerFlightHour = 1.875
+                            WearPerFlightHour = 0.875
                         },
                         new
                         {
@@ -201,7 +201,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 14,
                             Name = "Pneumatic",
                             ShortName = "Pneumatic",
-                            WearPerFlightHour = 1.875
+                            WearPerFlightHour = 0.875
                         },
                         new
                         {
@@ -219,7 +219,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 16,
                             Name = "APU",
                             ShortName = "APU",
-                            WearPerFlightHour = 1.25
+                            WearPerFlightHour = 0.94999999999999996
                         },
                         new
                         {
@@ -237,7 +237,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 18,
                             Name = "Power plant",
                             ShortName = "Engines",
-                            WearPerFlightHour = 1.75
+                            WearPerFlightHour = 0.75
                         },
                         new
                         {
@@ -246,7 +246,7 @@ namespace RealFenixFailures.Infrastructure.Migrations
                             DisplayOrder = 19,
                             Name = "Start faults",
                             ShortName = "Start Faults",
-                            WearPerFlightHour = 2.5
+                            WearPerFlightHour = 0.5
                         });
                 });
 

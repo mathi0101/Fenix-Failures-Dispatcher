@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-11-05 — feat(infrastructure): migración `RebalanceWearRatesLean` para el rebalance de tasas de desgaste
+
+- Scaffold de la migración para las nuevas tasas de `SeedData.WearableSystems` (ATA 23→0.7, 27→0.55, 29→0.875, 36→0.875, 49→0.95, 70→0.75, 80→0.5): `Up` actualiza las 7 filas y `Down` restaura los valores ×2.5. Las bases existentes la reciben solas al arrancar la app (`MigrateAsync`); las nuevas la incluyen en la cadena completa.
+- **Verificado en bases aisladas** (receta de `docs/desarrollo.md#migraciones-ef`): base nueva de cero y base existente actualizada desde `CatalogSyncStateAndFailureIsActive` aplican `RebalanceWearRatesLean` sin errores y quedan con las tasas nuevas (`SELECT` post-migración sobre ambas). No se tocó la base local de AppData ni el share vivo: se aplicarán en su próximo arranque.
+- **Gotcha confirmado**: con `dotnet-ef` 10.0.2 y paquetes EF 10.0.13, `database update` falla con `PendingModelChangesWarning` falso tras el scaffold; actualizada la tool global a 10.0.13 (misma versión que los paquetes, como exige `docs/desarrollo.md`) y el warning desapareció. Si reaparece, revisar la versión de `dotnet-ef` antes de sospechar de la migración.
+
 ### 2026-11-05 — feat(realistic): el motor deja de tirar fallas y de acumular desgaste al detectar el fin de vuelo
 
 - **Comportamiento nuevo** (decisión 2026-11-05): detectado el fin de vuelo (aeronave en gate con ambos motores apagados tras haber volado), `RealisticSessionEngine` **deja de sortear, armar o encolar fallas** — incluido el despacho de la cola de preparadas, que era el camino real por el que seguían saliendo fallas en gate después del aviso (visto en los logs de la sesión 26 del 2026-11-05: dos fallas armadas en OnGate tras la detección). Durante la gracia sigue solo la **conciliación del ciclo de vida** de las ya armadas (Sent→Active, Active→Resolved, expiraciones), que es lo que alimenta el modal de resultados.
