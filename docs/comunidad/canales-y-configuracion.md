@@ -96,7 +96,7 @@ Happy landings (mostly)! / ¡Felices aterrizajes (casi siempre)!
 
 ### 7. Anuncio de release en Announcements
 
-Cada release nueva: crear una discussion en Announcements con el título del tag (`v0.4.1-beta.1 released`) y copiar el cuerpo de `docs/releases/vX.Y.Z.md` (ya se genera bilingüe según el runbook de release). **Automatizado**: el workflow `Release` crea la discussion sola al publicar el release (GraphQL `createDiscussion` con `discussions: write`; cuerpo = notas curadas o body del release + link de descarga; best-effort, su fallo no afecta el release). Único paso manual: marcar el post como "announcement" si se quiere el estilo destacado — la API de GitHub no expone ese flag.
+Cada release nueva: crear una discussion en Announcements con el título del tag (`v0.4.1-beta.1 released`) y copiar el cuerpo de **`docs/releases/vX.Y.Z.md`** (las notas completas; ya se genera bilingüe según el runbook de release). El workflow `Release` **no** anuncia el release: el paso de announcement en Discussions se retiró (nunca funcionó de punta a punta) y el post se crea a mano. El body del release publicado apunta al final a esta categoría, de modo que quien quiera las notas completas llegue acá desde la página del release. Si se quiere el estilo destacado, marcar el post como "announcement" desde la web — la API de GitHub no expone ese flag.
 
 ## Wiki
 

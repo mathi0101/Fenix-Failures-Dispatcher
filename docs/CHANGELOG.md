@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-11-04 — docs(release): notas de usuario `vX.Y.Z-user.md` como body del release + announcement manual desde las completas
+
+- **Dos archivos por release** (receta en el paso 7 del runbook de [docs/desarrollo.md](desarrollo.md), regla en [AGENTS.md](../AGENTS.md)): `vX.Y.Z.md` — release notes **completas** (todos los cambios + Full Changelog), fuente del **announcement manual en Announcements** que publica el usuario tras cada release — y `vX.Y.Z-user.md` — notas de **usuario** en paralelo: escueta y pensada 100 % para quien usa la app (qué le cambió, qué hay de nuevo y cómo usarlo ahora), sin detalles técnicos ni internos (sin jerga de implementación, sin Full Changelog, sin CI/migraciones). Secciones sugeridas de la user: Novedades / Correcciones / Cómo usarlo en esta versión.
+- **Wiring en `release.yml`**: el **body del GitHub Release** ahora sale de `vX.Y.Z-user.md` (`--notes-file`), con fallback a la completa si faltan las user y a `--generate-notes` si no hay curadas; al final del body curado el workflow agrega el **link a Announcements** (`discussions/categories/announcements`, URL construida del repo) para quien quiera las notas completas. El **README del ZIP** lleva la guía de instalación + `vX.Y.Z-user.md` (sin user, apunta a la página del release). La completa ya no es body ni asset del release.
+- Retroactivo: los releases anteriores no tienen `-user.md`; los fallbacks del workflow los cubren.
+
 ### 2026-11-04 — feat(ui): base de localización bilingüe ES/EN con cambio en vivo (issue #12, fase 0)
 
 - **Infra de localización propia (sin paquete externo)**: `RealFenixFailures.UI/Localization/` — resx estándar con cultura neutra = inglés (`Strings.resx`) y español voseo (`Strings.es.resx`) compilados a recursos satélite; `Loc` (singleton con indexador + `T(key, args)` + markup extension `{loc:Loc Clave}`) refresca **todos los bindings en vivo** vía `PropertyChanged("Item[]")` al cambiar el idioma, sin reiniciar la app. Spike con WPFLocalizeExtension 3.10.0 descartado: MC3074 con el compilador XAML de .NET 10 (reproducido en proyecto mínimo aislado).
