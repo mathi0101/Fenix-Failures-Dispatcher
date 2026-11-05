@@ -279,6 +279,94 @@ public class RealisticSessionEnginePersistenceTests {
     }
 
     [Fact]
+    public async Task StopSession_WearStopsAtFlightCompletionDetection() {
+        // Decisión 2026-11-05: el desgaste cuenta hasta la detección de fin de vuelo (gate con motores
+        // apagados), no hasta el cierre — los minutos de gracia del aviso no desgastan sistemas.
+        var db = CreateContext();
+        var seeded = Seed(db);
+        var wearable = new AircraftWearableSystem {
+            AtaId = 999, Name = "Test system", ShortName = "Test", WearPerFlightHour = 0.6
+        };
+        db.Add(wearable);
+        db.SaveChanges();
+        SetupSimulatorConnected();
+        var clock = _now;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
+            new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None)).Started);
+
+        // Anclaje: encendido de motores +1 h, tick aéreo arma la secuencia de fin de vuelo.
+        clock = clock.AddHours(1);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Climb);
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        // +10 h de vuelo y tick de detección (OnGate con motores apagados): ancla el fin del desgaste.
+        clock = clock.AddHours(10);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        // +3 h de gracia en gate antes del cierre: no deben contar para el desgaste (10 h, no 13).
+        clock = clock.AddHours(3);
+        await engine.StopSession(CancellationToken.None);
+        db.ChangeTracker.Clear();
+
+        var expectedDelta = wearable.WearPerFlightHour * 10;
+        var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), wear.WearPercentage, 6);
+        var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
+        Assert.Equal(expectedDelta, delta.DeltaPercentage, 6);
+    }
+
+    [Fact]
+    public async Task Evaluate_AfterFlightCompletion_DoesNotArmOrFlushFailures() {
+        // Decisión 2026-11-05: detectado el fin de vuelo, el motor deja de sortear, armar o encolar
+        // fallas — tampoco despacha la cola de preparadas (el sorteo de tierra del tick de detección
+        // era el camino real por el que seguían saliendo fallas en gate).
+        var db = CreateContext();
+        var seeded = Seed(db);
+        SetupSimulatorConnected();
+        var clock = _now;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
+            new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None)).Started);
+
+        // Tick aéreo: arma la secuencia de fin de vuelo (roll negativo fijo: sin sorteos positivos en aire).
+        _random.SetupNextDouble(0.9999);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Climb);
+        await engine.EvaluateAsync(CancellationToken.None);
+        // Tick de detección en gate: con roll favorable (0.0), el sorteo de tierra NO debe ejecutarse.
+        _random.SetupNextDouble(0.0); // Bernoulli del único candidato: 0.0 < p=1.0 → entraría si el sorteo corriera
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        var detection = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.True(detection.FlightCompletionDetected);
+        Assert.Empty(detection.TriggeredFailures);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Empty(await db.TriggeredFailures.ToListAsync());
+
+        // Tick posterior (gracia en gate): sigue sin armar nada y sin re-emitir el aviso.
+        var later = await engine.EvaluateAsync(CancellationToken.None);
+        Assert.False(later.FlightCompletionDetected);
+        Assert.Empty(later.TriggeredFailures);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Empty(await db.TriggeredFailures.ToListAsync());
+    }
+
+    [Fact]
     public async Task StopSession_ShortFlight_AccumulatesMinimumThreeSystems() {
         // Vuelo corto (2 h → 1,5 sistemas/h = 3): acumulan exactamente 3 de los 19 del catálogo, mínimo del escalado.
         var db = CreateContext();

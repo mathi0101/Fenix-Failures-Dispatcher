@@ -46,6 +46,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private DateTime _scenarioStartedAtUtc;
     private DateTime? _flightTimeStartedAtUtc;
 
+    /// <summary>Anclaje de fin de horas de vuelo: momento (reloj de simulación) de la detección de fin de vuelo;
+    /// null hasta entonces. Corta la acumulación de desgaste en la detección, no en el cierre de la sesión.</summary>
+    private DateTime? _flightTimeEndedAtUtc;
+
 
     private RealisticSession? _session;
 
@@ -142,6 +146,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
         _flightTimeStartedAtUtc = null;
+        _flightTimeEndedAtUtc = null;
         // Secuencia de fin de vuelo fresca por sesión (issue #15): cada sesión arranca sin observaciones previas,
         // aunque la aeronave ya esté volando (la fase aérea se observa en los primeros ticks).
         _hasObservedFlight = false;
@@ -245,6 +250,16 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             EvaluationResult Finish(EvaluationResult result) => flightCompletedThisTick
                 ? result.WithFlightCompletionDetected()
                 : result;
+
+            // Fin de vuelo detectado (este tick o uno anterior): el motor deja de sortear, armar o encolar
+            // fallas (decisión 2026-11-05); sigue solo la conciliación del ciclo de vida de las ya armadas
+            // (Sent→Active, Active→Resolved, expiraciones) y el desgaste queda anclado en la detección.
+            if (_flightCompletionDetected) {
+                var quietChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
+                await ExpireTemporaryFailuresAsync(currentPhase, quietChanges, ct);
+                _lastCadenceTickUtc = _policy.UtcNow;
+                return Finish(EvaluationResult.NoAction().WithStateChanges(quietChanges));
+            }
 
             if (!fenixAvailable) {
                 if (_hasEverHadFenixRead) {
@@ -356,6 +371,7 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         if (!_hasObservedFlight || phase != ComplexFlightPhaseEnum.OnGate) return false;
 
         _flightCompletionDetected = true;
+        _flightTimeEndedAtUtc = _policy.UtcNow;
         _logger.LogInformation("Realistic sesión {SessionId}: vuelo finalizado detectado (aeronave en gate con motores apagados), escenario {ScenarioUtc}",
             Session!.Session.Id, _policy.UtcNow);
         return true;
@@ -745,7 +761,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: sin encendido de motores registrado, no acumula desgaste", session.Session.Id);
                 return [];
             }
-            var hours = (_policy.UtcNow - flightStart).TotalHours;
+            // El desgaste cuenta hasta la detección de fin de vuelo, no hasta el cierre (decisión 2026-11-05):
+            // los minutos en gate con motores apagados (gracia del aviso) no desgastan sistemas.
+            var wearEnd = _flightTimeEndedAtUtc ?? _policy.UtcNow;
+            var hours = (wearEnd - flightStart).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.Aircraft.Id, ct);
             var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();

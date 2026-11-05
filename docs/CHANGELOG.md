@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 2026-11-05 — feat(realistic): el motor deja de tirar fallas y de acumular desgaste al detectar el fin de vuelo
+
+- **Comportamiento nuevo** (decisión 2026-11-05): detectado el fin de vuelo (aeronave en gate con ambos motores apagados tras haber volado), `RealisticSessionEngine` **deja de sortear, armar o encolar fallas** — incluido el despacho de la cola de preparadas, que era el camino real por el que seguían saliendo fallas en gate después del aviso (visto en los logs de la sesión 26 del 2026-11-05: dos fallas armadas en OnGate tras la detección). Durante la gracia sigue solo la **conciliación del ciclo de vida** de las ya armadas (Sent→Active, Active→Resolved, expiraciones), que es lo que alimenta el modal de resultados.
+- **Desgaste anclado a la detección**: `AccumulateWearAsync` corta las horas de vuelo en `_flightTimeEndedAtUtc` (momento de la detección, reloj de simulación) en lugar del cierre — los minutos de gracia en gate con motores apagados ya no desgastan sistemas. Sin vuelo detectado (cierre manual en pleno vuelo) no cambia nada.
+- **Tests** (`RealisticSessionEnginePersistenceTests`): `StopSession_WearStopsAtFlightCompletionDetection` (10 h de vuelo + 3 h de gracia → delta por 10 h, no 13) y `Evaluate_AfterFlightCompletion_DoesNotArmOrFlushFailures` (en el tick de detección y en los posteriores no se ejecuta `ExecuteFailureAsync`, no hay filas `TriggeredFailures` y el aviso no se re-emite).
+- **Verificado**: suite completa 314/317 en verde con los 2 tests nuevos (los 3 fallidos son los Serilog preexistentes de otra tarea). Sesión real MSFS/Fenix: pendiente.
+
 ### 2026-11-04 — fix(application): el evento de crucero alcanzado incluye el nivel de vuelo
 
 - El detector de eventos de vuelo ahora reporta «Crucero FLXXX alcanzado» (p. ej. «Crucero FL360 alcanzado»), con el nivel calculado de la altitud MSL con la misma convención FL (MSL/100) de los eventos «Cruzando FL…».
