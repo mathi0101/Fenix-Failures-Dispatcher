@@ -1,5 +1,6 @@
 ﻿﻿using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -12,6 +13,7 @@ namespace RealFenixFailures.UI.Views;
 public partial class MainWindow : Window {
 
     private readonly MainWindowViewModel _viewModel;
+    private readonly ILogger<MainWindow> _logger;
     private bool _isCloseDialogOpen;
     private readonly System.Windows.Threading.DispatcherTimer _utcClockTimer;
 
@@ -28,9 +30,10 @@ public partial class MainWindow : Window {
     /// </summary>
     public bool IsExitAllowed { get; set; }
 
-    public MainWindow(MainWindowViewModel viewModel) {
+    public MainWindow(MainWindowViewModel viewModel, ILogger<MainWindow> logger) {
         InitializeComponent();
         _viewModel = viewModel;
+        _logger = logger;
         DataContext = _viewModel;
         Loaded += async (_, _) => {
             await _viewModel.InitializeAsync();
@@ -72,22 +75,42 @@ public partial class MainWindow : Window {
 
     /// <summary>
     /// Hace visible la app sin robar el foco (MSFS puede quedar en VR/fullscreen): restaura desde la
-    /// bandeja con <c>ShowActivated=false</c> y hace parpadear el botón de la barra de tareas.
+    /// bandeja con <c>ShowActivated=false</c>, sube la ventana al tope del Z-order sin activarla y hace
+    /// parpadear el botón de la barra de tareas. Sin el <c>HWND_TOP</c>, Windows muestra la ventana
+    /// detrás de la que tenga el foco (un proceso en segundo plano no puede tomar el primer plano).
     /// El modal de confirmación de finalización aparece directo en el panel Realista.
     /// </summary>
     private void RestoreForCompletionNotice() {
         if (IsExitAllowed) return;
+        _logger.LogInformation("Aviso de fin de vuelo: restaurando la ventana principal desde segundo plano (sin robar foco).");
         var previousShowActivated = ShowActivated;
         ShowActivated = false;
         try {
             Show();
             if (WindowState == WindowState.Minimized)
                 WindowState = WindowState.Normal;
+            BringToFrontWithoutActivation();
         } finally {
             ShowActivated = previousShowActivated;
         }
         FlashTaskbarButton();
     }
+
+    /// <summary>Sube la ventana al tope del Z-order sin activarla: visible sin robar foco.</summary>
+    private void BringToFrontWithoutActivation() {
+        var hwnd = new WindowInteropHelper(this).EnsureHandle();
+        _ = SetWindowPos(hwnd, HwndTop, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
+    }
+
+    private static readonly IntPtr HwndTop = IntPtr.Zero;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpShowWindow = 0x0040;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
     private void FlashTaskbarButton() {
         var info = new FLASHWINFO {
