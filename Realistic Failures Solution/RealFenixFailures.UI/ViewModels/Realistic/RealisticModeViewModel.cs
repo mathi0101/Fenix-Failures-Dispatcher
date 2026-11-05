@@ -890,7 +890,7 @@ public sealed class RealisticModeViewModel : LocalizedViewModelBase, IDisposable
         _expectationService,
         () => WearSystems.Count == 0 ? null : WearSystems.Average(w => (double)w.WearPercentage));
 
-    /// <summary>Recalcula la expectativa de fallas (spec §8.7) con el desgaste medio, la duración del OFP y el perfil vigente.</summary>
+    /// <summary>Recalcula la expectativa de fallas (spec §8.7) con el desgaste medio y el perfil vigente.</summary>
     private void RefreshExpectation() {
         if (_expectationService is null) return;
         try {
@@ -898,9 +898,7 @@ public sealed class RealisticModeViewModel : LocalizedViewModelBase, IDisposable
             double? hours = _ofpPlanForUi?.EstimatedDurationMinutes is > 0 ? _ofpPlanForUi.EstimatedDurationMinutes / 60.0 : null;
             var dto = _expectationService.Compute(avgWear, hours, (RiskLevel?)SelectedRiskLevel);
 
-            ExpectationDisplay = dto.FlightHours is { } h
-                ? Loc.T("Rmv_ExpectationFlight", FormatDuration((int)Math.Round(h * 60)), dto.BaselineRiskPct, dto.WearAdjustedRiskPct)
-                : Loc.T("Rmv_ExpectationNoFlight", SelectedRiskLevel is null ? Loc.T("Rp_Moderate_Name") : SelectedRiskDisplay, dto.RatePerHour);
+            ExpectationDisplay = Loc.T("Rmv_WearProbIncrease", Math.Round(dto.WearIncreasePct));
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo calcular la expectativa de fallas.");
         }

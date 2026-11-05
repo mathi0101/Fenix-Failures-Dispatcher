@@ -16,6 +16,8 @@ public sealed record RealisticExpectationDto {
     public double BaselineRiskPct { get; init; }
     /// <summary>Igual que BaselineRiskPct pero calculado con el desgaste medio real, en %.</summary>
     public double WearAdjustedRiskPct { get; init; }
+    /// <summary>Aumento relativo de la probabilidad de fallas por el desgaste medio actual, en % (0 = sin desgaste / sin registro).</summary>
+    public double WearIncreasePct { get; init; }
     /// <summary>Ritmo esperado por hora de vuelo (Σλ del modelo).</summary>
     public double RatePerHour { get; init; }
     /// <summary>Horas usadas para el cálculo; null = sin OFP (solo ritmo por hora).</summary>

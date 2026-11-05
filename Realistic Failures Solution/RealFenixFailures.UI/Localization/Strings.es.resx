@@ -1194,12 +1194,11 @@
   <data name="Rmv_BtnStopTooltip" xml:space="preserve">
     <value>Termina la sesión e intenta desactivar las fallas en Fenix; confirma en vuelo. Comprobá las fallas manualmente si la API no responde.</value>
   </data>
-  <data name="Rmv_ExpectationFlight" xml:space="preserve">
-    <value>Probabilidad de una falla seria en este vuelo ({0}): {1}%.
-Probabilidad ajustada por el desgaste acumulado actual: {2}%</value>
+  <data name="Rmv_WearProbIncrease" xml:space="preserve">
+    <value>Probabilidad de fallas aumentada un {0}% debido al desgaste</value>
   </data>
-  <data name="Rmv_ExpectationNoFlight" xml:space="preserve">
-    <value>Sin vuelo cargado · referencia {0}: ≈ {1} fallas/h</value>
+  <data name="Rmv_PerfHintBanner" xml:space="preserve">
+    <value>Para un mejor rendimiento, dejá la app minimizada o en segundo plano en la bandeja para optimizar recursos.</value>
   </data>
   <data name="Rmv_NoSimbriefUserid" xml:space="preserve">
     <value>Configurá tu userid de SimBrief en Ajustes antes de descargar el OFP.</value>

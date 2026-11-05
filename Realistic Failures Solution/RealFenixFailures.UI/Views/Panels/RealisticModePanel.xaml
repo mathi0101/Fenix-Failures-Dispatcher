@@ -230,8 +230,17 @@
     <Grid x:Name="RealisticRoot" DataContext="{Binding Realistic}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+
+        <!-- CARTEL DE RENDIMIENTO (estático): visible solo con el modo Realista funcionando -->
+        <Border Grid.Row="1" Margin="0,0,0,12" Padding="10,7" CornerRadius="8"
+                Background="#33B4530A" BorderBrush="{StaticResource Brush.Accent.Amber.Primary}" BorderThickness="1"
+                Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{loc:Loc Rmv_PerfHintBanner}" FontSize="10" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Text.Secondary}"/>
+        </Border>
 
         <!-- ENCABEZADO -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
@@ -303,7 +312,7 @@
         </StackPanel>
 
         <!-- CONTENIDO DE PASOS -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
 
             <!-- ================= PASO 1: SELECCIÓN / CREACIÓN DE AERONAVE ================= -->
             <Grid Visibility="{Binding IsStep1, Converter={StaticResource BoolToVis}}">

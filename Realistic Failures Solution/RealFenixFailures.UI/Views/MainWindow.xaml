@@ -166,7 +166,7 @@
             <!-- MAIN CONTENT -->
             <Grid Grid.Row="2" Margin="20,16,20,20">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="300"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
@@ -249,13 +249,14 @@
 
                     </StackPanel>
 
-                    <!-- DONACIÓN: abre el link definido en MainWindow.xaml.cs -->
+                    <!-- DONACIÓN: oculto temporalmente — el espacio lo ocupa el log en tiempo real.
                     <Button Grid.Row="1"
                             Content="{loc:Loc Mw_Modes_Support}"
                             Style="{StaticResource DonationButtonStyle}"
                             ToolTip="{loc:Loc Mw_TooltipDonate}"
                             Margin="0,4,0,16"
                             Click="OpenDonationPage"/>
+                    -->
 
                     <!-- LOG EN TIEMPO REAL: ocupa el espacio restante del panel izquierdo -->
                     <panels:LogPanel Grid.Row="2"/>

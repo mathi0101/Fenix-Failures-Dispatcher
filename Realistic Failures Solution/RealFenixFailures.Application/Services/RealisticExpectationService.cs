@@ -68,6 +68,7 @@ public sealed class RealisticExpectationService : IRealisticExpectationService {
             ProbabilityAtLeastOneCriticalPct = AtLeastOne(totalRate.Critical),
             BaselineRiskPct = AtLeastOne(Combined(0)),
             WearAdjustedRiskPct = AtLeastOne(Combined(wear)),
+            WearIncreasePct = (wearFactor - 1) * 100,
         };
     }
 

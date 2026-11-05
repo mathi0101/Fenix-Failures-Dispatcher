@@ -1196,12 +1196,11 @@
   <data name="Rmv_BtnStopTooltip" xml:space="preserve">
     <value>Ends the session and tries to disarm failures in Fenix; confirm in flight. Check failures manually if the API does not respond.</value>
   </data>
-  <data name="Rmv_ExpectationFlight" xml:space="preserve">
-    <value>Probability of a serious failure in this flight ({0}): {1}%.
-Probability adjusted for current accumulated wear: {2}%</value>
+  <data name="Rmv_WearProbIncrease" xml:space="preserve">
+    <value>Failure probability increased by {0}% due to wear</value>
   </data>
-  <data name="Rmv_ExpectationNoFlight" xml:space="preserve">
-    <value>No flight loaded · {0} reference: ≈ {1} failures/h</value>
+  <data name="Rmv_PerfHintBanner" xml:space="preserve">
+    <value>For better performance, keep the app minimized or in the background tray to optimize resources.</value>
   </data>
   <data name="Rmv_NoSimbriefUserid" xml:space="preserve">
     <value>Set up your SimBrief user ID in Settings before downloading the OFP.</value>
