@@ -1,35 +1,43 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.UI.Localization;
 using System.Collections.ObjectModel;
+using System.Globalization;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
 
-/// <summary>Presentación del resultado autocontenido de una sesión.</summary>
+/// <summary>Presentación del resultado autocontenido de una sesión. Se construye al abrir el
+/// modal (es efímero): los textos se resuelven con el idioma vigente de ese momento (issue #12);
+/// si el usuario cambia de idioma con el modal abierto, se refleja al volver a abrirlo.</summary>
 public sealed class SessionResultWindowViewModel {
     public SessionResultWindowViewModel(SessionResultDto result, int wearNoticeThresholdPct) {
         WearNoticeThresholdPct = wearNoticeThresholdPct;
         SessionId = result.SessionId;
         RouteDisplay = $"{ValueOr(result.OriginIcao, "????")} → {ValueOr(result.DestinationIcao, "????")}";
-        RegistrationDisplay = $"{ValueOr(result.Registration, "Sin matrícula")} · {ValueOr(result.AircraftIcaoType, "Tipo no disponible")}";
-        OfpDisplay = $"OFP {ValueOr(result.FlightNumber, ValueOr(result.Callsign, "sin identificador"))} ({ValueOr(result.OfpSource, "fuente no disponible")})";
+        RegistrationDisplay = $"{ValueOr(result.Registration, Loc.T("Srw_NoRegistration"))} · {ValueOr(result.AircraftIcaoType, Loc.T("Srw_TypeUnavailable"))}";
+        OfpDisplay = Loc.T("Srw_OfpDisplay",
+            ValueOr(result.FlightNumber, ValueOr(result.Callsign, Loc.T("Srw_NoIdentifier"))),
+            ValueOr(result.OfpSource, Loc.T("Srw_SourceUnavailableLower")));
         RiskLevelDisplay = result.RiskLevel switch {
-            RiskLevel.Low => "PERFIL BAJO", RiskLevel.Moderate => "PERFIL MODERADO",
-            RiskLevel.High => "PERFIL ALTO", _ => "PERFIL 7700"
+            RiskLevel.Low => Loc.T("Srw_ProfileLow"), RiskLevel.Moderate => Loc.T("Srw_ProfileModerate"),
+            RiskLevel.High => Loc.T("Srw_ProfileHigh"), _ => Loc.T("Srw_Profile7700")
         };
         RiskColor = result.RiskLevel switch {
             RiskLevel.Low => "#22C55E", RiskLevel.Moderate => "#3B82F6",
             RiskLevel.High => "#F97316", _ => "#EF4444"
         };
-        StartedDisplay = $"Inicio {result.StartedAt:dd/MM/yyyy HH:mm:ss} UTC";
-        FinishedDisplay = result.FinishedAt is DateTime end ? $"Fin {end:dd/MM/yyyy HH:mm:ss} UTC" : "Sin finalizar";
+        StartedDisplay = Loc.T("Srw_Started", result.StartedAt.ToString("dd/MM/yyyy HH:mm:ss"));
+        FinishedDisplay = result.FinishedAt is DateTime end
+            ? Loc.T("Srw_Finished", end.ToString("dd/MM/yyyy HH:mm:ss")) : Loc.T("Srw_NotFinished");
         DurationDisplay = result.Duration is TimeSpan duration
-            ? $"Duración {(int)duration.TotalHours} h {duration.Minutes:D2} min {duration.Seconds:D2} s" : "Duración no disponible";
+            ? Loc.T("Srw_Duration", (int)duration.TotalHours, duration.Minutes.ToString("D2"), duration.Seconds.ToString("D2"))
+            : Loc.T("Srw_DurationUnavailable");
         WearSummaryDisplay = result.WearDeltas.Count > 0
-            ? $"Desgaste medio por sistema {Percent(result.WearDeltas.Average(w => w.DeltaPercentage), true)}"
-            : "Sin desgaste registrado";
-        WearEmptyMessage = result.DiscardedAt.HasValue ? "Sesión descartada: no se aplicó desgaste."
-            : "No hay desgaste registrado para esta sesión.";
-        WearThresholdDisplay = $"Al alcanzar el {wearNoticeThresholdPct} % de desgaste acumulado se señala que el sistema requiere mantenimiento.";
+            ? Loc.T("Srw_WearAverageLine", Percent(result.WearDeltas.Average(w => w.DeltaPercentage), true))
+            : Loc.T("Srw_NoWear");
+        WearEmptyMessage = result.DiscardedAt.HasValue ? Loc.T("Srw_WearDiscarded")
+            : Loc.T("Srw_WearEmpty");
+        WearThresholdDisplay = Loc.T("Srw_WearThreshold", wearNoticeThresholdPct);
         TotalFailures = result.Summary.TotalFailures;
         ResolvedByPilot = result.Summary.ResolvedByPilot;
         AutoResolved = result.Summary.AutoResolved;
@@ -48,13 +56,13 @@ public sealed class SessionResultWindowViewModel {
     }
     private static string ValueOr(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
     private static string Percent(double value, bool delta = false) =>
-        (delta && value > 0 ? "+" : "") + (value is > 0 and < 0.01 ? "<0,01" : value.ToString("0.##")) + " %";
+        (delta && value > 0 ? "+" : "") + (value is > 0 and < 0.01 ? Loc.T("Srw_PercentBelowMin") : value.ToString("0.##", CultureInfo.CurrentUICulture)) + " %";
     public static string PhaseName(ComplexFlightPhaseEnum phase) => phase switch {
-        ComplexFlightPhaseEnum.OnGate => "Puerta", ComplexFlightPhaseEnum.Taxi => "Taxi",
-        ComplexFlightPhaseEnum.Takeoff => "Despegue", ComplexFlightPhaseEnum.Climb => "Ascenso",
-        ComplexFlightPhaseEnum.Cruise => "Crucero", ComplexFlightPhaseEnum.Descent => "Descenso",
-        ComplexFlightPhaseEnum.Approach => "Aproximación", ComplexFlightPhaseEnum.Landing => "Aterrizaje",
-        ComplexFlightPhaseEnum.Parked => "Estacionado", _ => "Fase no disponible"
+        ComplexFlightPhaseEnum.OnGate => Loc.T("Srw_PhaseOnGate"), ComplexFlightPhaseEnum.Taxi => Loc.T("Srw_PhaseTaxi"),
+        ComplexFlightPhaseEnum.Takeoff => Loc.T("Srw_PhaseTakeoff"), ComplexFlightPhaseEnum.Climb => Loc.T("Srw_PhaseClimb"),
+        ComplexFlightPhaseEnum.Cruise => Loc.T("Srw_PhaseCruise"), ComplexFlightPhaseEnum.Descent => Loc.T("Srw_PhaseDescent"),
+        ComplexFlightPhaseEnum.Approach => Loc.T("Srw_PhaseApproach"), ComplexFlightPhaseEnum.Landing => Loc.T("Srw_PhaseLanding"),
+        ComplexFlightPhaseEnum.Parked => Loc.T("Srw_PhaseParked"), _ => Loc.T("Srw_PhaseUnavailable")
     };
     public int SessionId { get; }
     public string RouteDisplay { get; }
@@ -118,36 +126,43 @@ public sealed class SessionResultWindowViewModel {
             SystemDisplay = string.Join(" · ", new[] {
                 f.FailureAtaId is > 0 ? $"ATA {f.FailureAtaId}" : null, f.FailureSystem, f.FailureGroup
             }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct());
-            SeverityDisplay = f.Severity?.ToString() ?? "Sin severidad";
+            SeverityDisplay = f.Severity?.ToString() ?? Loc.T("Srw_NoSeverity");
             SeverityColor = f.Severity switch {
                 FailureSeverity.Critical => "#EF4444", FailureSeverity.Major => "#F97316",
                 FailureSeverity.Minor => "#F59E0B", _ => "#94A3B8"
             };
-            StateDisplay = f.State switch {
-                FailureLifecycleState.ResolvedByPilot => "Resuelta por el piloto",
-                FailureLifecycleState.AutoResolved => "Auto-resuelta (engine)",
-                FailureLifecycleState.NotResolved => "No resuelta (sesión terminó)",
-                FailureLifecycleState.Rejected => "Rechazada (no evento)",
-                FailureLifecycleState.Active => "Activa", FailureLifecycleState.Sent => "Enviada a Fenix",
-                FailureLifecycleState.Queued => "En cola", _ => "En preparación"
-            };
+            StateDisplay = StateText(f.State);
             StateColor = f.State switch {
                 FailureLifecycleState.ResolvedByPilot or FailureLifecycleState.AutoResolved => "#22C55E",
                 FailureLifecycleState.NotResolved => "#FCA5A5", _ => "#94A3B8"
             };
             IsUnresolved = f.State == FailureLifecycleState.NotResolved;
-            var source = f.ResolutionSource switch {
-                ResolutionSource.Pilot => "Piloto (despejada en Fenix)",
-                ResolutionSource.EngineAuto => "Motor de fallas",
-                ResolutionSource.SessionEnded => "Consolidada al cierre", _ => "Fuente no disponible"
-            };
+            var source = SourceText(f.ResolutionSource ?? ResolutionSource.SessionEnded);
             Detail = $"{f.TriggeredAt:dd/MM HH:mm:ss} UTC · {PhaseName(f.FlightPhase)}";
             if (f.ResolvedAtUtc is DateTime resolved) {
                 var elapsed = resolved - f.TriggeredAt;
-                var duration = elapsed >= TimeSpan.Zero ? $" · {(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2} transcurridos" : "";
+                var duration = elapsed >= TimeSpan.Zero
+                    ? Loc.T("Srw_Elapsed", (int)elapsed.TotalHours, elapsed.Minutes, elapsed.Seconds)
+                    : "";
                 Detail += $" → {resolved:dd/MM HH:mm:ss} UTC · {source}{duration}";
             }
         }
+        internal static string StateText(FailureLifecycleState state) => state switch {
+            FailureLifecycleState.ResolvedByPilot => Loc.T("Srw_StateResolvedByPilot"),
+            FailureLifecycleState.AutoResolved => Loc.T("Srw_StateAutoResolved"),
+            FailureLifecycleState.NotResolved => Loc.T("Srw_StateNotResolved"),
+            FailureLifecycleState.Rejected => Loc.T("Srw_StateRejected"),
+            FailureLifecycleState.Active => Loc.T("Srw_StateActive"),
+            FailureLifecycleState.Sent => Loc.T("Srw_StateSent"),
+            FailureLifecycleState.Queued => Loc.T("Srw_StateQueued"),
+            _ => Loc.T("Srw_StatePreparing")
+        };
+        internal static string SourceText(ResolutionSource? source) => source switch {
+            ResolutionSource.Pilot => Loc.T("Srw_SourcePilot"),
+            ResolutionSource.EngineAuto => Loc.T("Srw_SourceEngine"),
+            ResolutionSource.SessionEnded => Loc.T("Srw_SourceSessionEnded"),
+            _ => Loc.T("Srw_SourceUnavailable")
+        };
         public string Name { get; }
         public string SystemDisplay { get; }
         public string SeverityDisplay { get; }

@@ -5,6 +5,7 @@ using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.Commands;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Collections.ObjectModel;
@@ -20,7 +21,27 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 /// Consume IUserAircraftService (CRUD + desgaste) y IEngineOrchestrator
 /// (estado de conexión / fase de vuelo / arranque del motor de fallas).
 /// </summary>
-public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
+public sealed class RealisticModeViewModel : LocalizedViewModelBase, IDisposable {
+
+    /// <summary>Re-notifica las propiedades con texto localizado para refrescar la UI en vivo (issue #12).</summary>
+    protected override void OnLanguageChanged() {
+        OnPropertyChanged(nameof(SelectedRiskDisplay));
+        OnPropertyChanged(nameof(HeaderProfileDisplay));
+        OnPropertyChanged(nameof(RiskProfileButtonText));
+        OnPropertyChanged(nameof(ProfileCardSubtitle));
+        OnPropertyChanged(nameof(DiscardPreparedLabel));
+        OnPropertyChanged(nameof(OfpStatusDisplay));
+        OnPropertyChanged(nameof(RouteDisplay));
+        OnPropertyChanged(nameof(OfpAircraftMatchDisplay));
+        OnPropertyChanged(nameof(OfpRowDisplay));
+        OnPropertyChanged(nameof(OfpValidationToolTip));
+        OnPropertyChanged(nameof(ExpectationDisplay));
+        OnPropertyChanged(nameof(ExpectationToolTip));
+        OnPropertyChanged(nameof(SessionStatusDisplay));
+        OnPropertyChanged(nameof(ActivationBlockReason));
+        OnPropertyChanged(nameof(ActivateButtonText));
+        OnPropertyChanged(nameof(ActionToolTip));
+    }
     #region Fields
 
     private const int MaxLiveTriggeredFailures = 50;
@@ -123,7 +144,6 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         DownloadOfpCommand = new RelayCommand(async () => await DownloadOfpAsync(), () => CanDownloadOfp && !IsOfpDownloading);
         DeleteOfpCommand = new RelayCommand(DeleteOfp, () => CanDeleteOfp);
         DiscardPreparedCommand = new RelayCommand(async () => await DiscardPreparedAsync(), () => IsDiscardPreparedVisible && !IsOperationPending);
-        ShowFlightCompletionConfirmCommand = new RelayCommand(() => IsFlightCompletionConfirmVisible = true, () => IsFlightCompletionBannerVisible && !IsOperationPending);
         ConfirmFlightCompletionCommand = new RelayCommand(async () => await ConfirmFlightCompletionAsync(), () => IsEngineActive && !IsOperationPending);
         CancelFlightCompletionCommand = new RelayCommand(() => IsFlightCompletionConfirmVisible = false);
 
@@ -318,19 +338,19 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool HasSelectedRisk => SelectedRiskLevel.HasValue;
 
     public string SelectedRiskDisplay => SelectedRiskLevel switch {
-        1 => "Bajo",
-        2 => "Moderado",
-        3 => "Alto",
+        1 => Loc.T("Rmv_RiskLow"),
+        2 => Loc.T("Rmv_RiskModerate"),
+        3 => Loc.T("Rmv_RiskHigh"),
         4 => "7700",
         _ => "—"
     };
 
-    public string HeaderProfileDisplay => SelectedRiskLevel.HasValue ? SelectedRiskDisplay : "Sin perfil";
+    public string HeaderProfileDisplay => SelectedRiskLevel.HasValue ? SelectedRiskDisplay : Loc.T("Rmv_NoProfile");
 
-    public string RiskProfileButtonText => HasSelectedRisk ? "Cambiar perfil" : "Elegir perfil";
+    public string RiskProfileButtonText => HasSelectedRisk ? Loc.T("Rmv_ChangeProfile") : Loc.T("Rmv_ChooseProfile");
 
     /// <summary>Subtítulo del card-button de perfil (spec §8.4).</summary>
-    public string ProfileCardSubtitle => HasSelectedRisk ? "Seleccionado" : "Sin perfil";
+    public string ProfileCardSubtitle => HasSelectedRisk ? Loc.T("Rmv_Selected") : Loc.T("Rmv_NoProfile");
 
     public bool CanChangeProfile => !IsEngineActive && !IsOperationPending;
 
@@ -392,8 +412,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string CurrentFlightPhaseDisplay {
         get {
-            if (!IsSimConnected) return "Disconnected";
-            if (!HasAircraftData) return "No aircraft data";
+            if (!IsSimConnected) return Loc.T("Mw_StatusDisconnected");
+            if (!HasAircraftData) return Loc.T("Mw_StatusNoAircraftData");
             return CurrentFlightPhase switch {
                 ComplexFlightPhaseEnum.OnGate => "Cold and Dark",
                 ComplexFlightPhaseEnum.Taxi => "Taxing",
@@ -430,7 +450,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public bool IsDiscardPreparedVisible => IsSessionActiveWithoutFenix && PreparedCount > 0;
 
-    public string DiscardPreparedLabel => $"DESCARTAR PREPARADAS ({PreparedCount})";
+    public string DiscardPreparedLabel => Loc.T("Rmv_DiscardPrepared", PreparedCount);
 
     private FlightPlanDto? _ofpPlanForUi;
     private bool _isOfpDownloading;
@@ -444,8 +464,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     /// <summary>Tooltip del botón Descargar OFP (spec §8.3): explica el bloqueo durante sesión.</summary>
     public string OfpButtonToolTip => IsEngineActive
-        ? "Sesión activa: el OFP no puede modificarse. Detené la sesión para cargar otro plan."
-        : "Descarga el plan operacional de SimBrief del user, lo valida (ICAO del avión, campos mínimos y ventana UTC) y deja lista la activación.";
+        ? Loc.T("Rmv_OfpTooltipActive")
+        : Loc.T("Rmv_OfpTooltipDownload");
 
     public bool OfpValidated => _ofpPlanForUi?.IsUsable == true;
     public bool IsOfpDownloading {
@@ -461,7 +481,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string RouteDisplay {
         get {
-            if (_ofpPlanForUi is null) return "No registrada";
+            if (_ofpPlanForUi is null) return Loc.T("Rmv_OfpNotRegistered");
             var anyText = !string.IsNullOrWhiteSpace(_ofpPlanForUi.RouteText);
             var ruta = anyText ? _ofpPlanForUi.RouteText! : $"{_ofpPlanForUi.OriginIcao} → {_ofpPlanForUi.DestinationIcao}";
             return _ofpPlanForUi.IsUsable ? ruta : $"{ruta} ({OfpStatusDisplay})";
@@ -470,12 +490,12 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string OfpStatusDisplay {
         get => _ofpPlanForUi switch {
-            null => "Pendiente · Sin OFP",
+            null => Loc.T("Rmv_OfpPendingNoOfp"),
             var p => p.ValidationState switch {
-                ValidationState.Valid => "Válido · Listo para activar",
-                ValidationState.Pending => "Pendiente de validación",
-                ValidationState.Invalid => $"Inválido · {p.ValidationMessage}",
-                ValidationState.Expired => $"Fuera de ventana · {p.ValidationMessage}",
+                ValidationState.Valid => Loc.T("Rmv_OfpValid"),
+                ValidationState.Pending => Loc.T("Rmv_OfpPendingValidation"),
+                ValidationState.Invalid => Loc.T("Rmv_OfpInvalid", p.ValidationMessage),
+                ValidationState.Expired => Loc.T("Rmv_OfpExpired", p.ValidationMessage),
                 _ => p.ValidationState.ToString()
             }
         };
@@ -508,29 +528,29 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool OfpAircraftMatchIsOk => _ofpPlanForUi != null && _ofpPlanForUi?.AircraftIcaoType == _selectedAircraft?.IcaoTypeCode;
 
     public string OfpAircraftMatchDisplay => _ofpPlanForUi switch {
-        null => "✘ Sin OFP",
-        var p when p.ValidationState == ValidationState.Pending => "✘ Pendiente",
-        var p when p.IsUsable || p.AircraftIcaoType==_selectedAircraft?.IcaoTypeCode => "✔ Cumplido",
-        _ => "✘ Inválido"
+        null => Loc.T("Rmv_ReqNoOfp"),
+        var p when p.ValidationState == ValidationState.Pending => Loc.T("Rmv_ReqPending"),
+        var p when p.IsUsable || p.AircraftIcaoType==_selectedAircraft?.IcaoTypeCode => Loc.T("Rmv_ReqOk"),
+        _ => Loc.T("Rmv_ReqInvalid")
     };
 
     /// <summary>Fila «OFP» del panel de requisitos: texto corto; el detalle completo vive en el tooltip (OfpValidationToolTip) y en el bloque OFP.</summary>
     public string OfpRowDisplay => _ofpPlanForUi switch {
-        null => "✘ Sin OFP",
-        var p when p.IsUsable => "✔ Cumplido",
+        null => Loc.T("Rmv_ReqNoOfp"),
+        var p when p.IsUsable => Loc.T("Rmv_ReqOk"),
         var p when p.ValidationState == ValidationState.Pending => "✘ Pendiente",
-        var p when p.ValidationState == ValidationState.Expired => "✘ Vencido",
-        _ => "✘ Inválido"
+        var p when p.ValidationState == ValidationState.Expired => Loc.T("Rmv_ReqExpired"),
+        _ => Loc.T("Rmv_ReqInvalid")
     };
 
     /// <summary>Tooltip de las filas OFP de requisitos: detalle completo de la última validación.</summary>
     public string OfpValidationToolTip => _ofpPlanForUi switch {
-        null => "Todavía no hay OFP cargado. Descargalo con el botón «Descargar OFP»; es obligatorio para activar.",
-        var p when p.IsUsable => $"OFP válido y listo para activar. {p.ValidationMessage}".Trim(),
-        var p when p.ValidationState == ValidationState.Pending => "Pendiente de validación: descargá el OFP de nuevo para completarla.",
+        null => Loc.T("Rmv_OfpHintNone"),
+        var p when p.IsUsable => Loc.T("Rmv_OfpHintValid", p.ValidationMessage).Trim(),
+        var p when p.ValidationState == ValidationState.Pending => Loc.T("Rmv_OfpHintPending"),
         var p => string.IsNullOrWhiteSpace(p.ValidationMessage)
-            ? $"Validación sin detalle ({p.ValidationState}). Descargá el OFP de nuevo."
-            : $"{p.ValidationState switch { ValidationState.Expired => "Fuera de ventana", ValidationState.Invalid => "Inválido", _ => p.ValidationState.ToString() }}: {p.ValidationMessage}"
+            ? Loc.T("Rmv_OfpHintNoDetail", p.ValidationState)
+            : Loc.T("Rmv_OfpHintState", p.ValidationState switch { ValidationState.Expired => Loc.T("Rmv_OfpStateExpired"), ValidationState.Invalid => Loc.T("Rmv_OfpStateInvalid"), _ => p.ValidationState.ToString() }, p.ValidationMessage)
     };
 
     public static string FormatDuration(int minutes) => $"{minutes / 60} h {minutes % 60:00} m";
@@ -542,11 +562,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         get => _expectationDisplay;
         private set => SetProperty(ref _expectationDisplay, value);
     }
-    private string _expectationDisplay = "Sin estimación";
+    private string _expectationDisplay = Loc.T("Rmv_NoEstimate");
 
-    public string ExpectationToolTip =>
-        "Estimación de presentación (no cambia el motor): usa la física del modelo con el desgaste medio actual "
-        + "y la duración del OFP cargado. Referencia Moderado hasta que elijas un perfil; con perfil, aplica su frecuencia.";
+    public string ExpectationToolTip => Loc.T("Rmv_EstimateExplainer");
 
     public void ApplyOfpResult(FlightPlanDto dto) {
         _ofpPlanForUi = dto;
@@ -595,9 +613,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
 
     public string SessionStatusDisplay {
         get {
-            if (IsSessionPaused) return "Evaluación suspendida";
-            if (IsEngineActive) return "Activa";
-            return "Sin sesión";
+            if (IsSessionPaused) return Loc.T("Rmv_StatePaused");
+            if (IsEngineActive) return Loc.T("Rmv_StateActive");
+            return Loc.T("Rmv_StateNoSession");
         }
     }
 
@@ -611,36 +629,45 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     #region Aviso de fin de vuelo (issue #15)
 
     /// <summary>
-    /// Vuelo terminado detectado y sesión abierta sin decisión: muestra el banner en el panel Realistic
-    /// (refleja <c>IRealisticSessionManager.IsFlightCompletionPending</c>, volátil por diseño).
+    /// Vuelo terminado detectado y sesión abierta sin decisión (refleja
+    /// <c>IRealisticSessionManager.IsFlightCompletionPending</c>, volátil por diseño).
+    /// Al activarse abre directamente el modal de confirmación, sin banner intermedio;
+    /// al limpiarse (sesión cerrada), cierra el modal si estaba abierto.
     /// </summary>
-    public bool IsFlightCompletionBannerVisible {
-        get => _isFlightCompletionBannerVisible;
+    public bool IsFlightCompletionPending {
+        get => _isFlightCompletionPending;
         private set {
-            if (SetProperty(ref _isFlightCompletionBannerVisible, value))
-                ShowFlightCompletionConfirmCommand.RaiseCanExecuteChanged();
+            if (SetProperty(ref _isFlightCompletionPending, value)) {
+                IsFlightCompletionConfirmVisible = value;
+                ConfirmFlightCompletionCommand.RaiseCanExecuteChanged();
+            }
         }
     }
-    private bool _isFlightCompletionBannerVisible;
+    private bool _isFlightCompletionPending;
 
     /// <summary>Modal de confirmación sobre el aviso: Finalizar sesión / Ahora no.</summary>
     public bool IsFlightCompletionConfirmVisible {
         get => _isFlightCompletionConfirmVisible;
-        set => SetProperty(ref _isFlightCompletionConfirmVisible, value);
+        private set {
+            if (SetProperty(ref _isFlightCompletionConfirmVisible, value))
+                // Re-query al materializarse el modal: el botón quedó realizado con el motor
+                // inactivo y RelayCommand no re-consulta CanExecute por su cuenta.
+                ConfirmFlightCompletionCommand.RaiseCanExecuteChanged();
+        }
     }
     private bool _isFlightCompletionConfirmVisible;
 
     /// <summary>Pedido a MainWindow de restaurar la app desde segundo plano sin robar foco (flash de taskbar).</summary>
     public event EventHandler? FlightCompletionPromptRequested;
 
-    public RelayCommand ShowFlightCompletionConfirmCommand { get; }
     public RelayCommand ConfirmFlightCompletionCommand { get; }
     public RelayCommand CancelFlightCompletionCommand { get; }
 
     private void RealisticSessionManager_FlightCompletionNoticeDue(object? sender, FlightCompletionNoticeDueEventArgs e) {
         System.Windows.Application.Current?.Dispatcher!.InvokeAsync(() => {
-            // No roba foco: solo marca el banner y pide a MainWindow restaurar + flash (decisión de grilling).
-            IsFlightCompletionBannerVisible = true;
+            // No roba foco: abre el modal de confirmación directo (sin banner) y pide a MainWindow
+            // restaurar + flash de taskbar.
+            IsFlightCompletionPending = true;
             FlightCompletionPromptRequested?.Invoke(this, EventArgs.Empty);
         });
     }
@@ -715,12 +742,12 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public string ActivationBlockReason {
         get {
             if (IsEngineActive) return string.Empty;
-            if (IsSessionPaused) return "La evaluación está pausada. Reanudá la sesión para seguir generando fallas.";
-            if (SelectedAircraft is null) return "Seleccioná una aeronave para continuar.";
-            if (!SelectedRiskLevel.HasValue) return "Seleccioná un perfil de riesgo.";
-            if (!OfpValidated) return "OFP pendiente: el plan de vuelo operacional es obligatorio. Descargalo y validalo antes de activar.";
-            if (!IsSimConnected) return "Conectá MSFS 2024 para comenzar el modo Realistic.";
-            if (!HasAircraftData) return "MSFS conectado pero sin datos de aeronave disponibles.";
+            if (IsSessionPaused) return Loc.T("Rmv_BlockPaused");
+            if (SelectedAircraft is null) return Loc.T("Rmv_BlockNoAircraft");
+            if (!SelectedRiskLevel.HasValue) return Loc.T("Rmv_BlockNoRisk");
+            if (!OfpValidated) return Loc.T("Rmv_BlockOfpPending");
+            if (!IsSimConnected) return Loc.T("Rmv_BlockSimDisconnected");
+            if (!HasAircraftData) return Loc.T("Rmv_BlockNoAircraftData");
             return string.Empty;
         }
     }
@@ -728,13 +755,13 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
     public bool HasActivationBlockReason => !string.IsNullOrEmpty(ActivationBlockReason);
 
     public string ActivateButtonText =>
-        IsOperationPending ? "PROCESANDO..." :
-        IsEngineActive ? "DETENER MODO REALISTA" : "ACTIVAR MODO REALISTA";
+        IsOperationPending ? Loc.T("Rmv_BtnProcessing") :
+        IsEngineActive ? Loc.T("Rmv_BtnStop") : Loc.T("Rmv_BtnActivate");
 
     public string ActionToolTip => IsSessionPaused
         ? ActivationBlockReason
         : IsEngineActive
-        ? "Termina la sesión e intenta desactivar las fallas en Fenix; confirma en vuelo. Comprobá las fallas manualmente si la API no responde."
+        ? Loc.T("Rmv_BtnStopTooltip")
         : ActivationBlockReason;
 
     public bool IsOperationPending {
@@ -872,8 +899,8 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             var dto = _expectationService.Compute(avgWear, hours, (RiskLevel?)SelectedRiskLevel);
 
             ExpectationDisplay = dto.FlightHours is { } h
-                ? $"Probabilidad de una falla seria en este vuelo ({FormatDuration((int)Math.Round(h * 60))}): {dto.BaselineRiskPct:0.#}%.\nProbabilidad ajustada por el desgaste acumulado actual: {dto.WearAdjustedRiskPct:0.#}%"
-                : $"Sin vuelo cargado · referencia {(SelectedRiskLevel is null ? "Moderado" : SelectedRiskDisplay)}: ≈ {dto.RatePerHour:0.##} fallas/h";
+                ? Loc.T("Rmv_ExpectationFlight", FormatDuration((int)Math.Round(h * 60)), dto.BaselineRiskPct, dto.WearAdjustedRiskPct)
+                : Loc.T("Rmv_ExpectationNoFlight", SelectedRiskLevel is null ? Loc.T("Rp_Moderate_Name") : SelectedRiskDisplay, dto.RatePerHour);
         } catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo calcular la expectativa de fallas.");
         }
@@ -889,7 +916,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         if (string.IsNullOrWhiteSpace(SimbriefUserId)) {
             ApplyOfpResult(new FlightPlanDto {
                 ValidationState = ValidationState.Invalid,
-                ValidationMessage = "Configurá tu userid de SimBrief en Ajustes antes de descargar el OFP.",
+                ValidationMessage = Loc.T("Rmv_NoSimbriefUserid"),
             });
             _logger.LogWarning("Descarga de OFP sin userid de SimBrief configurado en Ajustes.");
             return;
@@ -910,7 +937,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
             _logger.LogError(ex, "Error al descargar/validar el OFP.");
             ApplyOfpResult(new FlightPlanDto {
                 ValidationState = ValidationState.Invalid,
-                ValidationMessage = $"Error al descargar: {ex.Message}",
+                ValidationMessage = Loc.T("Rmv_DownloadError", ex.Message),
             });
         } finally {
             IsOfpDownloading = false;
@@ -1060,8 +1087,9 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
                 RefreshPreparedState();
             }
             if (e.PropertyName == nameof(IRealisticSessionManager.IsFlightCompletionPending)) {
-                // Sincroniza el banner con el estado del manager: al limpiarse (sesión cerrada), el banner desaparece.
-                IsFlightCompletionBannerVisible = _realisticSessionManager.IsFlightCompletionPending;
+                // Sincroniza el aviso con el estado del manager: al activarse abre el modal de
+                // confirmación directo (sin banner); al limpiarse (sesión cerrada), lo cierra.
+                IsFlightCompletionPending = _realisticSessionManager.IsFlightCompletionPending;
             }
         });
     }
@@ -1162,6 +1190,7 @@ public sealed class RealisticModeViewModel : ObservableObject, IDisposable {
         PauseSessionCommand.RaiseCanExecuteChanged();
         DownloadOfpCommand.RaiseCanExecuteChanged();
         DeleteOfpCommand.RaiseCanExecuteChanged();
+        ConfirmFlightCompletionCommand.RaiseCanExecuteChanged();
     }
 
     #endregion

@@ -73,7 +73,7 @@ public partial class MainWindow : Window {
     /// <summary>
     /// Hace visible la app sin robar el foco (MSFS puede quedar en VR/fullscreen): restaura desde la
     /// bandeja con <c>ShowActivated=false</c> y hace parpadear el botón de la barra de tareas.
-    /// El usuario abre el aviso cuando quiere (banner + modal en el panel Realista).
+    /// El modal de confirmación de finalización aparece directo en el panel Realista.
     /// </summary>
     private void RestoreForCompletionNotice() {
         if (IsExitAllowed) return;
@@ -206,7 +206,7 @@ public partial class MainWindow : Window {
             Process.Start(new ProcessStartInfo(SupportLinks.Donation) { UseShellExecute = true });
         }
         catch (Exception ex) {
-            Diagnostics.CrashReporter.ReportUnexpected(ex, "No se pudo abrir el enlace de donación.");
+            Diagnostics.CrashReporter.ReportUnexpected(ex, RealFenixFailures.UI.Localization.Loc.T("Mw_DonationLinkFailed"));
         }
     }
 }

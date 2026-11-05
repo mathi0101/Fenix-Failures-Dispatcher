@@ -1,7 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <UserControl x:Class="RealFenixFailures.UI.Views.Panels.SettingsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:RealFenixFailures.UI.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:RealFenixFailures.UI.ViewModels"
@@ -114,6 +115,84 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
+        <!-- ComboBox oscuro compacto para Ajustes (mismo look que DarkComboBoxStyle del panel Realista) -->
+        <Style x:Key="SettingsComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="#0A0C10"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="B"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0" Margin="{TemplateBinding Padding}"
+                                                      ContentSource="SelectionBoxItem"
+                                                      VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="▾" FontSize="10" Margin="8,0"
+                                               Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ToggleButton Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Border MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="#13161E" BorderBrush="{StaticResource Brush.Border.Default}"
+                                        BorderThickness="1" CornerRadius="6" Margin="0,4,0,0">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}"/>
+                        <Setter Property="Padding" Value="8,6"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="H" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="H" Property="Background" Value="#1A2540"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="H" Property="Background" Value="#1A2540"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
 
     <Grid>
@@ -138,7 +217,7 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
                     </Border>
-                    <TextBlock Text="CONFIGURACIÓN" FontSize="12" FontWeight="Bold"
+                    <TextBlock Text="{loc:Loc Settings_Header}" FontSize="12" FontWeight="Bold"
                                Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <Button Grid.Column="1" Content="✕" Width="32" Height="32" Click="ClosePanel"
@@ -155,24 +234,13 @@
                     ItemContainerStyle="{StaticResource SettingsTabItemStyle}">
 
             <!-- ============ GENERAL ============ -->
-            <TabItem Header="General">
+            <TabItem Header="{loc:Loc Settings_Tab_General}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-
-                        <TextBlock Text="ID DE SIMBRIEF" Style="{StaticResource SettingsSectionTitleStyle}"/>
-                        <TextBox Text="{Binding SimbriefUserId, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SettingsTextBoxStyle}"
-                                 Width="320" HorizontalAlignment="Left"
-                                 MaxLength="64"/>
-                        <TextBlock Text="Es el nombre de usuario (alias) de tu cuenta en simbrief.com, tal cual figura en tu perfil. Con ese ID la app podrá descargar tu último plan de vuelo."
-                                   FontSize="11"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"
-                                   TextWrapping="Wrap" Width="460"
-                                   HorizontalAlignment="Left" Margin="0,6,0,4"/>
                         <TextBlock Text="{Binding SaveStatusText}"
                                    FontSize="11" FontWeight="SemiBold"
                                    Foreground="{StaticResource Brush.Accent.Green.Primary}"
-                                   Margin="0,0,0,12">
+                                   HorizontalAlignment="Right" Margin="0,0,0,4">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
@@ -184,133 +252,193 @@
                             </TextBlock.Style>
                         </TextBlock>
 
-                        <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540">
-                            <StackPanel>
-                                <TextBlock Text="MODO REALISTA" Style="{StaticResource SettingsSectionTitleStyle}"/>
-                                <TextBlock Text="AVISO DE FIN DE VUELO (MINUTOS DE GRACIA)"
-                                           FontSize="11" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Secondary}"
-                                           Margin="0,4,0,4"/>
-                                <TextBox Text="{Binding RealisticCompletionGraceMinutes, UpdateSourceTrigger=PropertyChanged}"
-                                         Width="80" HorizontalAlignment="Left"
-                                         MaxLength="3"/>
-                                <TextBlock Text="Cuando la app detecta que aterrizaste y apagaste motores en el gate, espera esta cantidad de minutos antes de avisarte que podés finalizar la sesión. Se cuenta en tiempo real, no en el tiempo del simulador. Valores permitidos: 0 a 999 (0 = avisa de inmediato)."
-                                           FontSize="11"
-                                           Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Width="460"
-                                           HorizontalAlignment="Left" Margin="0,6,0,4"/>
-                            </StackPanel>
-                        </Border>
+                        <!-- Idioma (issue #12) y SimBrief lado a lado: mejor uso del ancho -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                        <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540">
-                            <StackPanel>
-                                <TextBlock Text="Privacidad" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="El ID se guarda solo en tu equipo (%AppData%\RealFenixFailures\userprefs.json) y solo se usa para consultar planes de vuelo públicos de SimBrief."
+                            <!-- Columna 1: Idioma (cambio en vivo, persistido en userprefs.json) -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{loc:Loc Settings_General_LanguageLabel}" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                <ComboBox Style="{StaticResource SettingsComboBoxStyle}"
+                                          MinWidth="190" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding LanguageOptions}"
+                                          SelectedItem="{Binding SelectedLanguageOption}"/>
+                                <TextBlock Text="{loc:Loc Settings_General_LanguageHelp}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                <CheckBox IsChecked="{Binding TelemetryEnabled}" FontSize="11" Margin="0,10,0,0"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            </StackPanel>
+
+                            <!-- Columna 2: SimBrief -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{loc:Loc Settings_General_SimbriefLabel}" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                <TextBox Text="{Binding SimbriefUserId, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SettingsTextBoxStyle}"
+                                         HorizontalAlignment="Stretch"
+                                         MaxLength="64"/>
+                                <TextBlock Text="{loc:Loc Settings_General_SimbriefHelp}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                <TextBlock Text="{loc:Loc Settings_PrivacyHelp}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Brush.Text.Secondary}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540" Margin="0,16,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings_PrivacyHeader}" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <CheckBox IsChecked="{Binding TelemetryEnabled}" FontSize="11" Margin="0,8,0,0"
                                           HorizontalAlignment="Left" HorizontalContentAlignment="Left"
                                           Foreground="{StaticResource Brush.Text.Primary}"
-                                          Content="Enviar estadísticas anónimas de uso"/>
-                                <TextBlock Text="Estadísticas anónimas de uso: nos ayudan a mejorar la app en cada versión. Nunca incluyen datos de vuelo ni información personal. Podés apagarlo cuando quieras."
+                                          Content="{loc:Loc Settings_TelemetryCheckbox}"/>
+                                <TextBlock Text="{loc:Loc Settings_TelemetryHelp}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
+                        <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Los logs diarios y los reportes individuales de errores (crash-*.log / error-*.log) están en esta carpeta." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="{loc:Loc Settings_LogsHeader}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="{loc:Loc Settings_LogsHelp}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
                                 <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
-                                <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
+                                <Button Content="{loc:Loc Settings_OpenLogsFolder}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
-            <!-- ============ AYUDA ============ -->
-            <TabItem Header="Ayuda">
+            <!-- ============ MODO REALISTA (preferencias de usuario del modo) ============ -->
+            <TabItem Header="{loc:Loc Settings_Tab_Realistic}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="GUÍA RÁPIDA" Style="{StaticResource SettingsSectionTitleStyle}"/>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
+                        <TextBlock Text="{loc:Loc Settings_RealisticHeader}" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <Border Style="{StaticResource SettingsCardStyle}" Background="#1A2540">
                             <StackPanel>
-                                <TextBlock Text="1. Preparar la cabina" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Arrancá Microsoft Flight Simulator 2024 con el Fenix A320 y esperá a que la cabina esté lista."
+                                <TextBlock Text="{loc:Loc Settings_RealisticGraceLabel}" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{loc:Loc Settings_RealisticGraceHelp}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                           TextWrapping="Wrap" Margin="0,6,0,14"/>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Input con unidad -->
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBox Text="{Binding RealisticCompletionGraceMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource SettingsTextBoxStyle}"
+                                                 Width="72" MaxLength="3" HorizontalAlignment="Left"
+                                                 VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="min" FontSize="12"
+                                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                                   VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Presets rápidos -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                                                VerticalAlignment="Center">
+                                        <Button Content="0" Command="{Binding SetRealisticGraceCommand}" CommandParameter="0"
+                                                Style="{StaticResource GhostButtonStyle}" Width="34" Height="26" FontSize="11" Margin="0,0,6,0"/>
+                                        <Button Content="5" Command="{Binding SetRealisticGraceCommand}" CommandParameter="5"
+                                                Style="{StaticResource GhostButtonStyle}" Width="34" Height="26" FontSize="11" Margin="0,0,6,0"/>
+                                        <Button Content="15" Command="{Binding SetRealisticGraceCommand}" CommandParameter="15"
+                                                Style="{StaticResource GhostButtonStyle}" Width="34" Height="26" FontSize="11" Margin="0,0,6,0"/>
+                                        <Button Content="30" Command="{Binding SetRealisticGraceCommand}" CommandParameter="30"
+                                                Style="{StaticResource GhostButtonStyle}" Width="34" Height="26" FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Border>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="2. Elegir un modo" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Realista (fallas basadas en tu historial), Entrenamiento (escenarios preestablecidos) o Personalizado (control manual)."
-                                           FontSize="11"
-                                           Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="3. Activar y volar" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="La app se refresca sola en todo momento: simulá con normalidad y reaccioná a las fallas como en un vuelo real."
-                                           FontSize="11"
-                                           Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="4. Cerrar sesión" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Cerrar la ventana minimiza al icono de la bandeja; la app sigue corriendo. Usá “Salir” desde la bandeja para terminar por completo."
-                                           FontSize="11"
-                                           Foreground="{StaticResource Brush.Text.Secondary}"
-                                           TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
-            <!-- ============ DOCUMENTACIÓN ============ -->
-            <TabItem Header="Documentación">
+            <!-- ============ AYUDA + DOCUMENTACIÓN ============ -->
+            <TabItem Header="{loc:Loc Settings_Tab_Help}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="DOCUMENTACIÓN" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <TextBlock Text="{loc:Loc Settings_HelpHeader}" Style="{StaticResource SettingsSectionTitleStyle}"/>
+
+                        <!-- Guía rápida en grilla 2×2: aprovecha el ancho del panel -->
+                        <UniformGrid Columns="2">
+                            <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,6,12">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings_Help1Title}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Text="{loc:Loc Settings_Help1Text}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Brush.Text.Secondary}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SettingsCardStyle}" Margin="6,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings_Help2Title}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Text="{loc:Loc Settings_Help2Text}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Brush.Text.Secondary}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,6,12">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings_Help3Title}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Text="{loc:Loc Settings_Help3Text}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Brush.Text.Secondary}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SettingsCardStyle}" Margin="6,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings_Help4Title}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Text="{loc:Loc Settings_Help4Text}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Brush.Text.Secondary}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Documentación (antes pestaña propia) -->
+                        <TextBlock Text="{loc:Loc Settings_DocsHeader}" Style="{StaticResource SettingsSectionTitleStyle}" Margin="0,6,0,8"/>
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Repositorio en GitHub" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="{loc:Loc Settings_DocsRepoLink}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
                                 <TextBlock Text="{Binding RepositoryUrl}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,12"/>
-                                <Button Content="Abrir repositorio" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenRepositoryCommand}" HorizontalAlignment="Left"/>
+                                <Button Content="{loc:Loc Settings_OpenRepository}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenRepositoryCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
             <!-- ============ ACTUALIZACIONES ============ -->
-            <TabItem x:Name="UpdatesTab" Header="Actualizaciones">
+            <TabItem x:Name="UpdatesTab" Header="{loc:Loc Settings_Tab_Updates}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="VERSIÓN" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <TextBlock Text="{loc:Loc Settings_UpdatesVersionLabel}" Style="{StaticResource SettingsSectionTitleStyle}"/>
 
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Versión instalada" FontWeight="SemiBold"
+                                <TextBlock Text="{loc:Loc Settings_InstalledVersion}" FontWeight="SemiBold"
                                            Foreground="{StaticResource Brush.Text.Primary}"/>
                                 <TextBlock FontSize="22" FontWeight="Bold" Margin="0,8,0,0"
                                            Foreground="{StaticResource Brush.Accent.Blue.Primary}">
@@ -321,12 +449,12 @@
 
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="El chequeo consulta las releases públicas del repositorio en GitHub. También muestra pre-releases: así podés enterarte de los builds de prueba apenas se publican."
+                                <TextBlock Text="{loc:Loc Settings_UpdatesCheckHelp}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-                                <Button Content="Buscar actualizaciones"
+                                <Button Content="{loc:Loc Settings_CheckUpdates}"
                                         Style="{StaticResource PrimaryButtonStyle}"
                                         Command="{Binding CheckForUpdatesCommand}"
                                         HorizontalAlignment="Left"/>
@@ -362,13 +490,13 @@
                                 </TextBlock>
 
                                 <!-- Acción cuando existe una versión más nueva -->
-                                <Button Content="Descargar e ir a GitHub Releases"
+                                <Button Content="{loc:Loc Settings_DownloadGoToReleases}"
                                         Style="{StaticResource PrimaryButtonStyle}"
                                         Command="{Binding OpenReleasesCommand}"
                                         HorizontalAlignment="Left" Margin="0,12,0,0"
                                         Visibility="{Binding HasNewUpdate, Converter={StaticResource BoolToVisConverter}}"/>
 
-                                <TextBlock Text="La app no se actualiza sola: descargá el instalador desde GitHub Releases y reemplazá la versión actual."
+                                <TextBlock Text="{loc:Loc Settings_UpdatesManualInstall}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,14,0,0"/>
@@ -380,27 +508,27 @@
             </TabItem>
 
             <!-- ============ REPORTAR UN FALLO ============ -->
-            <TabItem Header="Reportar un fallo">
+            <TabItem Header="{loc:Loc Settings_Tab_ReportBug}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="REPORTAR UN FALLO" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <TextBlock Text="{loc:Loc Settings_BugHeader}" Style="{StaticResource SettingsSectionTitleStyle}"/>
 
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="¿Encontraste un problema?" FontWeight="SemiBold"
+                                <TextBlock Text="{loc:Loc Settings_BugQuestion}" FontWeight="SemiBold"
                                            Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Abrí un issue en GitHub describiendo qué pasó, qué estabas haciendo y qué esperabas ver."
+                                <TextBlock Text="{loc:Loc Settings_BugHelp}"
                                            FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
 
-                        <Button Content="Abrir Issues de GitHub"
+                        <Button Content="{loc:Loc Settings_OpenIssues}"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Command="{Binding OpenIssuesCommand}"
                                 HorizontalAlignment="Left"/>
-                        <TextBlock Text="Consejo: adjuntá el log diario más reciente y el reporte individual (crash-*.log), si existe, junto con la versión que usás."
+                        <TextBlock Text="{loc:Loc Settings_BugTip}"
                                    FontSize="11"
                                    Foreground="{StaticResource Brush.Text.Secondary}"
                                    TextWrapping="Wrap" Width="520"
@@ -408,10 +536,10 @@
 
                         <Border Style="{StaticResource SettingsCardStyle}" Margin="0,14,0,12">
                             <StackPanel>
-                                <TextBlock Text="Logs y diagnósticos" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
-                                <TextBlock Text="Los logs diarios y los reportes individuales de errores (crash-*.log / error-*.log) están en esta carpeta." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
+                                <TextBlock Text="{loc:Loc Settings_LogsHeader}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                <TextBlock Text="{loc:Loc Settings_LogsHelp}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,4,0,6"/>
                                 <TextBlock Text="{Binding LogsDirectory}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
-                                <Button Content="Abrir carpeta de logs" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
+                                <Button Content="{loc:Loc Settings_OpenLogsFolder}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenLogsCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -419,16 +547,16 @@
             </TabItem>
 
             <!-- ============ DONACIÓN ============ -->
-            <TabItem Header="Donación">
+            <TabItem Header="{loc:Loc Settings_Tab_Donate}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="APOYAR EL DESARROLLO" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                        <TextBlock Text="{loc:Loc Settings_DonateHeader}" Style="{StaticResource SettingsSectionTitleStyle}"/>
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Ayudá a que el proyecto siga creciendo" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
-                                <TextBlock Text="Si disfrutás Real Fenix Failures, podés apoyar su desarrollo con una donación voluntaria. Es un proyecto independiente de una sola persona: nadie me ayuda, me impulsa solo el hobby y el querer mayor realismo en cada vuelo. Cada dólar ayuda a impulsar el proyecto, me da más ganas de seguir mejorando la app y me permite asignarle más recursos. ¡Gracias por acompañar el proyecto!" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,10"/>
+                                <TextBlock Text="{loc:Loc Settings_DonateTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{loc:Loc Settings_DonateText}" FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,10"/>
                                 <TextBlock Text="{Binding DonationUrl}" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
-                                <Button Content="Apoyar en Ko-fi" Style="{StaticResource DonationButtonStyle}" Command="{Binding OpenDonationCommand}" HorizontalAlignment="Left"/>
+                                <Button Content="{loc:Loc Settings_DonateKofi}" Style="{StaticResource DonationButtonStyle}" Command="{Binding OpenDonationCommand}" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

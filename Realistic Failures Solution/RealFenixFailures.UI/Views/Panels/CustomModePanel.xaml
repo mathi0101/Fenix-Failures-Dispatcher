@@ -1,14 +1,15 @@
-<UserControl x:Class="RealFenixFailures.UI.Views.Panels.CustomModePanel"
+﻿<UserControl x:Class="RealFenixFailures.UI.Views.Panels.CustomModePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:RealFenixFailures.UI.Localization">
     <Grid>
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24">
-            <TextBlock Text="MODO PERSONALIZADO" FontSize="10" FontWeight="Bold"
+            <TextBlock Text="{loc:Loc Custom_Header}" FontSize="10" FontWeight="Bold"
                        TextAlignment="Center" Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
-            <TextBlock Text="Próximamente" FontSize="24" FontWeight="SemiBold"
+            <TextBlock Text="{loc:Loc Custom_ComingSoon}" FontSize="24" FontWeight="SemiBold"
                        TextAlignment="Center" Margin="0,16,0,12"
                        Foreground="{StaticResource Brush.Text.Primary}"/>
-            <TextBlock Text="El modo Personalizado todavía no está implementado. Esta funcionalidad estará disponible en una futura versión."
+            <TextBlock Text="{loc:Loc Custom_NotImplemented}"
                        FontSize="14" TextAlignment="Center" TextWrapping="Wrap"
                        Foreground="{StaticResource Brush.Text.Secondary}"/>
         </StackPanel>

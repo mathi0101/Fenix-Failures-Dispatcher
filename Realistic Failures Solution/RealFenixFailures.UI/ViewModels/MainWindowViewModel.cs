@@ -6,6 +6,7 @@ using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Interfaces;
 using RealFenixFailures.Domain.Services;
 using RealFenixFailures.UI.Commands;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using RealFenixFailures.UI.ViewModels.Extra;
@@ -16,7 +17,7 @@ using System.Windows.Media;
 
 namespace RealFenixFailures.UI.ViewModels;
 
-public class MainWindowViewModel : ObservableObject, IDisposable {
+public class MainWindowViewModel : LocalizedViewModelBase, IDisposable {
 
     #region Fields
 
@@ -196,11 +197,11 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
 
     public string SimConnectStatus {
         get {
-            if (!isSimConnected) return "Disconnected";
-            return hasAircraftData ? "Connected · Aircraft data" : "Connected · No aircraft data";
+            if (!isSimConnected) return Loc.T("Mw_StatusDisconnected");
+            return hasAircraftData ? Loc.T("Mw_StatusConnectedData") : Loc.T("Mw_StatusConnectedNoData");
         }
     }
-    public string FenixStatus => isFenixConnected ? "Connected" : "Disconnected";
+    public string FenixStatus => isFenixConnected ? Loc.T("Mw_StatusConnected") : Loc.T("Mw_StatusDisconnected");
 
 
     public ComplexFlightPhaseEnum CurrentComplexFlightPhase {
@@ -211,13 +212,15 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
         }
     }
 
+    // Fases de vuelo y estados operativos en inglés (decisión issue #12: terminología
+    // aeronáutica sin traducir); los estados de conexión sí se localizan.
     public string CurrentFlightPhaseDisplay {
         get {
-            if (!isSimConnected) return "Disconnected";
-            if (!hasAircraftData) return "No aircraft data";
+            if (!isSimConnected) return Loc.T("Mw_StatusDisconnected");
+            if (!hasAircraftData) return Loc.T("Mw_StatusNoAircraftData");
             return CurrentComplexFlightPhase switch {
                 ComplexFlightPhaseEnum.OnGate => "Cold and Dark",
-                ComplexFlightPhaseEnum.Taxi => "Taxing",
+                ComplexFlightPhaseEnum.Taxi => "Taxiing",
                 ComplexFlightPhaseEnum.Takeoff => "Takeoff",
                 ComplexFlightPhaseEnum.Climb => "Climbing",
                 ComplexFlightPhaseEnum.Cruise => "Cruising",
@@ -228,6 +231,16 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
                 _ => "Unknown"
             };
         }
+    }
+
+    protected override void OnLanguageChanged() {
+        OnPropertyChanged(nameof(SimConnectStatus));
+        OnPropertyChanged(nameof(FenixStatus));
+        OnPropertyChanged(nameof(CurrentFlightPhaseDisplay));
+        OnPropertyChanged(nameof(TrainingStartText));
+        OnPropertyChanged(nameof(RealisticToggleText));
+        OnPropertyChanged(nameof(CustomModeButtonText));
+        OnPropertyChanged(nameof(EngineToggleText));
     }
 
     // Dot colors (binding antiguo en XAML)
@@ -275,9 +288,9 @@ public class MainWindowViewModel : ObservableObject, IDisposable {
     public bool CanActivateCustomPreset => (!IsAnyModeActive || IsCustomActive) && IsFenixConnected;
     public bool CanToggleRealistic => (!IsAnyModeActive || IsRealisticActive) && CanStartEngine;
 
-    public string TrainingStartText => IsTrainingActive ? "⏹ DETENER ESCENARIO" : "▶ INICIAR ESCENARIO";
-    public string RealisticToggleText => IsRealisticActive ? "⏹ DETENER MODO REALISTA" : "▶ ACTIVAR MODO REALISTA";
-    public string CustomModeButtonText => IsCustomActive ? "⏹ DETENER PRESET" : "▶ ACTIVAR PRESET";
+    public string TrainingStartText => IsTrainingActive ? Loc.T("Mw_BtnTrainStop") : Loc.T("Mw_BtnTrainStart");
+    public string RealisticToggleText => IsRealisticActive ? Loc.T("Mw_BtnRealisticStop") : Loc.T("Mw_BtnRealisticStart");
+    public string CustomModeButtonText => IsCustomActive ? Loc.T("Mw_BtnCustomStop") : Loc.T("Mw_BtnCustomStart");
 
 
     // Compatibilidad para bindings antiguos

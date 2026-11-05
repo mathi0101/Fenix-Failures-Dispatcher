@@ -1,7 +1,8 @@
-<Window x:Class="RealFenixFailures.UI.Views.UnfinishedSessionsWindow"
+﻿<Window x:Class="RealFenixFailures.UI.Views.UnfinishedSessionsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sesiones sin finalizar"
+             xmlns:loc="clr-namespace:RealFenixFailures.UI.Localization"
+        Title="{loc:Loc Unf_Title}"
         Width="520" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
@@ -48,10 +49,10 @@
             <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                 <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
                            Foreground="#F5B741" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <TextBlock Text="Sesiones sin finalizar"
+                <TextBlock Text="{loc:Loc Unf_Title}"
                            FontSize="16" FontWeight="SemiBold" Foreground="#F5F7FA" VerticalAlignment="Center"/>
             </StackPanel>
-            <TextBlock Text="La app se cerró con una sesión realista abierta. Podés finalizarla (con resultados y desgaste según la ETA del OFP), descartarla (queda en el historial sin desgaste) o decidirlo después."
+            <TextBlock Text="{loc:Loc Unf_Explanation}"
                        FontSize="12" Foreground="#9BA3B0" TextWrapping="Wrap" Margin="0,0,0,14"/>
 
             <ItemsControl ItemsSource="{Binding UnfinishedSessions}">
@@ -74,12 +75,12 @@
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button Style="{StaticResource RecoveryButtonStyle}" Background="#1F6FEB" BorderBrush="#1F6FEB"
                                             Command="{Binding FinalizeCommand}">
-                                        <TextBlock Text="Finalizar y ver resultados"/>
+                                        <TextBlock Text="{loc:Loc Unf_FinishAndView}"/>
                                     </Button>
                                     <Button Style="{StaticResource RecoveryButtonStyle}" Background="Transparent" BorderBrush="#B33A3A"
                                             Foreground="#E8C9C9"
                                             Command="{Binding DiscardCommand}">
-                                        <TextBlock Text="Descartar"/>
+                                        <TextBlock Text="{loc:Loc Unf_Discard}"/>
                                     </Button>
                                 </StackPanel>
                             </Grid>
@@ -90,7 +91,7 @@
 
             <Button Style="{StaticResource RecoveryButtonStyle}" HorizontalAlignment="Right" Background="Transparent" BorderBrush="#2A2F3A"
                     Click="LeaveForLater_Click">
-                <TextBlock Text="Dejar para después" Foreground="#9BA3B0"/>
+                <TextBlock Text="{loc:Loc Unf_DecideLater}" Foreground="#9BA3B0"/>
             </Button>
         </StackPanel>
     </Border>

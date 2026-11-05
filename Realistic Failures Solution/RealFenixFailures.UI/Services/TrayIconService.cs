@@ -1,3 +1,4 @@
+using RealFenixFailures.UI.Localization;
 using System.Windows;
 using System.Windows.Forms;
 
@@ -6,7 +7,8 @@ namespace RealFenixFailures.UI.Services;
 /// <summary>
 /// Administra el icono de la bandeja del sistema mientras la app corre en
 /// segundo plano: permite restaurar la ventana principal o cerrar la app
-/// definitivamente desde su menú contextual.
+/// definitivamente desde su menú contextual. El menú se reconstruye al cambiar
+/// el idioma (issue #12: la bandeja también se traduce en vivo).
 /// </summary>
 public sealed class TrayIconService : IDisposable {
     private readonly Window _mainWindow;
@@ -18,17 +20,23 @@ public sealed class TrayIconService : IDisposable {
         _mainWindow = mainWindow;
         _onExitRequested = onExitRequested;
 
-        var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Abrir", null, (_, _) => RestoreMainWindow());
-        contextMenu.Items.Add("Salir", null, (_, _) => _onExitRequested());
-
         _notifyIcon = new NotifyIcon {
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!),
-            Text = "Realistic Failures - en segundo plano",
             Visible = true,
-            ContextMenuStrip = contextMenu,
         };
         _notifyIcon.DoubleClick += (_, _) => RestoreMainWindow();
+
+        RebuildContextMenu();
+        Loc.Instance.LanguageChanged += RebuildContextMenu;
+    }
+
+    /// <summary>Construye el menú contextual con los textos del idioma activo.</summary>
+    private void RebuildContextMenu() {
+        var contextMenu = new ContextMenuStrip();
+        contextMenu.Items.Add(Loc.T("Tray_Open"), null, (_, _) => RestoreMainWindow());
+        contextMenu.Items.Add(Loc.T("Tray_Exit"), null, (_, _) => _onExitRequested());
+        _notifyIcon.ContextMenuStrip = contextMenu;
+        _notifyIcon.Text = Loc.T("Tray_TipTitle");
     }
 
     public void RestoreMainWindow() {
@@ -47,11 +55,12 @@ public sealed class TrayIconService : IDisposable {
         _notifyIcon.ShowBalloonTip(
             timeout: 3000,
             tipTitle: "Realistic Failures",
-            tipText: "La app sigue ejecutándose en segundo plano. Para cerrarla del todo, usá \"Salir\" desde este icono.",
+            tipText: Loc.T("Tray_TipText"),
             tipIcon: ToolTipIcon.Info);
     }
 
     public void Dispose() {
+        Loc.Instance.LanguageChanged -= RebuildContextMenu;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
     }

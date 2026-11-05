@@ -1,4 +1,4 @@
-using System.Windows.Threading;
+﻿using System.Windows.Threading;
 using RealFenixFailures.UI.Views;
 
 namespace RealFenixFailures.UI.Diagnostics;
@@ -48,9 +48,9 @@ public static class CrashReporter {
             // Último recurso: ni los recursos ni un fallo del propio diálogo pueden ocultar el incidente.
             try {
                 System.Windows.MessageBox.Show(report.Message + Environment.NewLine +
-                    (report.IsFatal ? "La aplicación se cerrará." : "Podés continuar usando la aplicación.") +
+                    (report.IsFatal ? RealFenixFailures.UI.Localization.Loc.T("Cr_ReportFatalWillClose") : RealFenixFailures.UI.Localization.Loc.T("Cr_ReportFatalCanContinue")) +
                     Environment.NewLine + (report.LogPath ?? report.Details),
-                    "Real Fenix Failures — Error inesperado", System.Windows.MessageBoxButton.OK,
+                    RealFenixFailures.UI.Localization.Loc.T("Fatal_Title"), System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             } catch { }
         }
@@ -58,14 +58,14 @@ public static class CrashReporter {
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) {
         e.Handled = true;
-        ReportFatal(e.Exception, "Ocurrió un error no controlado en la interfaz. La aplicación debe cerrarse.");
+        ReportFatal(e.Exception, RealFenixFailures.UI.Localization.Loc.T("Cr_UiUnhandled"));
     }
 
     private static void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e) {
         if (e.ExceptionObject is Exception exception) {
             // El CLR termina al retornar: no se puede depender de una cola del dispatcher
             // ni bloquearlo esperando un diálogo que ya esté abierto. Presentación síncrona/STA.
-            const string context = "Error fatal no controlado. La aplicación debe cerrarse.";
+            string context = RealFenixFailures.UI.Localization.Loc.T("Cr_FatalContext");
             CrashReport report;
             try { report = CreateReport(exception, context, true); }
             catch { report = new CrashReport(exception, context, true, null, exception.ToString()); }
@@ -76,7 +76,7 @@ public static class CrashReporter {
 
     private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e) {
         e.SetObserved();
-        ReportUnexpected(e.Exception, "Ocurrió un error inesperado en una tarea en segundo plano.");
+        ReportUnexpected(e.Exception, RealFenixFailures.UI.Localization.Loc.T("Cr_BackgroundUnhandled"));
     }
 
     private static void TryShutdown() {

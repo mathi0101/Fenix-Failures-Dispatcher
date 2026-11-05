@@ -68,7 +68,7 @@ public sealed class GithubUpdateChecker : IUpdateChecker {
         catch (Exception ex) {
             _logger.LogWarning(ex, "No se pudo consultar GitHub Releases para el chequeo de actualizaciones.");
             return new UpdateCheckResultDto {
-                ErrorMessage = "No se pudo contactar a GitHub. Comprobá tu conexión e intentá de nuevo."
+                ErrorMessage = RealFenixFailures.UI.Localization.Loc.T("Guc_ContactFailed")
             };
         }
     }

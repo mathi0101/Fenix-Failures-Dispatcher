@@ -1,6 +1,7 @@
 ﻿<Window x:Class="RealFenixFailures.UI.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:RealFenixFailures.UI.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:panels="clr-namespace:RealFenixFailures.UI.Views.Panels" 
@@ -121,7 +122,7 @@
                     <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Border Background="#1A2540" CornerRadius="20" Padding="14,4">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="FASE: " FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Mw_Status_PhaseLabel}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding CurrentFlightPhaseDisplay}" FontSize="11" FontWeight="SemiBold"
                                            Foreground="{StaticResource Brush.Accent.Blue.Primary}" VerticalAlignment="Center"/>
@@ -129,7 +130,7 @@
                         </Border>
                         <Border BorderBrush="{StaticResource Brush.Border.Default}" BorderThickness="1"
                                 CornerRadius="20" Padding="14,4" Margin="10,0,0,0"
-                                ToolTip="Hora UTC (Zulu)">
+                                ToolTip="{loc:Loc Mw_Status_UtcTooltip}">
                             <TextBlock x:Name="UtcClockText" FontSize="11" FontWeight="SemiBold"
                                        FontFamily="Cascadia Mono, Consolas"
                                        Foreground="{StaticResource Brush.Text.Secondary}"
@@ -142,13 +143,13 @@
                                 Background="#1A2540" BorderThickness="0"
                                 Foreground="{StaticResource Brush.Accent.Blue.Primary}"
                                 FontSize="11" FontWeight="SemiBold" Padding="12,4" Margin="0,0,8,0"
-                                Content="{Binding Settings.NewUpdateTag, StringFormat='↻ Actualizar a {0}'}"
+                                Content="{Binding Settings.NewUpdateTag, StringFormat='↻ New Update Available!! {0}'}"
                                 Visibility="{Binding Settings.HasNewUpdate, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Hay una versión más nueva. Abre Ajustes → Actualizaciones"/>
+                                ToolTip="{loc:Loc Mw_TooltipUpdateAvailable}"/>
                         <Button Click="OpenUpdatesTab" Cursor="Hand" Background="Transparent" BorderThickness="0"
                                 FontSize="10" Padding="4,0" Margin="4,0,10,0"
                                 Foreground="{StaticResource Brush.Text.Secondary}"
-                                ToolTip="Versión instalada. Clic para ver Actualizaciones">
+                                ToolTip="{loc:Loc Mw_TooltipUpdateInstalled}">
                             <TextBlock>
                                 <Run Text="v"/><Run Text="{Binding Settings.AppVersion, Mode=OneWay}"/>
                             </TextBlock>
@@ -157,7 +158,7 @@
                                 Command="{Binding OpenSettingsCommand}"
                                 Style="{StaticResource GhostButtonStyle}"
                                 FontSize="14"
-                                ToolTip="Configuración"/>
+                                ToolTip="{loc:Loc Mw_TooltipSettings}"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -178,7 +179,7 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                        <TextBlock Text="MODOS" FontSize="10" FontWeight="Bold"
+                        <TextBlock Text="{loc:Loc Mw_Modes_Header}" FontSize="10" FontWeight="Bold"
                                Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
                         <RadioButton Style="{StaticResource ModeCardStyle}"
                              IsChecked="{Binding IsRealisticModeSelected}"
@@ -194,9 +195,9 @@
                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Realista" FontSize="13" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_Realistic}" FontSize="13" FontWeight="SemiBold"
                                     Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="Basado en historial de vuelos" FontSize="11"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_RealisticDesc}" FontSize="11"
                                     Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
@@ -216,9 +217,9 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Entrenamiento" FontSize="13" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_Training}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="Escenarios preestablecidos" FontSize="11"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_TrainingDesc}" FontSize="11"
                                                Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
@@ -238,9 +239,9 @@
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Personalizado" FontSize="13" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_Custom}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Text.Primary}"/>
-                                    <TextBlock Text="Control manual de fallas" FontSize="11"
+                                    <TextBlock Text="{loc:Loc Mw_Modes_CustomDesc}" FontSize="11"
                                                Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
@@ -250,9 +251,9 @@
 
                     <!-- DONACIÓN: abre el link definido en MainWindow.xaml.cs -->
                     <Button Grid.Row="1"
-                            Content="♥  Apoyar el proyecto"
+                            Content="{loc:Loc Mw_Modes_Support}"
                             Style="{StaticResource DonationButtonStyle}"
-                            ToolTip="Apoya el desarrollo con una donación. ¡Gracias!"
+                            ToolTip="{loc:Loc Mw_TooltipDonate}"
                             Margin="0,4,0,16"
                             Click="OpenDonationPage"/>
 

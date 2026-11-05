@@ -1,0 +1,1297 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Recursos en ESPAÑOL (rioplatense: se mantiene el voseo de la app; decisión
+     issue #12). El inglés (cultura neutra) vive en Strings.resx. Debe contener
+     exactamente las mismas claves (test de paridad en RealFenixFailures.TestUnits). -->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="ResMimeType">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="Version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="Reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="Writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- ===== Settings → General: selector de idioma (fase 0, issue #12) ===== -->
+  <data name="Settings_General_LanguageLabel" xml:space="preserve">
+    <value>IDIOMA</value>
+  </data>
+  <data name="Settings_General_LanguageHelp" xml:space="preserve">
+    <value>Idioma de la interfaz. El cambio se aplica al instante y queda guardado para próximas sesiones.</value>
+  </data>
+  <!-- ===== Settings → General: textos de muestra migrados (fase 0) ===== -->
+  <data name="Settings_General_SimbriefLabel" xml:space="preserve">
+    <value>ID DE SIMBRIEF</value>
+  </data>
+  <data name="Settings_General_SimbriefHelp" xml:space="preserve">
+    <value>Es el nombre de usuario (alias) de tu cuenta en simbrief.com, tal cual figura en tu perfil. Con ese ID la app podrá descargar tu último plan de vuelo.</value>
+  </data>
+  <!-- Clave solo para tests (ejercicio de string.Format con args; ver LocalizationTests). -->
+  <data name="Settings_Test_Format" xml:space="preserve">
+    <value>Valor: {0}.</value>
+  </data>
+  <data name="Custom_ComingSoon" xml:space="preserve">
+    <value>Próximamente</value>
+  </data>
+  <data name="Custom_Header" xml:space="preserve">
+    <value>MODO PERSONALIZADO</value>
+  </data>
+  <data name="Custom_NotImplemented" xml:space="preserve">
+    <value>El modo Personalizado todavía no está implementado. Esta funcionalidad estará disponible en una futura versión.</value>
+  </data>
+  <data name="Log_Active" xml:space="preserve">
+    <value>ACTIVO</value>
+  </data>
+  <data name="Log_Header" xml:space="preserve">
+    <value>LOG EN TIEMPO REAL</value>
+  </data>
+  <data name="Train_Header" xml:space="preserve">
+    <value>MODO ENTRENAMIENTO</value>
+  </data>
+  <data name="Train_SelectedHeader" xml:space="preserve">
+    <value>ESCENARIO SELECCIONADO</value>
+  </data>
+  <data name="Train_Subtitle" xml:space="preserve">
+    <value>Seleccioná un escenario para practicar procedimientos de emergencia.</value>
+  </data>
+  <data name="Fatal_Accept" xml:space="preserve">
+    <value>Aceptar</value>
+  </data>
+  <data name="Fatal_Header" xml:space="preserve">
+    <value>Ocurrió un error inesperado</value>
+  </data>
+  <data name="Fatal_TechnicalDetail" xml:space="preserve">
+    <value>Detalle técnico (stack trace completo)</value>
+  </data>
+  <data name="Fatal_Title" xml:space="preserve">
+    <value>Real Fenix Failures — Error inesperado</value>
+  </data>
+  <data name="Fatal_ViewCrashLog" xml:space="preserve">
+    <value>Ver registro de crash</value>
+  </data>
+  <data name="Settings_BugHeader" xml:space="preserve">
+    <value>REPORTAR UN FALLO</value>
+  </data>
+  <data name="Settings_BugHelp" xml:space="preserve">
+    <value>Abrí un issue en GitHub describiendo qué pasó, qué estabas haciendo y qué esperabas ver.</value>
+  </data>
+  <data name="Settings_BugQuestion" xml:space="preserve">
+    <value>¿Encontraste un problema?</value>
+  </data>
+  <data name="Settings_BugTip" xml:space="preserve">
+    <value>Consejo: adjuntá el log diario más reciente y el reporte individual (crash-*.log), si existe, junto con la versión que usás.</value>
+  </data>
+  <data name="Settings_CheckUpdates" xml:space="preserve">
+    <value>Buscar actualizaciones</value>
+  </data>
+  <data name="Settings_DocsHeader" xml:space="preserve">
+    <value>DOCUMENTACIÓN</value>
+  </data>
+  <data name="Settings_DocsRepoLink" xml:space="preserve">
+    <value>Repositorio en GitHub</value>
+  </data>
+  <data name="Settings_DonateHeader" xml:space="preserve">
+    <value>APOYAR EL DESARROLLO</value>
+  </data>
+  <data name="Settings_DonateKofi" xml:space="preserve">
+    <value>Apoyar en Ko-fi</value>
+  </data>
+  <data name="Settings_DonateText" xml:space="preserve">
+    <value>Si disfrutás Real Fenix Failures, podés apoyar su desarrollo con una donación voluntaria. Es un proyecto independiente de una sola persona: nadie me ayuda, me impulsa solo el hobby y el querer mayor realismo en cada vuelo. Cada dólar ayuda a impulsar el proyecto, me da más ganas de seguir mejorando la app y me permite asignarle más recursos. ¡Gracias por acompañar el proyecto!</value>
+  </data>
+  <data name="Settings_DonateTitle" xml:space="preserve">
+    <value>Ayudá a que el proyecto siga creciendo</value>
+  </data>
+  <data name="Settings_DownloadGoToReleases" xml:space="preserve">
+    <value>Descargar e ir a GitHub Releases</value>
+  </data>
+  <data name="Settings_Header" xml:space="preserve">
+    <value>CONFIGURACIÓN</value>
+  </data>
+  <data name="Settings_Help1Text" xml:space="preserve">
+    <value>Arrancá Microsoft Flight Simulator 2024 con el Fenix A320 y esperá a que la cabina esté lista.</value>
+  </data>
+  <data name="Settings_Help1Title" xml:space="preserve">
+    <value>1. Preparar la cabina</value>
+  </data>
+  <data name="Settings_Help2Text" xml:space="preserve">
+    <value>Realista (fallas basadas en tu historial), Entrenamiento (escenarios preestablecidos) o Personalizado (control manual).</value>
+  </data>
+  <data name="Settings_Help2Title" xml:space="preserve">
+    <value>2. Elegir un modo</value>
+  </data>
+  <data name="Settings_Help3Text" xml:space="preserve">
+    <value>La app se refresca sola en todo momento: simulá con normalidad y reaccioná a las fallas como en un vuelo real.</value>
+  </data>
+  <data name="Settings_Help3Title" xml:space="preserve">
+    <value>3. Activar y volar</value>
+  </data>
+  <data name="Settings_Help4Title" xml:space="preserve">
+    <value>4. Cerrar sesión</value>
+  </data>
+  <data name="Settings_HelpHeader" xml:space="preserve">
+    <value>GUÍA RÁPIDA</value>
+  </data>
+  <data name="Settings_InstalledVersion" xml:space="preserve">
+    <value>Versión instalada</value>
+  </data>
+  <data name="Settings_LogsHeader" xml:space="preserve">
+    <value>Logs y diagnósticos</value>
+  </data>
+  <data name="Settings_LogsHelp" xml:space="preserve">
+    <value>Los logs diarios y los reportes individuales de errores (crash-*.log / error-*.log) están en esta carpeta.</value>
+  </data>
+  <data name="Settings_OpenIssues" xml:space="preserve">
+    <value>Abrir Issues de GitHub</value>
+  </data>
+  <data name="Settings_OpenLogsFolder" xml:space="preserve">
+    <value>Abrir carpeta de logs</value>
+  </data>
+  <data name="Settings_OpenRepository" xml:space="preserve">
+    <value>Abrir repositorio</value>
+  </data>
+  <data name="Settings_PrivacyHeader" xml:space="preserve">
+    <value>Privacidad</value>
+  </data>
+  <data name="Settings_PrivacyHelp" xml:space="preserve">
+    <value>El ID se guarda solo en tu equipo (%AppData%\RealFenixFailures\userprefs.json) y solo se usa para consultar planes de vuelo públicos de SimBrief.</value>
+  </data>
+  <data name="Settings_RealisticGraceHelp" xml:space="preserve">
+    <value>Cuando la app detecta que aterrizaste y apagaste motores en el gate, espera esta cantidad de minutos antes de avisarte que podés finalizar la sesión. Se cuenta en tiempo real, no en el tiempo del simulador. Valores permitidos: 0 a 999 (0 = avisa de inmediato).</value>
+  </data>
+  <data name="Settings_RealisticGraceLabel" xml:space="preserve">
+    <value>AVISO DE FIN DE VUELO (MINUTOS DE GRACIA)</value>
+  </data>
+  <data name="Settings_RealisticHeader" xml:space="preserve">
+    <value>MODO REALISTA</value>
+  </data>
+  <data name="Settings_Tab_Docs" xml:space="preserve">
+    <value>Documentación</value>
+  </data>
+  <data name="Settings_Tab_Donate" xml:space="preserve">
+    <value>Donación</value>
+  </data>
+  <data name="Settings_Tab_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_Tab_Help" xml:space="preserve">
+    <value>Ayuda</value>
+  </data>
+  <data name="Settings_Tab_ReportBug" xml:space="preserve">
+    <value>Reportar un fallo</value>
+  </data>
+  <data name="Settings_Tab_Updates" xml:space="preserve">
+    <value>Actualizaciones</value>
+  </data>
+  <data name="Settings_TelemetryCheckbox" xml:space="preserve">
+    <value>Enviar estadísticas anónimas de uso</value>
+  </data>
+  <data name="Settings_TelemetryHelp" xml:space="preserve">
+    <value>Estadísticas anónimas de uso: nos ayudan a mejorar la app en cada versión. Nunca incluyen datos de vuelo ni información personal. Podés apagarlo cuando quieras.</value>
+  </data>
+  <data name="Settings_UpdatesCheckHelp" xml:space="preserve">
+    <value>El chequeo consulta las releases públicas del repositorio en GitHub. También muestra pre-releases: así podés enterarte de los builds de prueba apenas se publican.</value>
+  </data>
+  <data name="Settings_UpdatesManualInstall" xml:space="preserve">
+    <value>La app no se actualiza sola: descargá el instalador desde GitHub Releases y reemplazá la versión actual.</value>
+  </data>
+  <data name="Settings_UpdatesVersionLabel" xml:space="preserve">
+    <value>VERSIÓN</value>
+  </data>
+  <data name="Rm_CompletionBanner" xml:space="preserve">
+    <value>Se detectó la finalización del vuelo (en gate con motores apagados). Podés finalizar la sesión y ver el resumen.</value>
+  </data>
+  <data name="Rm_ContinueToPreparation" xml:space="preserve">
+    <value>Continuar a preparación  ▶</value>
+  </data>
+  <data name="Rm_CreateAircraft" xml:space="preserve">
+    <value>Crear aeronave</value>
+  </data>
+  <data name="Rm_FinishSession" xml:space="preserve">
+    <value>FINALIZAR SESIÓN</value>
+  </data>
+  <data name="Rm_FlightCompletedFinish" xml:space="preserve">
+    <value>Finalizar sesión</value>
+  </data>
+  <data name="Rm_FlightCompletedHeader" xml:space="preserve">
+    <value>✈ VUELO FINALIZADO</value>
+  </data>
+  <data name="Rm_FlightCompletedLater" xml:space="preserve">
+    <value>Ahora no</value>
+  </data>
+  <data name="Rm_FlightCompletedText" xml:space="preserve">
+    <value>Se detectó la finalización del vuelo: la aeronave aterrizó y llegó al gate con los motores apagados. ¿Querés finalizar la sesión realista y ver el resumen?</value>
+  </data>
+  <data name="Rm_Header" xml:space="preserve">
+    <value>MODO REALISTA</value>
+  </data>
+  <data name="Rm_HistoryDiscarded" xml:space="preserve">
+    <value>Descartada</value>
+  </data>
+  <data name="Rm_HistoryEmpty" xml:space="preserve">
+    <value>Sin sesiones registradas para esta aeronave.</value>
+  </data>
+  <data name="Rm_HistoryHeader" xml:space="preserve">
+    <value>HISTORIAL DE VUELOS</value>
+  </data>
+  <data name="Rm_HistoryNoFailures" xml:space="preserve">
+    <value>Sin fallas disparadas en esta sesión.</value>
+  </data>
+  <data name="Rm_HistoryResults" xml:space="preserve">
+    <value>Resultados</value>
+  </data>
+  <data name="Rm_HistoryResultsTooltip" xml:space="preserve">
+    <value>Ver el modal de resultados de esta sesión</value>
+  </data>
+  <data name="Rm_IcaoTypeLabel" xml:space="preserve">
+    <value>Tipo ICAO (flota permitida: A319/A320/A321)</value>
+  </data>
+  <data name="Rm_NewAircraftButton" xml:space="preserve">
+    <value>+  Crear nueva aeronave</value>
+  </data>
+  <data name="Rm_NewAircraftHeader" xml:space="preserve">
+    <value>NUEVA AERONAVE</value>
+  </data>
+  <data name="Rm_NoAircraft" xml:space="preserve">
+    <value>No hay aeronaves registradas. Creá una nueva para empezar.</value>
+  </data>
+  <data name="Rm_OfpAircraftLabel" xml:space="preserve">
+    <value>Aeronave del OFP</value>
+  </data>
+  <data name="Rm_OfpArrivalLabel" xml:space="preserve">
+    <value>Llegada estimada</value>
+  </data>
+  <data name="Rm_OfpDepartureLabel" xml:space="preserve">
+    <value>Salida programada</value>
+  </data>
+  <data name="Rm_OfpDiscardTooltip" xml:space="preserve">
+    <value>Descartar el OFP cargado: el panel vuelve a «Sin OFP» y tendrás que descargar otro antes de activar.</value>
+  </data>
+  <data name="Rm_OfpDistanceLabel" xml:space="preserve">
+    <value>Distancia</value>
+  </data>
+  <data name="Rm_OfpDownload" xml:space="preserve">
+    <value>Descargar OFP</value>
+  </data>
+  <data name="Rm_OfpDurationLabel" xml:space="preserve">
+    <value>Duración estimada</value>
+  </data>
+  <data name="Rm_OfpFlightNumberLabel" xml:space="preserve">
+    <value>Nº de vuelo</value>
+  </data>
+  <data name="Rm_OfpHeader" xml:space="preserve">
+    <value>OFP Y RUTA</value>
+  </data>
+  <data name="Rm_OfpNone" xml:space="preserve">
+    <value>Sin OFP · Descargalo para ver los detalles del vuelo.</value>
+  </data>
+  <data name="Rm_OfpRouteLabel" xml:space="preserve">
+    <value>Ruta</value>
+  </data>
+  <data name="Rm_OfpSourceLabel" xml:space="preserve">
+    <value>Fuente</value>
+  </data>
+  <data name="Rm_OfpUseridPrivacy" xml:space="preserve">
+    <value>Userid guardado solo en tus preferencias (nunca en la BD).</value>
+  </data>
+  <data name="Rm_PauseButton" xml:space="preserve">
+    <value>PAUSAR FALLAS</value>
+  </data>
+  <data name="Rm_PauseTooltip" xml:space="preserve">
+    <value>Pausa el motor de fallas: desarma las fallas Fenix activas y bloquea nuevas fallas hasta reanudar la sesión.</value>
+  </data>
+  <data name="Rm_ProfileSelectorTooltip" xml:space="preserve">
+    <value>Abrí el selector para elegir el perfil de riesgo de la sesión.</value>
+  </data>
+  <data name="Rm_ReasoningFenixOffline" xml:space="preserve">
+    <value>Fenix no está disponible: la sesión prepara fallas en cola y las envía cuando Fenix vuelva. Sin Fenix nunca se arma una falla en el avión.</value>
+  </data>
+  <data name="Rm_ReasoningFuture" xml:space="preserve">
+    <value>A futuro este panel mostrará el razonamiento de nivel de decisión del motor: el motivo por el que selecciona o descarta cada falla. Hasta entonces no se simulan eventos.</value>
+  </data>
+  <data name="Rm_ReasoningNoData" xml:space="preserve">
+    <value>Sin datos de razonamiento: el backend de decisión todavía no existe, así que no hay eventos que mostrar.</value>
+  </data>
+  <data name="Rm_ReasoningTitle" xml:space="preserve">
+    <value>Pensamiento del motor</value>
+  </data>
+  <data name="Rm_RegistrationLabel" xml:space="preserve">
+    <value>Matrícula (Registration, máx. 10)</value>
+  </data>
+  <data name="Rm_ReqAircraftData" xml:space="preserve">
+    <value>Datos aeronave</value>
+  </data>
+  <data name="Rm_ReqFenixOptional" xml:space="preserve">
+    <value>Fenix (opcional)</value>
+  </data>
+  <data name="Rm_ReqFenixOptionalOk" xml:space="preserve">
+    <value>✔ Opcional (prepara en cola)</value>
+  </data>
+  <data name="Rm_RequirementsHeader" xml:space="preserve">
+    <value>REQUISITOS PARA ACTIVAR</value>
+  </data>
+  <data name="Rm_ResumeButton" xml:space="preserve">
+    <value>REANUDAR EVALUACIÓN</value>
+  </data>
+  <data name="Rm_ResumeTooltip" xml:space="preserve">
+    <value>Reanuda la evaluación del motor tras una pausa y re-arma en Fenix las fallas que estaban en curso (mejor esfuerzo: las que no se puedan reconstruir quedan en el log).</value>
+  </data>
+  <data name="Rm_SessionFailuresDesc" xml:space="preserve">
+    <value>Estado: cada falla se confirma contra el estado real de Fenix en cada ciclo de evaluación: enviada → activa confirmada → resuelta.</value>
+  </data>
+  <data name="Rm_SessionFailuresHeader" xml:space="preserve">
+    <value>FALLAS DE LA SESIÓN ACTUAL</value>
+  </data>
+  <data name="Rm_SimClockHeader" xml:space="preserve">
+    <value>RELOJ DE SIMULACIÓN (DEBUG)</value>
+  </data>
+  <data name="Rm_SimClockSkipLabel" xml:space="preserve">
+    <value>Saltar:</value>
+  </data>
+  <data name="Rm_StartConfirmButton" xml:space="preserve">
+    <value>Confirmar inicio</value>
+  </data>
+  <data name="Rm_StartConfirmHeader" xml:space="preserve">
+    <value>⚠ CONFIRMACIÓN DE INICIO</value>
+  </data>
+  <data name="Rm_StartConfirmText" xml:space="preserve">
+    <value>En redes VATSIM el controlador ATC tiene la última palabra. Si te exige quitar las emergencias, la pausa que desarma fallas aún no está implementada: usá Detener y verificá el desarme en el sistema Fenix. Preferible terminar la sesión en tierra, pero está permitido detener en vuelo.</value>
+  </data>
+  <data name="Rm_StatFailures" xml:space="preserve">
+    <value>FALLAS</value>
+  </data>
+  <data name="Rm_StatFailuresUnit" xml:space="preserve">
+    <value>generadas</value>
+  </data>
+  <data name="Rm_StatFlights" xml:space="preserve">
+    <value>VUELOS</value>
+  </data>
+  <data name="Rm_StatFlightsUnit" xml:space="preserve">
+    <value>registrados</value>
+  </data>
+  <data name="Rm_StatHours" xml:space="preserve">
+    <value>HORAS</value>
+  </data>
+  <data name="Rm_StatHoursUnit" xml:space="preserve">
+    <value>acumuladas</value>
+  </data>
+  <data name="Rm_StatWear" xml:space="preserve">
+    <value>DESGASTE ACUMULADO</value>
+  </data>
+  <data name="Rm_Step1" xml:space="preserve">
+    <value>1 · Aeronave</value>
+  </data>
+  <data name="Rm_Step1Header" xml:space="preserve">
+    <value>PASO 1 · SELECCIONÁ UNA AERONAVE</value>
+  </data>
+  <data name="Rm_Step1Tooltip" xml:space="preserve">
+    <value>Ir al paso 1 · Aeronave</value>
+  </data>
+  <data name="Rm_Step2" xml:space="preserve">
+    <value>2 · Resumen</value>
+  </data>
+  <data name="Rm_Step2Tooltip" xml:space="preserve">
+    <value>Ir al paso 2 · Resumen</value>
+  </data>
+  <data name="Rm_Step3" xml:space="preserve">
+    <value>3 · Preparación</value>
+  </data>
+  <data name="Rm_Step3Tooltip" xml:space="preserve">
+    <value>Ir al paso 3 · Preparación</value>
+  </data>
+  <data name="Rm_StopInFlightConfirm" xml:space="preserve">
+    <value>⚠ Estás en vuelo (fuera de tierra). ¿Detener la sesión ahora?</value>
+  </data>
+  <data name="Rm_StopYes" xml:space="preserve">
+    <value>Sí, detener</value>
+  </data>
+  <data name="Rm_Subtitle" xml:space="preserve">
+    <value>El sistema monitorea el historial de vuelos y genera fallas de forma autónoma basándose en el desgaste acumulado.</value>
+  </data>
+  <data name="Rm_UnfinishedSession" xml:space="preserve">
+    <value>Sesión sin finalizar</value>
+  </data>
+  <data name="Rm_WearAverageTitle" xml:space="preserve">
+    <value>Desgaste medio</value>
+  </data>
+  <data name="Rm_WearNoData" xml:space="preserve">
+    <value>Sin datos de desgaste (pendiente del backend de desgaste).</value>
+  </data>
+  <data name="Rm_WearSectionTitle" xml:space="preserve">
+    <value>▾  Desgaste</value>
+  </data>
+  <data name="Mw_Brand_FenixSystem" xml:space="preserve">
+    <value>Fenix System</value>
+  </data>
+  <data name="Mw_Brand_Msfs" xml:space="preserve">
+    <value>MSFS 2020/2024</value>
+  </data>
+  <data name="Mw_Brand_RealFenix" xml:space="preserve">
+    <value>Real Fenix</value>
+  </data>
+  <data name="Mw_Modes_Custom" xml:space="preserve">
+    <value>Personalizado</value>
+  </data>
+  <data name="Mw_Modes_CustomDesc" xml:space="preserve">
+    <value>Control manual de fallas</value>
+  </data>
+  <data name="Mw_Modes_Header" xml:space="preserve">
+    <value>MODOS</value>
+  </data>
+  <data name="Mw_Modes_Realistic" xml:space="preserve">
+    <value>Realista</value>
+  </data>
+  <data name="Mw_Modes_RealisticDesc" xml:space="preserve">
+    <value>Basado en historial de vuelos</value>
+  </data>
+  <data name="Mw_Modes_Support" xml:space="preserve">
+    <value>♥  Apoyar el proyecto</value>
+  </data>
+  <data name="Mw_Modes_Training" xml:space="preserve">
+    <value>Entrenamiento</value>
+  </data>
+  <data name="Mw_Modes_TrainingDesc" xml:space="preserve">
+    <value>Escenarios preestablecidos</value>
+  </data>
+  <data name="Mw_Status_UtcTooltip" xml:space="preserve">
+    <value>Hora UTC (Zulu)</value>
+  </data>
+  <data name="Mw_Title_App" xml:space="preserve">
+    <value>Real Fenix Failures</value>
+  </data>
+  <data name="Close_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Close_CancelDesc" xml:space="preserve">
+    <value>Volver a la ventana sin cambiar nada.</value>
+  </data>
+  <data name="Close_ExitCompletely" xml:space="preserve">
+    <value>Cerrar la app por completo</value>
+  </data>
+  <data name="Close_ExitCompletelyDesc" xml:space="preserve">
+    <value>Se detiene el motor de fallas y sale de la bandeja.</value>
+  </data>
+  <data name="Close_Explanation" xml:space="preserve">
+    <value>La app puede seguir corriendo en la bandeja del sistema mientras el vuelo continúa, o cerrarse por completo.</value>
+  </data>
+  <data name="Close_KeepBackground" xml:space="preserve">
+    <value>Seguir en segundo plano</value>
+  </data>
+  <data name="Close_KeepBackgroundDesc" xml:space="preserve">
+    <value>La app queda en la bandeja y el modo Realistic sigue activo.</value>
+  </data>
+  <data name="Close_Question" xml:space="preserve">
+    <value>¿Qué querés hacer al cerrar la ventana?</value>
+  </data>
+  <data name="Close_Title_App" xml:space="preserve">
+    <value>Cerrar Realistic Failures</value>
+  </data>
+  <data name="Risk_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Risk_Confirm" xml:space="preserve">
+    <value>Confirmar perfil</value>
+  </data>
+  <data name="Risk_Frequency" xml:space="preserve">
+    <value>Frecuencia de fallas</value>
+  </data>
+  <data name="Risk_Subtitle" xml:space="preserve">
+    <value>Define la intensidad de las fallas de la sesión: con qué frecuencia aparecen, qué tan graves son y cuánto influye el desgaste de tu aeronave.</value>
+  </data>
+  <data name="Risk_Title" xml:space="preserve">
+    <value>Perfil de riesgo</value>
+  </data>
+  <data name="Risk_WearEffect" xml:space="preserve">
+    <value>Efecto del desgaste</value>
+  </data>
+  <data name="Res_ActiveAtClose" xml:space="preserve">
+    <value>Activas al cierre</value>
+  </data>
+  <data name="Res_AutoResolved" xml:space="preserve">
+    <value>Auto-resueltas (engine)</value>
+  </data>
+  <data name="Res_ChronologyDesc" xml:space="preserve">
+    <value>Eventos registrados de vuelo y fallas, en orden UTC. La fecha completa está disponible sobre cada hora.</value>
+  </data>
+  <data name="Res_ChronologyEmpty" xml:space="preserve">
+    <value>No hay eventos registrados para esta sesión.</value>
+  </data>
+  <data name="Res_ChronologyHeader" xml:space="preserve">
+    <value>CRONOLOGÍA DE LA SESIÓN</value>
+  </data>
+  <data name="Res_Close" xml:space="preserve">
+    <value>CERRAR</value>
+  </data>
+  <data name="Res_FailuresDesc" xml:space="preserve">
+    <value>Momento, fase, resolución y fuente observada. Las no resueltas se consolidan al cierre.</value>
+  </data>
+  <data name="Res_FailuresEmpty" xml:space="preserve">
+    <value>No se lanzaron fallas en esta sesión.</value>
+  </data>
+  <data name="Res_FailuresHeader" xml:space="preserve">
+    <value>FALLAS LANZADAS</value>
+  </data>
+  <data name="Res_FailuresTriggered" xml:space="preserve">
+    <value>Fallas lanzadas</value>
+  </data>
+  <data name="Res_Rejected" xml:space="preserve">
+    <value>Rechazadas (no evento)</value>
+  </data>
+  <data name="Res_RejectedHeader" xml:space="preserve">
+    <value>RECHAZADAS — NO EVENTO</value>
+  </data>
+  <data name="Res_ResolvedByPilot" xml:space="preserve">
+    <value>Resueltas por el piloto</value>
+  </data>
+  <data name="Res_SeverityLabel" xml:space="preserve">
+    <value>Severidad:</value>
+  </data>
+  <data name="Res_SummaryHeader" xml:space="preserve">
+    <value>RESUMEN</value>
+  </data>
+  <data name="Res_Title" xml:space="preserve">
+    <value>Resultados de la sesión</value>
+  </data>
+  <data name="Res_UnresolvedAtClose" xml:space="preserve">
+    <value>No resueltas (cierre)</value>
+  </data>
+  <data name="Res_ViewFullHistory" xml:space="preserve">
+    <value>VER HISTORIAL COMPLETO</value>
+  </data>
+  <data name="Res_WearAccumulatedColumn" xml:space="preserve">
+    <value>ACUMULADO (0–100 %)</value>
+  </data>
+  <data name="Res_WearAccumulatedName" xml:space="preserve">
+    <value>Desgaste acumulado</value>
+  </data>
+  <data name="Res_WearDesc" xml:space="preserve">
+    <value>Tasa por sistema × horas de la sesión. El total corresponde al cierre de este vuelo.</value>
+  </data>
+  <data name="Res_WearHeader" xml:space="preserve">
+    <value>DESGASTE POR COMPONENTE — AUMENTO DE ESTA SESIÓN</value>
+  </data>
+  <data name="Res_WearMaintenanceRequired" xml:space="preserve">
+    <value>⚠ REQUIERE MANTENIMIENTO</value>
+  </data>
+  <data name="Res_WearSessionColumn" xml:space="preserve">
+    <value>Δ SESIÓN</value>
+  </data>
+  <data name="Res_WearSystemColumn" xml:space="preserve">
+    <value>SISTEMA</value>
+  </data>
+  <data name="Res_WearTotalColumn" xml:space="preserve">
+    <value>TOTAL</value>
+  </data>
+  <data name="Unf_DecideLater" xml:space="preserve">
+    <value>Dejar para después</value>
+  </data>
+  <data name="Unf_Discard" xml:space="preserve">
+    <value>Descartar</value>
+  </data>
+  <data name="Unf_Explanation" xml:space="preserve">
+    <value>La app se cerró con una sesión realista abierta. Podés finalizarla (con resultados y desgaste según la ETA del OFP), descartarla (queda en el historial sin desgaste) o decidirlo después.</value>
+  </data>
+  <data name="Unf_FinishAndView" xml:space="preserve">
+    <value>Finalizar y ver resultados</value>
+  </data>
+  <data name="Unf_Title" xml:space="preserve">
+    <value>Sesiones sin finalizar</value>
+  </data>
+  <data name="Fs_Discarded" xml:space="preserve">
+    <value>Descartada</value>
+  </data>
+  <data name="Fs_RiskLow" xml:space="preserve">
+    <value>Bajo</value>
+  </data>
+  <data name="Fs_RiskModerate" xml:space="preserve">
+    <value>Moderado</value>
+  </data>
+  <data name="Fs_RiskHigh" xml:space="preserve">
+    <value>Alto</value>
+  </data>
+  <data name="Fs_InProgress" xml:space="preserve">
+    <value>En curso</value>
+  </data>
+  <data name="Fs_FailuresOne" xml:space="preserve">
+    <value>{0} falla</value>
+  </data>
+  <data name="Fs_FailuresMany" xml:space="preserve">
+    <value>{0} fallas</value>
+  </data>
+  <data name="Fs_NotRegistered" xml:space="preserve">
+    <value>No registrado</value>
+  </data>
+  <data name="Fs_OfpPartial" xml:space="preserve">
+    <value>OFP parcial</value>
+  </data>
+  <data name="Fs_NoFailures" xml:space="preserve">
+    <value>Sin fallas</value>
+  </data>
+  <data name="Fs_ResolvedByPilot" xml:space="preserve">
+    <value>{0} piloto</value>
+  </data>
+  <data name="Fs_ResolvedAuto" xml:space="preserve">
+    <value>{0} auto</value>
+  </data>
+  <data name="Fs_ResolvedAtEnd" xml:space="preserve">
+    <value>{0} al final</value>
+  </data>
+  <data name="Unf_NoOfp" xml:space="preserve">
+    <value>sin OFP</value>
+  </data>
+  <data name="Unf_SessionTitle" xml:space="preserve">
+    <value>Sesión #{0} · {1}</value>
+  </data>
+  <data name="Unf_Started" xml:space="preserve">
+    <value>Iniciada {0} UTC</value>
+  </data>
+  <data name="Unf_FailuresOne" xml:space="preserve">
+    <value>{0} falla lanzada</value>
+  </data>
+  <data name="Unf_FailuresMany" xml:space="preserve">
+    <value>{0} fallas lanzadas</value>
+  </data>
+  <data name="Unf_Eta" xml:space="preserve">
+    <value>Llegada estimada (OFP): {0} UTC</value>
+  </data>
+  <data name="Unf_NoEta" xml:space="preserve">
+    <value>Sin ETA del OFP: la finalización no aplicará desgaste</value>
+  </data>
+  <data name="Ua_Flights" xml:space="preserve">
+    <value>{0} vuelos</value>
+  </data>
+  <data name="Ua_NoWearData" xml:space="preserve">
+    <value>Sin datos</value>
+  </data>
+  <data name="Lf_SentAwaiting" xml:space="preserve">
+    <value>Enviada — esperando confirmación</value>
+  </data>
+  <data name="Lf_ActiveCritical" xml:space="preserve">
+    <value>Activa (Critical)</value>
+  </data>
+  <data name="Lf_ActiveMinor" xml:space="preserve">
+    <value>Activa (Minor)</value>
+  </data>
+  <data name="Lf_ActiveMajor" xml:space="preserve">
+    <value>Activa (Major)</value>
+  </data>
+  <data name="Lf_Active" xml:space="preserve">
+    <value>Activa</value>
+  </data>
+  <data name="Lf_ResolvedByPilot" xml:space="preserve">
+    <value>Resuelta por el piloto</value>
+  </data>
+  <data name="Lf_AutoResolved" xml:space="preserve">
+    <value>Auto-resuelta por el engine</value>
+  </data>
+  <data name="Rp_EstimatePlaceholder" xml:space="preserve">
+    <value>≈ ... fallas graves cada 10 h de vuelo*</value>
+  </data>
+  <data name="Rp_WearPlaceholder" xml:space="preserve">
+    <value>hasta ×...</value>
+  </data>
+  <data name="Rp_WearUpTo" xml:space="preserve">
+    <value>hasta ×{0}</value>
+  </data>
+  <data name="Rp_EstimateMajorOnly" xml:space="preserve">
+    <value>≈ {0} fallas graves cada 10 h de vuelo*</value>
+  </data>
+  <data name="Rp_EstimateMajorCritical" xml:space="preserve">
+    <value>≈ {0} fallas graves y {1} críticas cada 10 h de vuelo*</value>
+  </data>
+  <data name="Rp_ChipGroundLead" xml:space="preserve">
+    <value>Al iniciar, la aeronave puede venir con hasta </value>
+  </data>
+  <data name="Rp_ChipGroundOne" xml:space="preserve">
+    <value>{0} falla</value>
+  </data>
+  <data name="Rp_ChipGroundMany" xml:space="preserve">
+    <value>{0} fallas</value>
+  </data>
+  <data name="Rp_ChipRespiteLead" xml:space="preserve">
+    <value>{0} min de tregua</value>
+  </data>
+  <data name="Rp_ChipRespiteRest" xml:space="preserve">
+    <value> tras cada falla crítica</value>
+  </data>
+  <data name="Rp_MultReference" xml:space="preserve">
+    <value>{0} · referencia</value>
+  </data>
+  <data name="Rp_MultPercent" xml:space="preserve">
+    <value>×{0} · {1} % {2}</value>
+  </data>
+  <data name="Rp_MultLess" xml:space="preserve">
+    <value>menos</value>
+  </data>
+  <data name="Rp_MultMore" xml:space="preserve">
+    <value>más</value>
+  </data>
+  <data name="Rp_RateBelowMin" xml:space="preserve">
+    <value>&lt; 0,01</value>
+  </data>
+  <data name="Rp_Low_Name" xml:space="preserve">
+    <value>Bajo</value>
+  </data>
+  <data name="Rp_Low_Desc" xml:space="preserve">
+    <value>Fallas poco frecuentes y casi siempre leves. Para volar tranquilo y seguir aprendiendo el avión.</value>
+  </data>
+  <data name="Rp_Moderate_Name" xml:space="preserve">
+    <value>Moderado</value>
+  </data>
+  <data name="Rp_Moderate_Desc" xml:space="preserve">
+    <value>Fallas ocasionales que pueden volverse serias si la aeronave viene desgastada. El punto de equilibrio.</value>
+  </data>
+  <data name="Rp_High_Name" xml:space="preserve">
+    <value>Alto</value>
+  </data>
+  <data name="Rp_High_Desc" xml:space="preserve">
+    <value>Fallas frecuentes y a menudo graves, varias en simultáneo. Para quienes manejan emergencias con soltura.</value>
+  </data>
+  <data name="Rp_7700_Desc" xml:space="preserve">
+    <value>Máxima presión: fallas graves y en cadena, con poca tregua. El modo "documental de accidentes".</value>
+  </data>
+  <data name="Rp_VatsimSafe" xml:space="preserve">
+    <value>VATSIM · seguro</value>
+  </data>
+  <data name="Rp_VatsimIdeal" xml:space="preserve">
+    <value>VATSIM · ideal</value>
+  </data>
+  <data name="Rp_VatsimNotRecommended" xml:space="preserve">
+    <value>VATSIM · no recomendado</value>
+  </data>
+  <data name="Rp_VatsimNotFit" xml:space="preserve">
+    <value>VATSIM · no apto</value>
+  </data>
+  <data name="Rp_VatsimLead" xml:space="preserve">
+    <value>En VATSIM:</value>
+  </data>
+  <data name="Rp_VatsimLowRest" xml:space="preserve">
+    <value> casi nunca vas a declarar emergencia; volás online tranquilo.</value>
+  </data>
+  <data name="Rp_VatsimModerateRest" xml:space="preserve">
+    <value> el equilibrio recomendado online — trabajo real de QRH sin desvíos forzados.</value>
+  </data>
+  <data name="Rp_VatsimHighRest" xml:space="preserve">
+    <value> puede tocarte desviar o declarar emergencia; avisale al control con calma.</value>
+  </data>
+  <data name="Rp_Vatsim7700Rest" xml:space="preserve">
+    <value> la cadencia de emergencias no es manejable en frecuencia; pensado para offline.</value>
+  </data>
+  <data name="Rpw_FootNoteNone" xml:space="preserve">
+    <value>La elección queda fija al iniciar la sesión.</value>
+  </data>
+  <data name="Rpw_FootNoteSelected" xml:space="preserve">
+    <value>Seleccionado: {0}. La elección queda fija al iniciar la sesión.</value>
+  </data>
+  <data name="Rpw_EstimateUnavailable" xml:space="preserve">
+    <value>* Estimación no disponible en esta sesión.</value>
+  </data>
+  <data name="Rpw_WearNoData" xml:space="preserve">
+    <value>sin datos de desgaste</value>
+  </data>
+  <data name="Rpw_WearAverage" xml:space="preserve">
+    <value>desgaste medio {0} %</value>
+  </data>
+  <data name="Rpw_EstimateDetail" xml:space="preserve">
+    <value>* Fallas graves (Major) y críticas (Critical) en vuelo, aproximadas por cada 10 horas de vuelo con la configuración vigente del motor y {0}. La semilla de tierra (fallas del arranque) se describe en los chips. La cadencia real la decide el motor tick a tick.</value>
+  </data>
+  <data name="Rpw_EstimateFailed" xml:space="preserve">
+    <value>* No se pudo calcular la estimación con la configuración actual.</value>
+  </data>
+  <data name="Mw_StatusDisconnected" xml:space="preserve">
+    <value>Desconectado</value>
+  </data>
+  <data name="Mw_StatusConnected" xml:space="preserve">
+    <value>Conectado</value>
+  </data>
+  <data name="Mw_StatusConnectedData" xml:space="preserve">
+    <value>Conectado · Datos de aeronave</value>
+  </data>
+  <data name="Mw_StatusConnectedNoData" xml:space="preserve">
+    <value>Conectado · Sin datos de aeronave</value>
+  </data>
+  <data name="Mw_StatusNoAircraftData" xml:space="preserve">
+    <value>Sin datos de aeronave</value>
+  </data>
+  <data name="Mw_DonationLinkFailed" xml:space="preserve">
+    <value>No se pudo abrir el enlace de donación.</value>
+  </data>
+  <data name="Set_SaveStatusSaved" xml:space="preserve">
+    <value>✓ Guardado</value>
+  </data>
+  <data name="Set_SaveStatusFailed" xml:space="preserve">
+    <value>⚠ No se pudo guardar</value>
+  </data>
+  <data name="Set_UpdateChecking" xml:space="preserve">
+    <value>Consultando GitHub Releases...</value>
+  </data>
+  <data name="Set_UpdateNone" xml:space="preserve">
+    <value>Todavía no hay releases publicadas. ¡Pronto habrá novedades!</value>
+  </data>
+  <data name="Set_PrereleaseWord" xml:space="preserve">
+    <value>pre-release</value>
+  </data>
+  <data name="Set_StableWord" xml:space="preserve">
+    <value>versión estable</value>
+  </data>
+  <data name="Set_UpdateNewer" xml:space="preserve">
+    <value>Hay una {0} más reciente: {1}</value>
+  </data>
+  <data name="Set_UpdatePublishedOn" xml:space="preserve">
+    <value> (publicada el {0})</value>
+  </data>
+  <data name="Set_UpdateLatest" xml:space="preserve">
+    <value>Estás usando la versión más reciente publicada.</value>
+  </data>
+  <data name="Set_UpdateError" xml:space="preserve">
+    <value>Ocurrió un error inesperado al buscar actualizaciones.</value>
+  </data>
+  <data name="Guc_ContactFailed" xml:space="preserve">
+    <value>No se pudo contactar a GitHub. Comprobá tu conexión e intentá de nuevo.</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Abrir</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Salir</value>
+  </data>
+  <data name="Tray_TipTitle" xml:space="preserve">
+    <value>Realistic Failures - en segundo plano</value>
+  </data>
+  <data name="Tray_TipText" xml:space="preserve">
+    <value>La app sigue ejecutándose en segundo plano. Para cerrarla del todo, usá "Salir" desde este icono.</value>
+  </data>
+  <data name="Fatal_BehaviorFatal" xml:space="preserve">
+    <value>La aplicación se cerrará al confirmar o cerrar esta ventana.</value>
+  </data>
+  <data name="Fatal_BehaviorNonFatal" xml:space="preserve">
+    <value>Podés continuar usando la aplicación al aceptar. Revisá el estado de la operación que falló.</value>
+  </data>
+  <data name="Fatal_CloseApp" xml:space="preserve">
+    <value>Cerrar aplicación</value>
+  </data>
+  <data name="Fatal_NoDiagnosticFile" xml:space="preserve">
+    <value>No se pudo guardar el archivo de diagnóstico. El detalle técnico sigue disponible abajo.</value>
+  </data>
+  <data name="Fatal_CrashLogCreated" xml:space="preserve">
+    <value>Se generó un registro de crash en:{0}{1}</value>
+  </data>
+  <data name="Fatal_LogOpenFailed" xml:space="preserve">
+    <value>No se pudo abrir el registro: {0}{1}{2}</value>
+  </data>
+  <data name="Close_ShutdownBlockedTooltip" xml:space="preserve">
+    <value>El cierre completo está bloqueado mientras el modo Realistic tiene una sesión activa.</value>
+  </data>
+  <data name="Close_ShutdownBlockedSubtitle" xml:space="preserve">
+    <value>Bloqueado: hay una sesión en curso. Para salir de la app, terminá la sesión primero.</value>
+  </data>
+  <data name="Srw_NoRegistration" xml:space="preserve">
+    <value>Sin matrícula</value>
+  </data>
+  <data name="Srw_TypeUnavailable" xml:space="preserve">
+    <value>Tipo no disponible</value>
+  </data>
+  <data name="Srw_NoIdentifier" xml:space="preserve">
+    <value>sin identificador</value>
+  </data>
+  <data name="Srw_SourceUnavailableLower" xml:space="preserve">
+    <value>fuente no disponible</value>
+  </data>
+  <data name="Srw_OfpDisplay" xml:space="preserve">
+    <value>OFP {0} ({1})</value>
+  </data>
+  <data name="Srw_ProfileLow" xml:space="preserve">
+    <value>PERFIL BAJO</value>
+  </data>
+  <data name="Srw_ProfileModerate" xml:space="preserve">
+    <value>PERFIL MODERADO</value>
+  </data>
+  <data name="Srw_ProfileHigh" xml:space="preserve">
+    <value>PERFIL ALTO</value>
+  </data>
+  <data name="Srw_Profile7700" xml:space="preserve">
+    <value>PERFIL 7700</value>
+  </data>
+  <data name="Srw_Started" xml:space="preserve">
+    <value>Inicio {0} UTC</value>
+  </data>
+  <data name="Srw_Finished" xml:space="preserve">
+    <value>Fin {0} UTC</value>
+  </data>
+  <data name="Srw_NotFinished" xml:space="preserve">
+    <value>Sin finalizar</value>
+  </data>
+  <data name="Srw_Duration" xml:space="preserve">
+    <value>Duración {0} h {1} min {2} s</value>
+  </data>
+  <data name="Srw_DurationUnavailable" xml:space="preserve">
+    <value>Duración no disponible</value>
+  </data>
+  <data name="Srw_WearAverageLine" xml:space="preserve">
+    <value>Desgaste medio por sistema {0}</value>
+  </data>
+  <data name="Srw_NoWear" xml:space="preserve">
+    <value>Sin desgaste registrado</value>
+  </data>
+  <data name="Srw_WearDiscarded" xml:space="preserve">
+    <value>Sesión descartada: no se aplicó desgaste.</value>
+  </data>
+  <data name="Srw_WearEmpty" xml:space="preserve">
+    <value>No hay desgaste registrado para esta sesión.</value>
+  </data>
+  <data name="Srw_WearThreshold" xml:space="preserve">
+    <value>Al alcanzar el {0} % de desgaste acumulado se señala que el sistema requiere mantenimiento.</value>
+  </data>
+  <data name="Srw_PercentBelowMin" xml:space="preserve">
+    <value>&lt;0,01</value>
+  </data>
+  <data name="Srw_NoSeverity" xml:space="preserve">
+    <value>Sin severidad</value>
+  </data>
+  <data name="Srw_StateResolvedByPilot" xml:space="preserve">
+    <value>Resuelta por el piloto</value>
+  </data>
+  <data name="Srw_StateAutoResolved" xml:space="preserve">
+    <value>Auto-resuelta (engine)</value>
+  </data>
+  <data name="Srw_StateNotResolved" xml:space="preserve">
+    <value>No resuelta (sesión terminó)</value>
+  </data>
+  <data name="Srw_StateRejected" xml:space="preserve">
+    <value>Rechazada (no evento)</value>
+  </data>
+  <data name="Srw_StateActive" xml:space="preserve">
+    <value>Activa</value>
+  </data>
+  <data name="Srw_StateSent" xml:space="preserve">
+    <value>Enviada a Fenix</value>
+  </data>
+  <data name="Srw_StateQueued" xml:space="preserve">
+    <value>En cola</value>
+  </data>
+  <data name="Srw_StatePreparing" xml:space="preserve">
+    <value>En preparación</value>
+  </data>
+  <data name="Srw_SourcePilot" xml:space="preserve">
+    <value>Piloto (despejada en Fenix)</value>
+  </data>
+  <data name="Srw_SourceEngine" xml:space="preserve">
+    <value>Motor de fallas</value>
+  </data>
+  <data name="Srw_SourceSessionEnded" xml:space="preserve">
+    <value>Consolidada al cierre</value>
+  </data>
+  <data name="Srw_SourceUnavailable" xml:space="preserve">
+    <value>Fuente no disponible</value>
+  </data>
+  <data name="Srw_Elapsed" xml:space="preserve">
+    <value> · {0:00}:{1:00}:{2:00} transcurridos</value>
+  </data>
+  <data name="Srw_PhaseOnGate" xml:space="preserve">
+    <value>Puerta</value>
+  </data>
+  <data name="Srw_PhaseTaxi" xml:space="preserve">
+    <value>Taxi</value>
+  </data>
+  <data name="Srw_PhaseTakeoff" xml:space="preserve">
+    <value>Despegue</value>
+  </data>
+  <data name="Srw_PhaseClimb" xml:space="preserve">
+    <value>Ascenso</value>
+  </data>
+  <data name="Srw_PhaseCruise" xml:space="preserve">
+    <value>Crucero</value>
+  </data>
+  <data name="Srw_PhaseDescent" xml:space="preserve">
+    <value>Descenso</value>
+  </data>
+  <data name="Srw_PhaseApproach" xml:space="preserve">
+    <value>Aproximación</value>
+  </data>
+  <data name="Srw_PhaseLanding" xml:space="preserve">
+    <value>Aterrizaje</value>
+  </data>
+  <data name="Srw_PhaseParked" xml:space="preserve">
+    <value>Estacionado</value>
+  </data>
+  <data name="Srw_PhaseUnavailable" xml:space="preserve">
+    <value>Fase no disponible</value>
+  </data>
+  <data name="Rmv_RiskLow" xml:space="preserve">
+    <value>Bajo</value>
+  </data>
+  <data name="Rmv_RiskModerate" xml:space="preserve">
+    <value>Moderado</value>
+  </data>
+  <data name="Rmv_RiskHigh" xml:space="preserve">
+    <value>Alto</value>
+  </data>
+  <data name="Rmv_NoProfile" xml:space="preserve">
+    <value>Sin perfil</value>
+  </data>
+  <data name="Rmv_ChangeProfile" xml:space="preserve">
+    <value>Cambiar perfil</value>
+  </data>
+  <data name="Rmv_ChooseProfile" xml:space="preserve">
+    <value>Elegir perfil</value>
+  </data>
+  <data name="Rmv_Selected" xml:space="preserve">
+    <value>Seleccionado</value>
+  </data>
+  <data name="Rmv_DiscardPrepared" xml:space="preserve">
+    <value>DESCARTAR PREPARADAS ({0})</value>
+  </data>
+  <data name="Rmv_OfpTooltipActive" xml:space="preserve">
+    <value>Sesión activa: el OFP no puede modificarse. Detené la sesión para cargar otro plan.</value>
+  </data>
+  <data name="Rmv_OfpTooltipDownload" xml:space="preserve">
+    <value>Descarga el plan operacional de SimBrief del user, lo valida (ICAO del avión, campos mínimos y ventana UTC) y deja lista la activación.</value>
+  </data>
+  <data name="Rmv_OfpNotRegistered" xml:space="preserve">
+    <value>No registrada</value>
+  </data>
+  <data name="Rmv_OfpPendingNoOfp" xml:space="preserve">
+    <value>Pendiente · Sin OFP</value>
+  </data>
+  <data name="Rmv_OfpValid" xml:space="preserve">
+    <value>Válido · Listo para activar</value>
+  </data>
+  <data name="Rmv_OfpPendingValidation" xml:space="preserve">
+    <value>Pendiente de validación</value>
+  </data>
+  <data name="Rmv_OfpInvalid" xml:space="preserve">
+    <value>Inválido · {0}</value>
+  </data>
+  <data name="Rmv_OfpExpired" xml:space="preserve">
+    <value>Fuera de ventana · {0}</value>
+  </data>
+  <data name="Rmv_ReqNoOfp" xml:space="preserve">
+    <value>✘ Sin OFP</value>
+  </data>
+  <data name="Rmv_ReqPending" xml:space="preserve">
+    <value>✘ Pendiente</value>
+  </data>
+  <data name="Rmv_ReqOk" xml:space="preserve">
+    <value>✔ Cumplido</value>
+  </data>
+  <data name="Rmv_ReqInvalid" xml:space="preserve">
+    <value>✘ Inválido</value>
+  </data>
+  <data name="Rmv_ReqExpired" xml:space="preserve">
+    <value>✘ Vencido</value>
+  </data>
+  <data name="Rmv_OfpHintNone" xml:space="preserve">
+    <value>Todavía no hay OFP cargado. Descargalo con el botón «Descargar OFP»; es obligatorio para activar.</value>
+  </data>
+  <data name="Rmv_OfpHintValid" xml:space="preserve">
+    <value>OFP válido y listo para activar. {0}</value>
+  </data>
+  <data name="Rmv_OfpHintPending" xml:space="preserve">
+    <value>Pendiente de validación: descargá el OFP de nuevo para completarla.</value>
+  </data>
+  <data name="Rmv_OfpHintNoDetail" xml:space="preserve">
+    <value>Validación sin detalle ({0}). Descargá el OFP de nuevo.</value>
+  </data>
+  <data name="Rmv_OfpStateExpired" xml:space="preserve">
+    <value>Fuera de ventana</value>
+  </data>
+  <data name="Rmv_OfpStateInvalid" xml:space="preserve">
+    <value>Inválido</value>
+  </data>
+  <data name="Rmv_OfpHintState" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="Rmv_NoEstimate" xml:space="preserve">
+    <value>Sin estimación</value>
+  </data>
+  <data name="Rmv_EstimateExplainer" xml:space="preserve">
+    <value>Estimación de presentación (no cambia el motor): usa la física del modelo con el desgaste medio actual y la duración del OFP cargado. Referencia Moderado hasta que elijas un perfil; con perfil, aplica su frecuencia.</value>
+  </data>
+  <data name="Rmv_StatePaused" xml:space="preserve">
+    <value>Evaluación suspendida</value>
+  </data>
+  <data name="Rmv_StateActive" xml:space="preserve">
+    <value>Activa</value>
+  </data>
+  <data name="Rmv_StateNoSession" xml:space="preserve">
+    <value>Sin sesión</value>
+  </data>
+  <data name="Rmv_BlockPaused" xml:space="preserve">
+    <value>La evaluación está pausada. Reanudá la sesión para seguir generando fallas.</value>
+  </data>
+  <data name="Rmv_BlockNoAircraft" xml:space="preserve">
+    <value>Seleccioná una aeronave para continuar.</value>
+  </data>
+  <data name="Rmv_BlockNoRisk" xml:space="preserve">
+    <value>Seleccioná un perfil de riesgo.</value>
+  </data>
+  <data name="Rmv_BlockOfpPending" xml:space="preserve">
+    <value>OFP pendiente: el plan de vuelo operacional es obligatorio. Descargalo y validalo antes de activar.</value>
+  </data>
+  <data name="Rmv_BlockSimDisconnected" xml:space="preserve">
+    <value>Conectá MSFS 2024 para comenzar el modo Realistic.</value>
+  </data>
+  <data name="Rmv_BlockNoAircraftData" xml:space="preserve">
+    <value>MSFS conectado pero sin datos de aeronave disponibles.</value>
+  </data>
+  <data name="Rmv_BtnProcessing" xml:space="preserve">
+    <value>PROCESANDO...</value>
+  </data>
+  <data name="Rmv_BtnStop" xml:space="preserve">
+    <value>DETENER MODO REALISTA</value>
+  </data>
+  <data name="Rmv_BtnActivate" xml:space="preserve">
+    <value>ACTIVAR MODO REALISTA</value>
+  </data>
+  <data name="Rmv_BtnStopTooltip" xml:space="preserve">
+    <value>Termina la sesión e intenta desactivar las fallas en Fenix; confirma en vuelo. Comprobá las fallas manualmente si la API no responde.</value>
+  </data>
+  <data name="Rmv_ExpectationFlight" xml:space="preserve">
+    <value>Probabilidad de una falla seria en este vuelo ({0}): {1}%.
+Probabilidad ajustada por el desgaste acumulado actual: {2}%</value>
+  </data>
+  <data name="Rmv_ExpectationNoFlight" xml:space="preserve">
+    <value>Sin vuelo cargado · referencia {0}: ≈ {1} fallas/h</value>
+  </data>
+  <data name="Rmv_NoSimbriefUserid" xml:space="preserve">
+    <value>Configurá tu userid de SimBrief en Ajustes antes de descargar el OFP.</value>
+  </data>
+  <data name="Rmv_DownloadError" xml:space="preserve">
+    <value>Error al descargar: {0}</value>
+  </data>
+  <data name="Mw_Status_PhaseLabel" xml:space="preserve">
+    <value>FASE: </value>
+  </data>
+  <data name="Mw_TooltipUpdateInstalled" xml:space="preserve">
+    <value>Versión instalada. Clic para ver Actualizaciones</value>
+  </data>
+  <data name="Rm_AverageWearLabel" xml:space="preserve">
+    <value>Desgaste medio: </value>
+  </data>
+  <data name="Rm_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Rm_HistoryDurationLabel" xml:space="preserve">
+    <value>  ·  Duración: </value>
+  </data>
+  <data name="Rm_HistoryOfpLabel" xml:space="preserve">
+    <value>  ·  OFP: </value>
+  </data>
+  <data name="Rm_HistoryRiskLabel" xml:space="preserve">
+    <value>Riesgo: </value>
+  </data>
+  <data name="Rm_ProfileChipLabel" xml:space="preserve">
+    <value>Perfil</value>
+  </data>
+  <data name="Rm_ProfileLabel" xml:space="preserve">
+    <value>Perfil: </value>
+  </data>
+  <data name="Rm_StatusLabel" xml:space="preserve">
+    <value>Estado: </value>
+  </data>
+  <data name="Settings_Help4Text" xml:space="preserve">
+    <value>Cerrar la ventana minimiza al icono de la bandeja; la app sigue corriendo. Usá “Salir” desde la bandeja para terminar por completo.</value>
+  </data>
+  <data name="Mw_TooltipDonate" xml:space="preserve">
+    <value>Apoya el desarrollo con una donación. ¡Gracias!</value>
+  </data>
+  <data name="Mw_TooltipSettings" xml:space="preserve">
+    <value>Configuración</value>
+  </data>
+  <data name="Mw_TooltipUpdateAvailable" xml:space="preserve">
+    <value>Hay una versión más nueva. Abre Ajustes → Actualizaciones</value>
+  </data>
+  <data name="Rm_ClockRealTime" xml:space="preserve">
+    <value>Tiempo real</value>
+  </data>
+  <data name="Rm_ClockSimTime" xml:space="preserve">
+    <value>Un vuelo de 2h30 corre en 2min30</value>
+  </data>
+  <data name="Rm_ReqAircraftIcaoTooltip" xml:space="preserve">
+    <value>El tipo ICAO del OFP debe coincidir con la aeronave seleccionada.</value>
+  </data>
+  <data name="Rm_SkipScenarioTooltip" xml:space="preserve">
+    <value>Salta el escenario (p. ej. directo al descenso)</value>
+  </data>
+  <data name="Res_WearAvgTooltip" xml:space="preserve">
+    <value>Promedio aritmético del aumento de los sistemas con desgaste registrado en esta sesión.</value>
+  </data>
+  <data name="Rm_DiscardPreparedTooltip" xml:space="preserve">
+    <value>Descarta las fallas preparadas en cola (Fenix no disponible) sin enviarlas ni armar nada.</value>
+  </data>
+  <data name="Rm_ReqFenixTooltip" xml:space="preserve">
+    <value>No es requisito para activar: sin Fenix la sesión prepara fallas en cola y las envía cuando Fenix está disponible.</value>
+  </data>
+  <data name="Rm_ReqOfpTooltip" xml:space="preserve">
+    <value>Obligatorio para activar: descargá tu plan desde SimBrief y se valida automáticamente (aeronave, campos mínimos y ventana de salida).</value>
+  </data>
+  <data name="Settings_Tab_Realistic" xml:space="preserve">
+    <value>Modo Realista</value>
+  </data>
+  <data name="Mw_BtnTrainStart" xml:space="preserve">
+    <value>▶ INICIAR ESCENARIO</value>
+  </data>
+  <data name="Mw_BtnTrainStop" xml:space="preserve">
+    <value>⏹ DETENER ESCENARIO</value>
+  </data>
+  <data name="Mw_BtnRealisticStart" xml:space="preserve">
+    <value>▶ ACTIVAR MODO REALISTA</value>
+  </data>
+  <data name="Mw_BtnRealisticStop" xml:space="preserve">
+    <value>⏹ DETENER MODO REALISTA</value>
+  </data>
+  <data name="Mw_BtnCustomStart" xml:space="preserve">
+    <value>▶ ACTIVAR PRESET</value>
+  </data>
+  <data name="Mw_BtnCustomStop" xml:space="preserve">
+    <value>⏹ DETENER PRESET</value>
+  </data>
+</root>

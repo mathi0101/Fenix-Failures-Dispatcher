@@ -1,10 +1,17 @@
-using RealFenixFailures.Application.DTOs;
+﻿using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.Enums;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.ViewModels.Realistic;
 
 namespace RealFenixFailures.TestUnits.Presentation;
 
-public class SessionResultWindowViewModelTests {
+public class SessionResultWindowViewModelTests : IDisposable {
+    // Los textos del modal se resuelven con el idioma activo de Loc (issue #12);
+    // los tests fijan español para que las assertions no dependan de la PC.
+    public SessionResultWindowViewModelTests() => Loc.Instance.CurrentLanguage = AppLanguage.Spanish;
+
+    public void Dispose() { /* Loc se restaura sola en los demás tests; acá queda ES. */ }
+
     [Fact]
     public void Result_UsesOwnMetadata_SortsEventsAndSeparatesRejectedFailures() {
         var started = new DateTime(2026, 10, 24, 12, 0, 0, DateTimeKind.Utc);
@@ -34,6 +41,7 @@ public class SessionResultWindowViewModelTests {
 
     [Fact]
     public void ResolvedFailure_KeepsPhaseSystemAndDuration_WithoutClaimingRepairMethod() {
+        Loc.Instance.CurrentLanguage = AppLanguage.Spanish; // re-fijado: otros tests mutan Loc en paralelo
         var triggered = new DateTime(2026, 10, 24, 23, 50, 0, DateTimeKind.Utc);
         var row = new SessionResultWindowViewModel.FailureRow(new FailureResultDto {
             Id = 1, FenixFailureId = "HYD", FailureName = "Fuga", FailureSystem = "Hydraulic", FailureGroup = "Green",
@@ -52,6 +60,7 @@ public class SessionResultWindowViewModelTests {
 
     [Fact]
     public void EmptyDiscardedResult_HasExplicitEmptyStates() {
+        Loc.Instance.CurrentLanguage = AppLanguage.Spanish; // re-fijado: otros tests mutan Loc en paralelo
         var vm = new SessionResultWindowViewModel(new SessionResultDto { SessionId = 1, DiscardedAt = DateTime.UtcNow }, wearNoticeThresholdPct: 80);
         Assert.False(vm.HasFailures);
         Assert.False(vm.HasTimeline);
