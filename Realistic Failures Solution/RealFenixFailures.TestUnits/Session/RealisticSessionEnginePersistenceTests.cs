@@ -69,7 +69,7 @@ public class RealisticSessionEnginePersistenceTests {
         return (system, group, definition, preset, aircraft, flightPlan);
     }
 
-    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null, int sessionSystemsCap = 0) {
+    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null, int sessionSystemsCap = 0, double wearRateMultiplier = 1.0) {
         var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
         var defRepo = new FenixFailureDefinitionRepository(db);
         var flightSessionRepo = new FlightSessionRepository(db);
@@ -82,7 +82,9 @@ public class RealisticSessionEnginePersistenceTests {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
             Physics = new RealisticPhysicsSettings { GroundSeedLambdaBase = 1.0 },
-            Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap },
+            // Multiplicador pineado por el test: el esperado de cada caso se deriva de esta variable
+            // y de la fórmula del motor (delta = tasa × multiplicador × horas), nunca de literales.
+            Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap, WearRateMultiplier = wearRateMultiplier },
             Moderate = new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
         };
         var engine = new RealisticSessionEngine(
@@ -164,7 +166,10 @@ public class RealisticSessionEnginePersistenceTests {
         db.SaveChanges();
         SetupSimulatorConnected();
         var clock = _now;
-        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        // Multiplicador pineado por el test: el esperado se deriva de la fórmula del motor
+        // (delta = tasa × multiplicador × horas) y del desgaste inicial (0: sin filas previas).
+        const double wearRateMultiplier = 1.0;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock, wearRateMultiplier: wearRateMultiplier);
         Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
             new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None)).Started);
@@ -182,11 +187,12 @@ public class RealisticSessionEnginePersistenceTests {
         await engine.StopSession(CancellationToken.None);
         db.ChangeTracker.Clear();
 
+        var expectedDelta = wearable.WearPerFlightHour * wearRateMultiplier * 14;
         var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.Equal(8.4, wear.WearPercentage, 6);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), wear.WearPercentage, 6);
         var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
-        Assert.Equal(8.4, delta.DeltaPercentage, 6);
-        Assert.Equal(8.4, delta.TotalPercentage, 6);
+        Assert.Equal(expectedDelta, delta.DeltaPercentage, 6);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), delta.TotalPercentage, 6);
     }
 
     [Fact]
@@ -200,20 +206,22 @@ public class RealisticSessionEnginePersistenceTests {
         };
         db.Add(wearable);
         db.SaveChanges();
+        const double initialWear = 50;
         db.Add(new AircraftSystemWear {
             UserAircraftId = seeded.Aircraft.Id, WearableSystemId = wearable.Id,
-            WearPercentage = 50, LastUpdatedAt = _now
+            WearPercentage = initialWear, LastUpdatedAt = _now
         });
         db.SaveChanges();
-
         SetupSimulatorConnected();
         var clock = DateTime.UtcNow;
-        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        // Multiplicador pineado por el test (no el default de código): el esperado sale de la fórmula
+        // delta = tasa × multiplicador × horas desde el ENGINES_STARTED, con clamp 0–100.
+        const double wearRateMultiplier = 1.0;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock, wearRateMultiplier: wearRateMultiplier);
         var start = await engine.TryStartSession(new RealisticModeContext(
             RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None);
         Assert.True(start.Started);
-
         // Una hora de escenario pre-motores no acumula: el anclaje es el ENGINES_STARTED.
         clock = clock.AddHours(1);
         _flightEventDetector
@@ -231,7 +239,8 @@ public class RealisticSessionEnginePersistenceTests {
         var afterStop = DateTime.UtcNow;
 
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.InRange(wear.WearPercentage, 58.4, 58.41);
+        var expectedWear = Math.Clamp(initialWear + wearable.WearPerFlightHour * wearRateMultiplier * 14, 0, 100);
+        Assert.InRange(wear.WearPercentage, expectedWear, expectedWear + 0.01);
         Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
         var session = await db.FlightSessions.AsNoTracking().SingleAsync();
         Assert.InRange(session.FinishedAt!.Value, beforeStop, afterStop);

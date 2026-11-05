@@ -69,14 +69,20 @@ public class RealisticSessionManagerTests {
         SetupConnected();
         SetupValidData();
         SetupFenixFailuresOk();
+        const double wearPerFlightHour = 0.6, initialWear = 50;
         var wear = new AircraftSystemWear {
-            UserAircraftId = 1, WearPercentage = 50,
-            WearableSystem = new AircraftWearableSystem { AtaId = 24, Name = "Electrical", ShortName = "Elec", WearPerFlightHour = 0.6 }
+            UserAircraftId = 1, WearPercentage = initialWear,
+            WearableSystem = new AircraftWearableSystem { AtaId = 24, Name = "Electrical", ShortName = "Elec", WearPerFlightHour = wearPerFlightHour }
         };
         _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync([wear]);
+        // Config pineada por el test (no defaults de código): el esperado se deriva de estos objetos y
+        // de la fórmula del motor (delta = tasa × multiplicador × horas), nunca de valores literales.
+        var settings = new RealisticModeSettings {
+            Wear = new WearSettings { WearRateMultiplier = 1.0, SessionSystemsCap = 0 }
+        };
         var manager = CreateManager(TimeSpan.FromMilliseconds(20),
-            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random));
+            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random), settings);
         // El anclaje de desgaste es el ENGINES_STARTED: se lo hace llegar al engine por el loop real.
         _sessionService
             .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
@@ -97,15 +103,17 @@ public class RealisticSessionManagerTests {
         while (snapshots.Count == 0 && DateTime.UtcNow < deadline)
             await Task.Delay(10);
         Assert.NotEmpty(snapshots);
-        _now = _now.AddHours(2);
+        const double scenarioHours = 2;
+        _now = _now.AddHours(scenarioHours);
 
         await manager.StopAsync(CancellationToken.None);
 
-        Assert.Equal(51.2, wear.WearPercentage, 6);
+        var expectedDelta = wearPerFlightHour * settings.Wear.WearRateMultiplier * scenarioHours;
+        Assert.Equal(initialWear + expectedDelta, wear.WearPercentage, 6);
         _wearRepository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
         _sessionService.Verify(s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(),
             It.Is<IReadOnlyList<SystemWearDeltaDto>>(d => d.Count == 1 && d[0].AtaId == 24
-                && Math.Abs(d[0].DeltaPercentage - 1.2) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
+                && Math.Abs(d[0].DeltaPercentage - expectedDelta) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -572,11 +580,5 @@ public class RealisticSessionManagerTests {
         await Task.Delay(300);
         Assert.False(notice.Task.IsCompleted);
         Assert.False(manager.IsFlightCompletionPending);
-    }
-
-    [Fact]
-    public async Task FlightCompletion_DefaultGrace_IsThreeMinutes() {
-        var manager = CreateManager();
-        Assert.Equal(TimeSpan.FromMinutes(3), manager.FlightCompletionGraceDelay);
     }
 }

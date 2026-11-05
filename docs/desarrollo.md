@@ -135,6 +135,17 @@ El agente no edita `Directory.Build.props` ni crea tags: la versión se define r
 - Pruebas de integración real (MSFS/Fenix): manuales; no declararlas como pasadas si no se ejecutaron.
 - Comprobación documental al final: `git diff --check` y revisión de enlaces locales y referencias viejas en docs.
 
+### Política de aserciones en tests (nada de resultados hardcodeados)
+
+Regla obligatoria (2026-11-04, auditoría que reemplazó 15 tests acoplados): **ningún test debe validar resultados horneados como literales** cuando el valor depende de configuración, calibración o catálogos curados del código. Si cambiar un valor en `FailureEngineSettings`, `SeedData`, un JSON embebido (`failures.json`, presets) o una constante productiva rompe un test, el test está mal escrito, no el cambio.
+
+- **El esperado se deriva en runtime de la misma fuente que usa el código productivo**: el objeto de settings que el test pinea (`settings.Wear.WearRateMultiplier × horas`, no `51.2`), los JSON embebidos leídos con el mismo loader/parser (`Assert.Equal(jsonFailures.Count, db.Count)`, no `384`), `SeedData` para seeds de migración, `Enum.GetValues` para enums sembrados.
+- **Pin explícito antes que default implícito**: si un test necesita estabilidad frente a la calibración, construye sus settings con valores propios (p. ej. `WearRateMultiplier = 1.0`) y calcula el esperado desde ese objeto; no confía en los defaults de código.
+- **Lo que sí puede fijarse literal**: contratos de serialización en BD (valores numéricos de enums persistidos), invariantes estructurales (unicidad, monotonía entre perfiles de riesgo, rangos/clamps) y datos de fixture propios del test.
+- **Tests de defaults de código**: se cubren con invariantes (positividad, obligatoriedad, coherencia entre campos), no con snapshots de valores; los snapshots de defaults rompen en cada curación y no prueban nada de comportamiento.
+
+Referencia: la auditoría y el reemplazo de cada caso quedaron en `docs/CHANGELOG.md` (2026-11-04, `test(testunits)`).
+
 ### Advertencias conocidas de build (históricas, resueltas)
 
 Históricas: se registran para evitar regresión y no como avisos presentes. Los builds Debug y Release pasan a **0 advertencias** desde el 2026-10-14.
