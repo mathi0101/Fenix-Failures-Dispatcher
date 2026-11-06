@@ -29,6 +29,8 @@ public class RealisticSessionManagerTests {
     private Mock<IServiceScope> _scope = null!;
     private readonly Mock<IAircraftSystemWearRepository> _wearRepository = new();
     private readonly Mock<IFenixFailureDefinitionRepository> _fenixFailureDefinitions = new();
+    private ComplexFlightPhaseEnum[]? _phaseScript;
+    private int _phaseScriptIndex;
 
     private RealisticSessionManager CreateManager(TimeSpan? evaluationInterval = null, Func<IFailureRuleEvaluator, RealisticFailurePolicy>? policyFactory = null, RealisticModeSettings? realisticSettings = null) {
         _triggeredFailureRepository = new Mock<ITriggeredFailureRepository>();
@@ -67,14 +69,20 @@ public class RealisticSessionManagerTests {
         SetupConnected();
         SetupValidData();
         SetupFenixFailuresOk();
+        const double wearPerFlightHour = 0.6, initialWear = 50;
         var wear = new AircraftSystemWear {
-            UserAircraftId = 1, WearPercentage = 50,
-            WearableSystem = new AircraftWearableSystem { AtaId = 24, Name = "Electrical", ShortName = "Elec", WearPerFlightHour = 0.6 }
+            UserAircraftId = 1, WearPercentage = initialWear,
+            WearableSystem = new AircraftWearableSystem { AtaId = 24, Name = "Electrical", ShortName = "Elec", WearPerFlightHour = wearPerFlightHour }
         };
         _wearRepository.Setup(r => r.GetForAircraftAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync([wear]);
+        // Config pineada por el test (no defaults de código): el esperado se deriva de estos objetos y
+        // de la fórmula del motor (delta = tasa × multiplicador × horas), nunca de valores literales.
+        var settings = new RealisticModeSettings {
+            Wear = new WearSettings { WearRateMultiplier = 1.0, SessionSystemsCap = 0 }
+        };
         var manager = CreateManager(TimeSpan.FromMilliseconds(20),
-            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random));
+            evaluator => new RealisticFailurePolicy(evaluator, () => _now, _random), settings);
         // El anclaje de desgaste es el ENGINES_STARTED: se lo hace llegar al engine por el loop real.
         _sessionService
             .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
@@ -95,15 +103,17 @@ public class RealisticSessionManagerTests {
         while (snapshots.Count == 0 && DateTime.UtcNow < deadline)
             await Task.Delay(10);
         Assert.NotEmpty(snapshots);
-        _now = _now.AddHours(2);
+        const double scenarioHours = 2;
+        _now = _now.AddHours(scenarioHours);
 
         await manager.StopAsync(CancellationToken.None);
 
-        Assert.Equal(51.2, wear.WearPercentage, 6);
+        var expectedDelta = wearPerFlightHour * settings.Wear.WearRateMultiplier * scenarioHours;
+        Assert.Equal(initialWear + expectedDelta, wear.WearPercentage, 6);
         _wearRepository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
         _sessionService.Verify(s => s.FinalizeSessionAsync(1, It.IsAny<DateTime>(),
             It.Is<IReadOnlyList<SystemWearDeltaDto>>(d => d.Count == 1 && d[0].AtaId == 24
-                && Math.Abs(d[0].DeltaPercentage - 1.2) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
+                && Math.Abs(d[0].DeltaPercentage - expectedDelta) < 0.000001), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -452,5 +462,73 @@ public class RealisticSessionManagerTests {
         await manager.StopAsync(CancellationToken.None);
         Assert.Equal(0, manager.PreparedCount);
         Assert.Null(manager.SessionState);
+    }
+
+    // ===== Aviso de fin de vuelo (issue #15): gracia, cancelación y default =====
+
+    /// <summary>
+    /// Arranca una sesión real y arma el script de fases del detector: [Cruise (arma la secuencia),
+    /// OnGate (completa)] por defecto; espera a que el loop consuma ambos ticks antes de volver.
+    /// </summary>
+    private async Task<RealisticSessionManager> StartSessionWithCompletionScriptAsync(RealisticSessionManager manager) {
+        _sessionService
+            .Setup(s => s.AddEventLogAsync(It.IsAny<int>(), It.IsAny<SessionEventCategory>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComplexFlightPhaseEnum>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        Assert.True((await manager.StartNewSessionAsync(Context(), CancellationToken.None)).IsSuccess);
+        _phaseScript = [ComplexFlightPhaseEnum.Cruise, ComplexFlightPhaseEnum.OnGate];
+        _phaseScriptIndex = 0;
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(() => _phaseScript[_phaseScriptIndex >= _phaseScript.Length ? _phaseScript.Length - 1 : _phaseScriptIndex++]);
+        // Espera determinística (con timeout) de que el loop consuma el script completo.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_phaseScriptIndex < 2 && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+        Assert.True(_phaseScriptIndex >= 2, "El loop no consumió el script de fases a tiempo.");
+        return manager;
+    }
+
+    [Fact]
+    public async Task FlightCompletion_NoticeFires_AfterGraceDelay() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+        manager.FlightCompletionGraceDelay = TimeSpan.FromMilliseconds(150);
+
+        var notice = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.FlightCompletionNoticeDue += (_, e) => notice.TrySetResult();
+        manager.PropertyChanged += (_, e) => {
+            if (e.PropertyName == nameof(manager.IsFlightCompletionPending) && manager.IsFlightCompletionPending)
+                notice.TrySetResult();
+        };
+
+        await StartSessionWithCompletionScriptAsync(manager);
+
+        await notice.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(manager.IsFlightCompletionPending);
+
+        await manager.StopAsync(CancellationToken.None);
+        Assert.False(manager.IsFlightCompletionPending);
+    }
+
+    [Fact]
+    public async Task FlightCompletion_Cancelled_WhenSessionStopsDuringGrace() {
+        SetupConnected();
+        SetupValidData();
+        SetupFenixFailuresOk();
+        var manager = CreateManager(TimeSpan.FromMilliseconds(20));
+        manager.FlightCompletionGraceDelay = TimeSpan.FromSeconds(10); // gracia largo: no vence dentro del test
+
+        var notice = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.FlightCompletionNoticeDue += (_, _) => notice.TrySetResult();
+
+        await StartSessionWithCompletionScriptAsync(manager);
+        await manager.StopAsync(CancellationToken.None);
+
+        // Tras cerrar la sesión, el countdown debe quedar cancelado: ni un gracia completo dispara el aviso.
+        await Task.Delay(300);
+        Assert.False(notice.Task.IsCompleted);
+        Assert.False(manager.IsFlightCompletionPending);
     }
 }

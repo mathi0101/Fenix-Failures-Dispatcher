@@ -23,6 +23,7 @@ public class RealFenixDbContext : DbContext {
     public DbSet<AircraftSystemWear> AircraftSystemWears => Set<AircraftSystemWear>();
     public DbSet<FlightPlan> FlightPlans => Set<FlightPlan>();
     public DbSet<AppVersionHistory> AppVersionHistories => Set<AppVersionHistory>();
+    public DbSet<CatalogSyncState> CatalogSyncStates => Set<CatalogSyncState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
 
@@ -86,6 +87,7 @@ public class RealFenixDbContext : DbContext {
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.CanBeTemporary).HasDefaultValue(false);
             entity.Property(x => x.CanBeRepaired).HasDefaultValue(false);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.HasOne(x => x.Group)
                   .WithMany(g => g.FailureDefinitions)
                   .HasForeignKey(x => x.GroupId)
@@ -212,6 +214,12 @@ public class RealFenixDbContext : DbContext {
             entity.HasKey(x => x.Id);
             entity.Property(x => x.AppVersion).HasMaxLength(50).IsRequired();
             entity.Property(x => x.DetectedAtUtc).IsRequired();
+        });
+
+        modelBuilder.Entity<CatalogSyncState>(entity => {
+            // Fila única (Id=1): el hash del contenido curado la última vez que se sincronizó.
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.CatalogsHash).HasMaxLength(64).IsRequired();
         });
 
         SeedData.Apply(modelBuilder);

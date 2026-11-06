@@ -65,6 +65,43 @@ public class UserPreferencesService {
         }
     }
 
+    /// <summary>
+    /// Idioma de la interfaz persistido ("es"/"en", issue #12); nulo = sin elección
+    /// (el arranque lo detecta del sistema y lo persiste).
+    /// </summary>
+    public string? Language {
+        get {
+            lock (_lock) return _preferences.Language;
+        }
+        set {
+            lock (_lock) {
+                if (_preferences.Language == value)
+                    return;
+                _preferences.Language = value;
+            }
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// Minutos de gracia entre la detección del fin de vuelo (apagado de motores en gate) y el aviso de
+    /// finalización de la sesión (default 3). Se cuenta en tiempo real de pared, no en tiempo de simulación.
+    /// </summary>
+    public int RealisticCompletionGraceMinutes {
+        get {
+            lock (_lock) return _preferences.RealisticCompletionGraceMinutes ?? UserPreferences.DefaultRealisticCompletionGraceMinutes;
+        }
+        set {
+            lock (_lock) {
+                var clamped = Math.Max(0, value);
+                if (_preferences.RealisticCompletionGraceMinutes == clamped)
+                    return;
+                _preferences.RealisticCompletionGraceMinutes = clamped;
+            }
+            Save();
+        }
+    }
+
     private UserPreferences Load() {
         try {
             if (!File.Exists(_filePath))
@@ -105,4 +142,13 @@ public class UserPreferences {
 
     /// <summary>True si el usuario desactivó el ping anónimo de uso.</summary>
     public bool TelemetryOptOut { get; set; }
+
+    /// <summary>Idioma de la interfaz ("es"/"en", issue #12); nulo = sin elegir (primer arranque detecta del sistema).</summary>
+    public string? Language { get; set; }
+
+    /// <summary>Minutos de gracia para el aviso de fin de vuelo (issue #15); nulo → default de fábrica.</summary>
+    public int? RealisticCompletionGraceMinutes { get; set; }
+
+    /// <summary>Default de fábrica del gracia de fin de vuelo: 1 minutos.</summary>
+    public const int DefaultRealisticCompletionGraceMinutes = 1;
 }

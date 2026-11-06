@@ -7,6 +7,7 @@ using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Infrastructure.Persistence;
 using RealFenixFailures.UI.DependencyInjection;
 using RealFenixFailures.UI.Diagnostics;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.Views;
 
@@ -61,6 +62,20 @@ public partial class App : System.Windows.Application {
             var initializers = scope.ServiceProvider.GetServices<IInitializerService>();
             foreach (var initializer in initializers)
                 await initializer.InitializeAsync(CancellationToken.None);
+
+            // Primer arranque (issue #12): LanguageBootstrapper ya resolvió el idioma por
+            // detección antes del splash; acá se persiste para que la detección corra una
+            // sola vez y después mande la elección del usuario (Ajustes → General).
+            var preferences = scope.ServiceProvider.GetRequiredService<UserPreferencesService>();
+            if (preferences.Language is null) {
+                try {
+                    preferences.Language = LanguageResolver.ToCode(Loc.Instance.CurrentLanguage);
+                }
+                catch (Exception ex) {
+                    scope.ServiceProvider.GetRequiredService<ILogger<App>>()
+                        .LogWarning(ex, "No se pudo persistir el idioma detectado en el primer arranque.");
+                }
+            }
         }
         catch (Exception startupException) {
             Program.CloseSplash();

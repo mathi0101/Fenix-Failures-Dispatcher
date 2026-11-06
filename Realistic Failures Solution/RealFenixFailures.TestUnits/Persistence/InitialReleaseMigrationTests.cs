@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using RealFenixFailures.Domain.Entities;
+using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Infrastructure.Persistence;
 
 namespace RealFenixFailures.TestUnits.Persistence;
@@ -21,8 +22,10 @@ public class InitialReleaseMigrationTests {
             var applied = await db.Database.GetAppliedMigrationsAsync();
             Assert.Contains(applied, m => m.EndsWith("_InitialRelease"));
             Assert.Empty(await db.Database.GetPendingMigrationsAsync());
-            Assert.Equal(19, await db.AircraftWearableSystems.CountAsync());
-            Assert.Equal(4, await db.FailurePresetTypes.CountAsync());
+            // Counts derivados de la fuente del seed y del enum, sin literales: curar SeedData o
+            // agregar un PresetTypeEnum actualiza el test sin tocarlo.
+            Assert.Equal(SeedData.WearableSystems.Count, await db.AircraftWearableSystems.CountAsync());
+            Assert.Equal(Enum.GetValues(typeof(PresetTypeEnum)).Length, await db.FailurePresetTypes.CountAsync());
             // Release no incorpora datos de demostración en la migración.
             Assert.Empty(await db.UserAircrafts.ToListAsync());
             Assert.Empty(await db.FailurePresets.ToListAsync());
@@ -41,7 +44,7 @@ public class InitialReleaseMigrationTests {
         await using var restarted = new RealFenixDbContext(options);
         await restarted.Database.MigrateAsync();
         Assert.Equal("CX-TEST", (await restarted.UserAircrafts.SingleAsync()).Registration);
-        Assert.Equal(19, await restarted.AircraftWearableSystems.CountAsync());
+        Assert.Equal(SeedData.WearableSystems.Count, await restarted.AircraftWearableSystems.CountAsync());
     }
 
     [Fact]
@@ -58,6 +61,6 @@ public class InitialReleaseMigrationTests {
         await db.Database.MigrateAsync();
         var applied = await db.Database.GetAppliedMigrationsAsync();
         Assert.Contains(applied, m => m.EndsWith("_InitialRelease"));
-        Assert.Equal(19, await db.AircraftWearableSystems.CountAsync());
+        Assert.Equal(SeedData.WearableSystems.Count, await db.AircraftWearableSystems.CountAsync());
     }
 }

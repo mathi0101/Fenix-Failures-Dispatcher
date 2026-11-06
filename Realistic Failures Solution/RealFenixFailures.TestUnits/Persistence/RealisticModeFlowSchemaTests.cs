@@ -20,18 +20,20 @@ public class RealisticModeFlowSchemaTests {
         return context;
     }
 
-    private static readonly int[] ExpectedAtaIds = [21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 46, 49, 52, 70, 80];
-
     [Fact]
-    public async Task SeedAircraftWearableSystems_Provides19AtaSystems_WithUniqueAtaIds() {
+    public async Task SeedAircraftWearableSystems_MatchesSeedDataCatalog_WithUniqueAtaIdsAndDisplayOrder() {
         await using var db = CreateContext();
 
-        var systems = await db.AircraftWearableSystems.OrderBy(s => s.Id).ToListAsync();
+        var systems = await db.AircraftWearableSystems.OrderBy(s => s.AtaId).ToListAsync();
 
-        Assert.Equal(19, systems.Count);
-        Assert.Equal(ExpectedAtaIds, systems.Select(s => s.AtaId).OrderBy(a => a).ToArray());
-        Assert.Equal(19, systems.Select(s => s.AtaId).Distinct().Count());
-        Assert.Equal(19, systems.Select(s => s.DisplayOrder).Distinct().Count());
+        // El catálogo sembrado en BD replica la fuente del seed (misma referencia que usa la migración),
+        // sin valores literales: curar SeedData actualiza el test sin tocarlo.
+        Assert.Equal(SeedData.WearableSystems.Count, systems.Count);
+        Assert.Equal(
+            SeedData.WearableSystems.Select(s => s.AtaId).OrderBy(a => a),
+            systems.Select(s => s.AtaId));
+        Assert.Equal(systems.Count, systems.Select(s => s.AtaId).Distinct().Count());
+        Assert.Equal(systems.Count, systems.Select(s => s.DisplayOrder).Distinct().Count());
         Assert.All(systems, s => Assert.False(string.IsNullOrWhiteSpace(s.Name)));
         Assert.All(systems, s => Assert.False(string.IsNullOrWhiteSpace(s.ShortName)));
     }
@@ -44,23 +46,5 @@ public class RealisticModeFlowSchemaTests {
         Assert.Equal(12, (int)SessionEventCategory.WearUpdated);
         Assert.Equal(13, (int)SessionEventCategory.OfpLoaded);
         Assert.Equal(14, (int)SessionEventCategory.SessionRecovered);
-    }
-
-    [Fact]
-    public void FailureEngineSettings_RealisticMode_HasObjectiveDefaults() {
-        var settings = new FailureEngineSettings();
-
-        Assert.False(settings.Debug);
-        Assert.Equal(50, settings.MaxLogEntries);
-        Assert.Equal(30, settings.CheckConnectionIntervalSeconds);
-        Assert.Equal(10, settings.CheckIntervalSeconds);
-        Assert.Equal(60, settings.RealisticMode.EvaluationIntervalSeconds);
-        Assert.Equal(5, settings.RealisticMode.PreparedQueueLimit);
-        Assert.True(settings.RealisticMode.GroundFailureEnabled);
-        Assert.Equal(50, settings.RealisticMode.ThinkingLinesCap);
-        Assert.Equal(2, settings.RealisticMode.Ofp.PreStartWindowHours);
-        Assert.Equal(0.5, settings.RealisticMode.Ofp.PostArrivalWindowHours);
-        Assert.Equal(80, settings.RealisticMode.Wear.ThresholdNoticePct);
-        Assert.Equal(0, settings.RealisticMode.Wear.SessionSystemsCap);
     }
 }

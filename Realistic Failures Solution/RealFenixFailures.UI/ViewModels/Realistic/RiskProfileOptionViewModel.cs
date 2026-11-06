@@ -1,6 +1,6 @@
 using RealFenixFailures.Application.DTOs;
 using RealFenixFailures.Domain.Enums;
-using RealFenixFailures.Domain.Services;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Globalization;
 using System.Windows.Media;
@@ -16,12 +16,14 @@ public sealed record IntensitySegment(Brush Fill);
 /// <summary>
 /// Tarjeta de un perfil de riesgo de la ventana de selección: textos fijos de producto + valores
 /// dinámicos (medidores, chips y estimación) recalculados desde la configuración vigente del motor.
+/// Los textos llegan resueltos por <see cref="CreateDefaults"/>; al cambiar el idioma la ventana
+/// reconstruye las cuatro tarjetas (ver RiskProfileWindowViewModel), así que no se re-notifica acá.
 /// </summary>
 public sealed class RiskProfileOptionViewModel : ObservableObject {
-    private string _estimateDisplay = "≈ … fallas graves cada 10 h de vuelo*";
-    private string _frequencyLabel = "×…";
+    private string _estimateDisplay = Loc.T("Rp_EstimatePlaceholder");
+    private string _frequencyLabel = "×...";
     private double _frequencyBar;
-    private string _wearLabel = "hasta ×…";
+    private string _wearLabel = Loc.T("Rp_WearPlaceholder");
     private double _wearBar;
     private IReadOnlyList<RiskProfileChip> _chips = [];
     private bool _isSelected;
@@ -91,42 +93,43 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
 
         FrequencyLabel = FormatMultiplier(multiplier);
         FrequencyBar = maxMultiplier > 0 ? multiplier / maxMultiplier * 100 : 0;
-        WearLabel = $"hasta ×{wearMax:0.##}";
+        WearLabel = Loc.T("Rp_WearUpTo", $"{wearMax:0.##}");
         WearBar = maxWearMultiplier > 1 ? (wearMax - 1) / (maxWearMultiplier - 1) * 100 : 100;
         // Regla de producto: Bajo solo menciona graves (el motor le descarta las críticas); el resto,
         // graves y críticas, ambas por cada 10 horas de vuelo.
         var majorTen = FormatRate(dto.MajorPerHour * 10);
         EstimateDisplay = Risk == RiskLevel.Low
-            ? $"≈ {majorTen} fallas graves cada 10 h de vuelo*"
-            : $"≈ {majorTen} fallas graves y {FormatRate(dto.CriticalPerHour * 10)} críticas cada 10 h de vuelo*";
+            ? Loc.T("Rp_EstimateMajorOnly", majorTen)
+            : Loc.T("Rp_EstimateMajorCritical", majorTen, FormatRate(dto.CriticalPerHour * 10));
 
         var chips = new List<RiskProfileChip>();
         if (profile.GroundFailuresCap > 0)
-            chips.Add(new RiskProfileChip("Al iniciar, la aeronave puede venir con hasta ",
-                $"{profile.GroundFailuresCap} {(profile.GroundFailuresCap == 1 ? "falla" : "fallas")}"));
+            chips.Add(new RiskProfileChip(Loc.T("Rp_ChipGroundLead"),
+                Loc.T(profile.GroundFailuresCap == 1 ? "Rp_ChipGroundOne" : "Rp_ChipGroundMany", profile.GroundFailuresCap)));
         if (profile.CriticalRespiteSeconds > 0)
-            chips.Add(new RiskProfileChip($"{profile.CriticalRespiteSeconds / 60:0} min de tregua",
-                " tras cada falla crítica"));
+            chips.Add(new RiskProfileChip(Loc.T("Rp_ChipRespiteLead", profile.CriticalRespiteSeconds / 60),
+                Loc.T("Rp_ChipRespiteRest")));
         chips.Add(new RiskProfileChip(VatsimAdviceLead, VatsimAdviceRest));
         Chips = chips;
 
         static string FormatMultiplier(double value) {
-            if (Math.Abs(value - 1.0) < 0.001) return $"×{value:0.0} · referencia";
+            if (Math.Abs(value - 1.0) < 0.001) return Loc.T("Rp_MultReference", $"{value:0.0}");
             var percentage = Math.Round((value < 1 ? 1 - value : value - 1) * 100);
-            return $"×{value:0.##} · {percentage} % {(value < 1 ? "menos" : "más")}";
+            return Loc.T("Rp_MultPercent", $"{value:0.##}", percentage, Loc.T(value < 1 ? "Rp_MultLess" : "Rp_MultMore"));
         }
     }
 
-    /// <summary>Tasa por hora a texto: entero a partir de 10, un decimal desde 1, dos decimales por debajo; coma decimal.</summary>
+    /// <summary>Tasa por hora a texto: entero a partir de 10, un decimal desde 1, dos decimales por debajo;
+    /// separador decimal según el idioma activo.</summary>
     private static string FormatRate(double value) {
         if (value == 0) return "0";
-        if (value < 0.01) return "< 0,01";
-        var text = value >= 10
-            ? value.ToString("0", CultureInfo.InvariantCulture)
+        if (value < 0.01) return Loc.T("Rp_RateBelowMin");
+        var culture = CultureInfo.CurrentUICulture;
+        return value >= 10
+            ? value.ToString("0", culture)
             : value >= 1
-                ? value.ToString("0.#", CultureInfo.InvariantCulture)
-                : value.ToString("0.00", CultureInfo.InvariantCulture);
-        return text.Replace('.', ',');
+                ? value.ToString("0.#", culture)
+                : value.ToString("0.00", culture);
     }
 
     private static SolidColorBrush FrozenBrush(string hex) {
@@ -141,27 +144,27 @@ public sealed class RiskProfileOptionViewModel : ObservableObject {
         return brush;
     }
 
-    /// <summary>Crea las cuatro opciones con sus textos fijos de producto y colores del mock aprobado.</summary>
+    /// <summary>Crea las cuatro opciones con sus textos fijos de producto (localizados) y colores del mock aprobado.</summary>
     public static IReadOnlyList<RiskProfileOptionViewModel> CreateDefaults() => [
-        new(RiskLevel.Low, 1, "Bajo",
-            "Fallas poco frecuentes y casi siempre leves. Para volar tranquilo y seguir aprendiendo el avión.",
-            "#4CAF50", "VATSIM · seguro", "En VATSIM:",
-            " casi nunca vas a declarar emergencia; volás online tranquilo.",
+        new(RiskLevel.Low, 1, Loc.T("Rp_Low_Name"),
+            Loc.T("Rp_Low_Desc"),
+            "#4CAF50", Loc.T("Rp_VatsimSafe"), Loc.T("Rp_VatsimLead"),
+            Loc.T("Rp_VatsimLowRest"),
             (76, 175, 80), "#7DD487"),
-        new(RiskLevel.Moderate, 2, "Moderado",
-            "Fallas ocasionales que pueden volverse serias si la aeronave viene desgastada. El punto de equilibrio.",
-            "#F59E0B", "VATSIM · ideal", "En VATSIM:",
-            " el equilibrio recomendado online — trabajo real de QRH sin desvíos forzados.",
+        new(RiskLevel.Moderate, 2, Loc.T("Rp_Moderate_Name"),
+            Loc.T("Rp_Moderate_Desc"),
+            "#F59E0B", Loc.T("Rp_VatsimIdeal"), Loc.T("Rp_VatsimLead"),
+            Loc.T("Rp_VatsimModerateRest"),
             (76, 175, 80), "#7DD487"),
-        new(RiskLevel.High, 3, "Alto",
-            "Fallas frecuentes y a menudo graves, varias en simultáneo. Para quienes manejan emergencias con soltura.",
-            "#EF4444", "VATSIM · no recomendado", "En VATSIM:",
-            " puede tocarte desviar o declarar emergencia; avisale al control con calma.",
+        new(RiskLevel.High, 3, Loc.T("Rp_High_Name"),
+            Loc.T("Rp_High_Desc"),
+            "#EF4444", Loc.T("Rp_VatsimNotRecommended"), Loc.T("Rp_VatsimLead"),
+            Loc.T("Rp_VatsimHighRest"),
             (245, 158, 11), "#F5C04B"),
         new(RiskLevel.Squawk7700, 4, "7700",
-            "Máxima presión: fallas graves y en cadena, con poca tregua. El modo “documental de accidentes”.",
-            "#8B5CF6", "VATSIM · no apto", "En VATSIM:",
-            " la cadencia de emergencias no es manejable en frecuencia; pensado para offline.",
+            Loc.T("Rp_7700_Desc"),
+            "#8B5CF6", Loc.T("Rp_VatsimNotFit"), Loc.T("Rp_VatsimLead"),
+            Loc.T("Rp_Vatsim7700Rest"),
             (239, 68, 68), "#F37E7E"),
     ];
 }

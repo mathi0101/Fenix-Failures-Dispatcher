@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.UI.Commands;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.Services;
 using RealFenixFailures.UI.ViewModels.Base;
 using System.Diagnostics;
@@ -16,6 +17,7 @@ public class SettingsWindowViewModel : ObservableObject {
     private readonly UserPreferencesService _preferences;
     private readonly IUpdateChecker _updateChecker;
     private readonly ILogger<SettingsWindowViewModel> _logger;
+    private readonly IRealisticSessionManager? _realisticSessionManager;
     private CancellationTokenSource? _saveDebounceCts;
 
     private string _simbriefUserId = string.Empty;
@@ -25,17 +27,26 @@ public class SettingsWindowViewModel : ObservableObject {
     private UpdateCheckState _updateState = UpdateCheckState.Idle;
     private bool _hasNewUpdate;
     private string _newUpdateTag = string.Empty;
+    private int _realisticCompletionGraceMinutes;
 
     public SettingsWindowViewModel(
         UserPreferencesService preferences,
         IUpdateChecker updateChecker,
-        ILogger<SettingsWindowViewModel> logger) {
+        ILogger<SettingsWindowViewModel> logger,
+        IRealisticSessionManager? realisticSessionManager = null) {
         _preferences = preferences;
         _updateChecker = updateChecker;
         _logger = logger;
+        _realisticSessionManager = realisticSessionManager;
 
         _simbriefUserId = preferences.SimbriefUserId;
         _telemetryEnabled = !preferences.TelemetryOptOut;
+        _realisticCompletionGraceMinutes = preferences.RealisticCompletionGraceMinutes;
+
+        SetRealisticGraceCommand = new RelayCommand<string>(minutes => {
+            if (int.TryParse(minutes, out var value))
+                RealisticCompletionGraceMinutes = value;
+        });
 
         AppVersion = GetDisplayVersion();
 
@@ -112,6 +123,20 @@ public class SettingsWindowViewModel : ObservableObject {
         private set => SetProperty(ref _saveStatusText, value);
     }
 
+    /// <summary>
+    /// Minutos de gracia para el aviso de fin de vuelo del modo Realista (issue #15): tiempo real que pasa
+    /// entre el apagado de motores en gate y el aviso para finalizar la sesión.
+    /// </summary>
+    public int RealisticCompletionGraceMinutes {
+        get => _realisticCompletionGraceMinutes;
+        set {
+            if (SetProperty(ref _realisticCompletionGraceMinutes, Math.Max(0, value))) {
+                SaveStatusText = string.Empty;
+                ScheduleSave();
+            }
+        }
+    }
+
     /// <summary>Telemetría anónima activada (opt-out invertido en preferencias al persistir).</summary>
     public bool TelemetryEnabled {
         get => _telemetryEnabled;
@@ -123,6 +148,41 @@ public class SettingsWindowViewModel : ObservableObject {
         }
     }
     private bool _telemetryEnabled;
+
+    /// <summary>
+    /// Presets del aviso de fin de vuelo (pestaña Modo Realista): fijan los minutos de gracia con un
+    /// clic; escriben la propiedad, así que van por el mismo camino de persistencia y live-update.
+    /// </summary>
+    public RelayCommand<string> SetRealisticGraceCommand { get; }
+
+    /// <summary>Idiomas disponibles para el selector (nombres invariables: English / Español).</summary>
+    public IReadOnlyList<LanguageOption> LanguageOptions { get; } = LanguageOption.All;
+
+    /// <summary>
+    /// Opción del selector de idioma bindeada por <c>SelectedItem</c> (issue #12). A diferencia de
+    /// SelectedValue+SelectedValuePath, si el valor actual del getter coincide con un ítem WPF no
+    /// empuja null/default al cargar el panel (el bug que mostraba un idioma distinto del real).
+    /// Al cambiarlo se aplica en vivo vía Loc (refresca todos los bindings localizados) y se
+    /// persiste en userprefs.json de inmediato. La detección automática solo corre en el primer
+    /// arranque.
+    /// </summary>
+    public LanguageOption? SelectedLanguageOption {
+        get => LanguageOptions.FirstOrDefault(o => o.Language == Loc.Instance.CurrentLanguage);
+        set {
+            if (value is null || value.Language == Loc.Instance.CurrentLanguage)
+                return;
+            Loc.Instance.CurrentLanguage = value.Language;
+            try {
+                _preferences.Language = LanguageResolver.ToCode(value.Language);
+                SaveStatusText = string.Empty;
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "No se pudo persistir el idioma seleccionado.");
+                SaveStatusText = Loc.T("Set_SaveStatusFailed");
+            }
+            OnPropertyChanged();
+        }
+    }
 
     public bool HasSimbriefId => !string.IsNullOrWhiteSpace(SimbriefUserId);
 
@@ -144,7 +204,7 @@ public class SettingsWindowViewModel : ObservableObject {
             await Task.Delay(400, cts.Token);
             Persist();
             if (!cts.IsCancellationRequested && cts == _saveDebounceCts)
-                SaveStatusText = "✓ Guardado";
+                SaveStatusText = Loc.T("Set_SaveStatusSaved");
         }
         catch (TaskCanceledException) {
         }
@@ -154,11 +214,15 @@ public class SettingsWindowViewModel : ObservableObject {
         try {
             _preferences.SimbriefUserId = SimbriefUserId?.Trim() ?? string.Empty;
             _preferences.TelemetryOptOut = !TelemetryEnabled;
+            _preferences.RealisticCompletionGraceMinutes = RealisticCompletionGraceMinutes;
+            // Actualización en vivo: si hay sesión activa, el gracia nuevo aplica al próximo countdown.
+            if (_realisticSessionManager is not null)
+                _realisticSessionManager.FlightCompletionGraceDelay = TimeSpan.FromMinutes(_preferences.RealisticCompletionGraceMinutes);
             _logger.LogDebug("Preferencias de usuario guardadas.");
         }
         catch (Exception ex) {
             _logger.LogError(ex, "No se pudieron guardar las preferencias de usuario.");
-            SaveStatusText = "⚠ No se pudo guardar";
+            SaveStatusText = Loc.T("Set_SaveStatusFailed");
         }
     }
 
@@ -187,7 +251,7 @@ public class SettingsWindowViewModel : ObservableObject {
         IsCheckingForUpdates = true;
         HasNewUpdate = false;
         UpdateState = UpdateCheckState.Checking;
-        UpdateStatusText = "Consultando GitHub Releases...";
+        UpdateStatusText = Loc.T("Set_UpdateChecking");
 
         try {
             var result = await _updateChecker.CheckForUpdatesAsync(CancellationToken.None);
@@ -200,29 +264,29 @@ public class SettingsWindowViewModel : ObservableObject {
 
             if (!result.HasReleases) {
                 UpdateState = UpdateCheckState.NoReleases;
-                UpdateStatusText = "Todavía no hay releases publicadas. ¡Pronto habrá novedades!";
+                UpdateStatusText = Loc.T("Set_UpdateNone");
                 return;
             }
 
             var latest = result.LatestRelease!;
             if (IsNewerThanInstalled(AppVersion, latest.TagName)) {
                 NewUpdateTag = latest.TagName;
-                var tipo = latest.IsPrerelease ? "pre-release" : "versión estable";
-                UpdateStatusText = $"Hay una {tipo} más reciente: {latest.TagName}" +
-                    (latest.PublishedAt is { } p ? $" (publicada el {p:dd/MM/yyyy})" : string.Empty) + ".";
+                var tipo = latest.IsPrerelease ? Loc.T("Set_PrereleaseWord") : Loc.T("Set_StableWord");
+                UpdateStatusText = Loc.T("Set_UpdateNewer", tipo, latest.TagName) +
+                    (latest.PublishedAt is { } p ? Loc.T("Set_UpdatePublishedOn", p.ToString("dd/MM/yyyy")) : string.Empty) + ".";
                 UpdateState = UpdateCheckState.NewVersionAvailable;
                 HasNewUpdate = true;
                 _logger.LogInformation("Actualización disponible: {Tag}.", latest.TagName);
             }
             else {
                 UpdateState = UpdateCheckState.UpToDate;
-                UpdateStatusText = "Estás usando la versión más reciente publicada.";
+                UpdateStatusText = Loc.T("Set_UpdateLatest");
             }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Fallo inesperado en el chequeo de actualizaciones.");
             UpdateState = UpdateCheckState.Error;
-            UpdateStatusText = "Ocurrió un error inesperado al buscar actualizaciones.";
+            UpdateStatusText = Loc.T("Set_UpdateError");
         }
         finally {
             IsCheckingForUpdates = false;

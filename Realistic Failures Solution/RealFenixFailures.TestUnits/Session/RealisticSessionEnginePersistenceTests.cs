@@ -69,7 +69,7 @@ public class RealisticSessionEnginePersistenceTests {
         return (system, group, definition, preset, aircraft, flightPlan);
     }
 
-    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null, int sessionSystemsCap = 0) {
+    private (RealisticSessionEngine Engine, RealFenixDbContext Db) CreateEngineWithRealRepos(RealFenixDbContext db, Func<DateTime>? utcNow = null, int sessionSystemsCap = 0, double wearRateMultiplier = 1.0) {
         var presetRepo = new PresetRepository(NullLogger<PresetRepository>.Instance, db);
         var defRepo = new FenixFailureDefinitionRepository(db);
         var flightSessionRepo = new FlightSessionRepository(db);
@@ -81,8 +81,10 @@ public class RealisticSessionEnginePersistenceTests {
         var settings = new RealisticModeSettings {
             GroundFailureEnabled = true,
             EvaluationIntervalSeconds = 30,
-            Physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 1.0 },
-            Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap },
+            Physics = new RealisticPhysicsSettings { GroundSeedLambdaBase = 1.0 },
+            // Multiplicador pineado por el test: el esperado de cada caso se deriva de esta variable
+            // y de la fórmula del motor (delta = tasa × multiplicador × horas), nunca de literales.
+            Wear = new WearSettings { SessionSystemsCap = sessionSystemsCap, WearRateMultiplier = wearRateMultiplier },
             Moderate = new RealisticProfileSettings { RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.0, WearMaxMultiplier = 3.0, GroundFailuresCap = 1 }
         };
         var engine = new RealisticSessionEngine(
@@ -164,7 +166,10 @@ public class RealisticSessionEnginePersistenceTests {
         db.SaveChanges();
         SetupSimulatorConnected();
         var clock = _now;
-        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        // Multiplicador pineado por el test: el esperado se deriva de la fórmula del motor
+        // (delta = tasa × multiplicador × horas) y del desgaste inicial (0: sin filas previas).
+        const double wearRateMultiplier = 1.0;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock, wearRateMultiplier: wearRateMultiplier);
         Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
             new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None)).Started);
@@ -182,11 +187,12 @@ public class RealisticSessionEnginePersistenceTests {
         await engine.StopSession(CancellationToken.None);
         db.ChangeTracker.Clear();
 
+        var expectedDelta = wearable.WearPerFlightHour * wearRateMultiplier * 14;
         var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.Equal(8.4, wear.WearPercentage, 6);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), wear.WearPercentage, 6);
         var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
-        Assert.Equal(8.4, delta.DeltaPercentage, 6);
-        Assert.Equal(8.4, delta.TotalPercentage, 6);
+        Assert.Equal(expectedDelta, delta.DeltaPercentage, 6);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), delta.TotalPercentage, 6);
     }
 
     [Fact]
@@ -200,20 +206,22 @@ public class RealisticSessionEnginePersistenceTests {
         };
         db.Add(wearable);
         db.SaveChanges();
+        const double initialWear = 50;
         db.Add(new AircraftSystemWear {
             UserAircraftId = seeded.Aircraft.Id, WearableSystemId = wearable.Id,
-            WearPercentage = 50, LastUpdatedAt = _now
+            WearPercentage = initialWear, LastUpdatedAt = _now
         });
         db.SaveChanges();
-
         SetupSimulatorConnected();
         var clock = DateTime.UtcNow;
-        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        // Multiplicador pineado por el test (no el default de código): el esperado sale de la fórmula
+        // delta = tasa × multiplicador × horas desde el ENGINES_STARTED, con clamp 0–100.
+        const double wearRateMultiplier = 1.0;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock, wearRateMultiplier: wearRateMultiplier);
         var start = await engine.TryStartSession(new RealisticModeContext(
             RiskLevel.Moderate, new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
             CancellationToken.None);
         Assert.True(start.Started);
-
         // Una hora de escenario pre-motores no acumula: el anclaje es el ENGINES_STARTED.
         clock = clock.AddHours(1);
         _flightEventDetector
@@ -231,7 +239,8 @@ public class RealisticSessionEnginePersistenceTests {
         var afterStop = DateTime.UtcNow;
 
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
-        Assert.InRange(wear.WearPercentage, 58.4, 58.41);
+        var expectedWear = Math.Clamp(initialWear + wearable.WearPerFlightHour * wearRateMultiplier * 14, 0, 100);
+        Assert.InRange(wear.WearPercentage, expectedWear, expectedWear + 0.01);
         Assert.InRange(wear.LastUpdatedAt, beforeStop, afterStop);
         var session = await db.FlightSessions.AsNoTracking().SingleAsync();
         Assert.InRange(session.FinishedAt!.Value, beforeStop, afterStop);
@@ -267,6 +276,96 @@ public class RealisticSessionEnginePersistenceTests {
         var wear = await db.AircraftSystemWears.AsNoTracking().SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
         Assert.Equal(50, wear.WearPercentage);
         Assert.False(db.Set<SessionSystemWearDelta>().Any(d => d.AtaId == wearable.AtaId));
+    }
+
+    [Fact]
+    public async Task StopSession_WearStopsAtFlightCompletionDetection() {
+        // Decisión 2026-11-05: el desgaste cuenta hasta la detección de fin de vuelo (gate con motores
+        // apagados), no hasta el cierre — los minutos de gracia del aviso no desgastan sistemas.
+        var db = CreateContext();
+        var seeded = Seed(db);
+        var wearable = new AircraftWearableSystem {
+            AtaId = 999, Name = "Test system", ShortName = "Test", WearPerFlightHour = 0.6
+        };
+        db.Add(wearable);
+        db.SaveChanges();
+        SetupSimulatorConnected();
+        var clock = _now;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
+            new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None)).Started);
+
+        // Anclaje: encendido de motores +1 h, tick aéreo arma la secuencia de fin de vuelo.
+        clock = clock.AddHours(1);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Climb);
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        // +14 h de vuelo y tick de detección (OnGate con motores apagados): ancla el fin del desgaste.
+        // 14 h → 1,5 sistemas/h cubre los 20 elegibles (acumulan todos, selección determinística,
+        // mismo criterio que los tests hermanos); con 10 h el sorteo podía dejar afuera al ATA 999.
+        clock = clock.AddHours(14);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        await engine.EvaluateAsync(CancellationToken.None);
+
+        // +3 h de gracia en gate antes del cierre: no deben contar para el desgaste (14 h, no 17).
+        clock = clock.AddHours(3);
+        await engine.StopSession(CancellationToken.None);
+        db.ChangeTracker.Clear();
+
+        var expectedDelta = wearable.WearPerFlightHour * 14;
+        var wear = await db.AircraftSystemWears.SingleAsync(w => w.UserAircraftId == seeded.Aircraft.Id && w.WearableSystemId == wearable.Id);
+        Assert.Equal(Math.Clamp(expectedDelta, 0, 100), wear.WearPercentage, 6);
+        var delta = await db.Set<SessionSystemWearDelta>().SingleAsync(d => d.AtaId == 999);
+        Assert.Equal(expectedDelta, delta.DeltaPercentage, 6);
+    }
+
+    [Fact]
+    public async Task Evaluate_AfterFlightCompletion_DoesNotArmOrFlushFailures() {
+        // Decisión 2026-11-05: detectado el fin de vuelo, el motor deja de sortear, armar o encolar
+        // fallas — tampoco despacha la cola de preparadas (el sorteo de tierra del tick de detección
+        // era el camino real por el que seguían saliendo fallas en gate).
+        var db = CreateContext();
+        var seeded = Seed(db);
+        SetupSimulatorConnected();
+        var clock = _now;
+        var (engine, _) = CreateEngineWithRealRepos(db, () => clock);
+        Assert.True((await engine.TryStartSession(new RealisticModeContext(RiskLevel.Moderate,
+            new UserAircraftDto { Id = seeded.Aircraft.Id, Registration = seeded.Aircraft.Registration }, seeded.FlightPlan.Id),
+            CancellationToken.None)).Started);
+
+        // Tick aéreo: arma la secuencia de fin de vuelo (roll negativo fijo: sin sorteos positivos en aire).
+        _random.SetupNextDouble(0.9999);
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Callback(() => _flightEventDetector.Raise(d => d.FlightEventDetected += null, _flightEventDetector.Object,
+                new FlightEventDto(DateTime.UtcNow, FlightEventKind.EnginesStarted, "Motores encendidos")))
+            .Returns(ComplexFlightPhaseEnum.Climb);
+        await engine.EvaluateAsync(CancellationToken.None);
+        // Tick de detección en gate: con roll favorable (0.0), el sorteo de tierra NO debe ejecutarse.
+        _random.SetupNextDouble(0.0); // Bernoulli del único candidato: 0.0 < p=1.0 → entraría si el sorteo corriera
+        _flightEventDetector
+            .Setup(f => f.ProcessSnapshot(It.IsAny<SimulatorAircraftStateSnapshot>()))
+            .Returns(ComplexFlightPhaseEnum.OnGate);
+        var detection = await engine.EvaluateAsync(CancellationToken.None);
+
+        Assert.True(detection.FlightCompletionDetected);
+        Assert.Empty(detection.TriggeredFailures);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Empty(await db.TriggeredFailures.ToListAsync());
+
+        // Tick posterior (gracia en gate): sigue sin armar nada y sin re-emitir el aviso.
+        var later = await engine.EvaluateAsync(CancellationToken.None);
+        Assert.False(later.FlightCompletionDetected);
+        Assert.Empty(later.TriggeredFailures);
+        _simulator.Verify(s => s.ExecuteFailureAsync(It.IsAny<PresetFailureDefinition>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Empty(await db.TriggeredFailures.ToListAsync());
     }
 
     [Fact]

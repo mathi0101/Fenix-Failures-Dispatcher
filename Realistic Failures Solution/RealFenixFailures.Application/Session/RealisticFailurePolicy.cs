@@ -52,14 +52,23 @@ public sealed class RealisticFailurePolicy {
             * Math.Max(0, presetProbability);
     }
 
-    /// <summary>Probabilidad one-shot (0–1) de una falla individual en el seed de tierra: misma fórmula con la base de tierra.</summary>
-    public static double GroundSeedProbability(FailureSeverity severity, double presetProbability, RealisticProfileSettings profile, RealisticPhysicsSettings physics, double wearFactor) {
-        var p = Math.Max(0, physics.GroundSeedBaseProbability)
+    /// <summary>
+    /// Probabilidad one-shot (0–1) de una falla individual en el seed de tierra (espec §4.1): λ₀
+    /// (<c>GroundSeedLambdaBase</c>, semillas esperadas por vuelo con desgaste 0 y perfil ×1) se multiplica
+    /// por perfil y desgaste y se reparte entre el universo elegible ponderado —
+    /// p_i = λ₀ × mult severidad × mult perfil × desgaste × (peso_i / Σ pesos). El catálogo define el reparto,
+    /// no la cadencia: agregar o quitar candidatas no cambia el total esperado de semillas.
+    /// Con universo vacío no hay semillas.
+    /// </summary>
+    public static double GroundSeedProbability(FailureSeverity severity, double presetProbability, double universeWeight, RealisticProfileSettings profile, RealisticPhysicsSettings physics, double wearFactor) {
+        var universe = Math.Max(0, universeWeight);
+        if (universe <= 0) return 0;
+        var lambda = Math.Max(0, physics.GroundSeedLambdaBase)
             * physics.SeverityRateMultiplier.For(severity)
             * Math.Max(0, profile.ProbabilityMultiplier)
             * Math.Max(0, wearFactor)
             * Math.Max(0, presetProbability);
-        return Math.Clamp(p, 0, 1);
+        return Math.Clamp(lambda / universe, 0, 1);
     }
 
     /// <summary>Peso con que una severidad suma al score de agravamiento de la sesión (espec §2.1).</summary>

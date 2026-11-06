@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  discussions: write
 
 jobs:
   publish:
@@ -61,10 +60,12 @@ jobs:
           $readme = Join-Path $stage "README.md"
           Set-Content -LiteralPath $readme -Value "# FNX Realistic Failures System $tag`n" -Encoding utf8
           Add-Content -LiteralPath $readme -Value (Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE "docs/releases/README-INSTALACION.md") -Raw -Encoding utf8) -Encoding utf8
-          $notes = Join-Path $env:GITHUB_WORKSPACE "docs/releases/$tag.md"
-          if (Test-Path $notes) {
+          # El README del ZIP lleva la guía de instalación + las notas de usuario del parche
+          # (docs/releases/<tag>-user.md); si aún no existen, apunta a la página del release.
+          $notesUser = Join-Path $env:GITHUB_WORKSPACE "docs/releases/$tag-user.md"
+          if (Test-Path $notesUser) {
             Add-Content -LiteralPath $readme -Value "---`n" -Encoding utf8
-            Add-Content -LiteralPath $readme -Value (Get-Content -LiteralPath $notes -Raw -Encoding utf8) -Encoding utf8
+            Add-Content -LiteralPath $readme -Value (Get-Content -LiteralPath $notesUser -Raw -Encoding utf8) -Encoding utf8
           } else {
             Add-Content -LiteralPath $readme -Value "---`nLas notas de esta versión están en la página del release en GitHub." -Encoding utf8
           }
@@ -82,45 +83,29 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          # Flag de prueba (una versión): NO usar las notas curadas como body del release y dejar que
-          # GitHub las genere (--generate-notes). El archivo docs/releases/<tag>.md sigue en el repo y
-          # en el ZIP; solo este body pasa a ser auto-generado.
-          FORCE_GENERATED_NOTES: "true"
+          # Flag de prueba desactivada ("false" = flujo normal). El body del release sale de las notas
+          # de usuario docs/releases/<tag>-user.md (o de las completas <tag>.md si faltan las user);
+          # sin curadas, GitHub las genera (--generate-notes).
+          FORCE_GENERATED_NOTES: "false"
         run: |
           $tag = $env:GITHUB_REF_NAME
           $zip = Join-Path $env:RUNNER_TEMP "RealFenixFailures-$tag-win-x64.zip"
-          $notes = Join-Path "docs/releases" "$tag.md"
+          $userNotes = Join-Path "docs/releases" "$tag-user.md"
+          $fullNotes = Join-Path "docs/releases" "$tag.md"
           $ghArgs = @('release', 'create', $tag, $zip, '--target', 'master', '--title', $tag)
-          if ($env:FORCE_GENERATED_NOTES -ne 'true' -and (Test-Path $notes)) { $ghArgs += @('--notes-file', $notes) } else { $ghArgs += '--generate-notes' }
+          # Body del release = notas de usuario (<tag>-user.md); si faltan, las completas (<tag>.md);
+          # sin curadas, --generate-notes. Al final del body curado se agrega el link a Announcements,
+          # donde se publica a mano el announcement con las notas completas.
+          $srcNotes = $null
+          if (Test-Path $userNotes) { $srcNotes = $userNotes } elseif (Test-Path $fullNotes) { $srcNotes = $fullNotes }
+          if ($env:FORCE_GENERATED_NOTES -ne 'true' -and $srcNotes) {
+            $annUrl = "https://github.com/$env:GITHUB_REPOSITORY/discussions/categories/announcements"
+            $body = (Get-Content -LiteralPath $srcNotes -Raw -Encoding utf8) + "`n`n---`n➡️ Full patch notes / Notas completas del parche: $annUrl"
+            $bodyFile = Join-Path $env:RUNNER_TEMP "release-notes.md"
+            Set-Content -LiteralPath $bodyFile -Value $body -Encoding utf8
+            $ghArgs += @('--notes-file', $bodyFile)
+          } else {
+            $ghArgs += '--generate-notes'
+          }
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           gh @ghArgs
-
-      - name: Anunciar el release en Discussions (Announcements)
-        # Solo corre si el release se publicó OK (los pasos previos fallan antes de llegar acá).
-        # Best-effort: un fallo del anuncio no marca el release como fallido.
-        if: startsWith(github.ref, 'refs/tags/v')
-        continue-on-error: true
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = $env:GITHUB_REF_NAME
-          $repo = $env:GITHUB_REPOSITORY
-          $notes = Join-Path "docs/releases" "$tag.md"
-          if (Test-Path $notes) { $body = Get-Content -LiteralPath $notes -Raw -Encoding utf8 } else { $body = gh release view $tag --json body -q .body }
-          $body += "`n`n➡️ Download / Descarga: https://github.com/$repo/releases/tag/$tag"
-          # Crear discussions es GraphQL-only: primero los node IDs del repo y la categoría Announcements.
-          $owner, $name = $repo -split '/'
-          $ids = gh api graphql -f query='query($owner:String!,$name:String!){ repository(owner:$owner,name:$name){ id discussionCategories(first:10){ nodes{ id name } } } }' -f owner=$owner -f name=$name
-          if ($LASTEXITCODE -ne 0) { throw "No se pudieron leer los IDs de Discussions (gh exit $LASTEXITCODE)" }
-          $ids = $ids | ConvertFrom-Json
-          $category = $ids.data.repository.discussionCategories.nodes | Where-Object { $_.name -eq 'Announcements' }
-          if (-not $category) { throw 'Categoria Announcements no encontrada en Discussions' }
-          # El flag "announcement" del post no se expone por API: el post queda en la categoría; marcarlo es manual.
-          # rid/cid son ID! (no String!): GraphQL los rechaza si se declaran String! aunque viajen como string.
-          $result = gh api graphql -f query='mutation($rid:ID!,$cid:ID!,$title:String!,$body:String!){ createDiscussion(input:{repositoryId:$rid,categoryId:$cid,title:$title,body:$body}){ discussion{ url } } }' -f rid=$ids.data.repository.id -f cid=$category.id -f title="$tag released" -f body=$body
-          if ($LASTEXITCODE -ne 0) { throw "No se pudo crear la discussion (gh exit $LASTEXITCODE)" }
-          $result = $result | ConvertFrom-Json
-          $url = $result.data.createDiscussion.discussion.url
-          if (-not $url) { throw "createDiscussion no devolvio URL: $($result | ConvertTo-Json -Depth 5)" }
-          Write-Output "Announcement creado: $url"

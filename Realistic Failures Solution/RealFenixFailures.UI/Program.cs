@@ -27,6 +27,10 @@ public static class Program {
     [STAThread]
     public static void Main() {
         CrashReporter.AttachProcessHandlers();
+        // Idioma de la interfaz (issue #12): se resuelve ANTES del splash y de la
+        // Application para que toda la capa visible (incluidos los diálogos de
+        // crash pre-DI) salga en el idioma elegido o detectado.
+        Localization.LanguageBootstrapper.Initialize();
         // El splash corre en un hilo STA dedicado con su propio Dispatcher:
         // mientras el hilo principal construye el host y arranca los servicios,
         // el pump del hilo del splash sigue libre y la animación de frames no se

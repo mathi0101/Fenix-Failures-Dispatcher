@@ -37,12 +37,15 @@ public class RealisticSessionManager : IRealisticSessionManager {
     private bool _isPaused;
     private readonly TimeSpan _evaluationInterval;
     private const int EvaluationIntervalSeconds = 30;
+    private CancellationTokenSource? _flightCompletionGraceCts;
+    public static readonly TimeSpan DefaultFlightCompletionGrace = TimeSpan.FromMinutes(3);
     #endregion
 
     #region Events
     public event EventHandler<FailureTriggeredEventArgs>? FailureTriggered;
     public event EventHandler<FailureStateChangedEventArgs>? FailureStateChanged;
     public event EventHandler<SessionErrorEventArgs>? SessionError;
+    public event EventHandler<FlightCompletionNoticeDueEventArgs>? FlightCompletionNoticeDue;
     #region INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -70,6 +73,24 @@ public class RealisticSessionManager : IRealisticSessionManager {
             }
         }
     }
+
+    /// <summary>Período de gracia entre la detección del fin de vuelo y el aviso (tiempo de pared; default 3 min).</summary>
+    public TimeSpan FlightCompletionGraceDelay { get; set; } = DefaultFlightCompletionGrace;
+
+    /// <summary>
+    /// Vuelo terminado detectado y sesión aún abierta sin decisión del usuario: gobierna el banner del
+    /// panel Realistic. Se activa cuando vence el gracia (no antes: durante el gracia nada cambia en la UI)
+    /// y se limpia al cerrar la sesión, sea por el aviso, a mano o por error.
+    /// </summary>
+    public bool IsFlightCompletionPending {
+        get => _isFlightCompletionPending;
+        private set {
+            if (_isFlightCompletionPending == value) return;
+            _isFlightCompletionPending = value;
+            OnPropertyChanged(nameof(IsFlightCompletionPending));
+        }
+    }
+    private bool _isFlightCompletionPending;
     #endregion
 
     #region Constructor
@@ -167,10 +188,19 @@ public class RealisticSessionManager : IRealisticSessionManager {
             _sessionScope?.Dispose();
             _sessionScope = null;
             _sessionStartedAtScenario = null;
+            CancelFlightCompletionGrace();
             IsPaused = false;
             OnPropertyChanged(nameof(PreparedCount));
         }
         _logger.LogInformation("Realistic session stopped");
+    }
+
+    /// <summary>Cancela el countdown del aviso de fin de vuelo (sesión cerrada a mano o desde el aviso).</summary>
+    private void CancelFlightCompletionGrace() {
+        _flightCompletionGraceCts?.Cancel();
+        _flightCompletionGraceCts?.Dispose();
+        _flightCompletionGraceCts = null;
+        IsFlightCompletionPending = false;
     }
 
     public Task<int> DiscardPreparedAsync(CancellationToken ct) {
@@ -431,6 +461,9 @@ public class RealisticSessionManager : IRealisticSessionManager {
                 });
             }
 
+            if (result.FlightCompletionDetected)
+                HandleFlightCompletionDetected();
+
             return EvaluationLoopSignal.Continue();
         } catch (OperationCanceledException) {
             // Pausa/stop manual: termina el loop sin limpiar el estado (la sesión sigue para pausar/reanudar).
@@ -452,6 +485,39 @@ public class RealisticSessionManager : IRealisticSessionManager {
 
     private void Engine_PreparedQueueChanged(object? sender, EventArgs e) {
         OnPropertyChanged(nameof(PreparedCount));
+    }
+
+    /// <summary>
+    /// Vuelo terminado detectado por el engine (issue #15): durante el gracia nada cambia en la UI
+    /// (decisión de grilling: el engine sigue su vida normal y el usuario puede cerrar la sesión a mano,
+    /// en cuyo caso el countdown se cancela). Vencido el gracia en tiempo de pared, se marca pendiente
+    /// y se dispara <see cref="FlightCompletionNoticeDue"/> para que la UI restaure sin robar foco.
+    /// </summary>
+    private void HandleFlightCompletionDetected() {
+        if (IsFlightCompletionPending) return;
+        var sessionId = _engine?.Session?.Session.Id;
+        _logger.LogInformation("Realistic sesión {SessionId}: vuelo terminado detectado, aviso de finalización en {GraceTotalMinutes} min {ScenarioMark}",
+            sessionId, FlightCompletionGraceDelay.TotalMinutes, ScenarioMark());
+
+        _flightCompletionGraceCts?.Cancel();
+        _flightCompletionGraceCts?.Dispose();
+        _flightCompletionGraceCts = new CancellationTokenSource();
+        var token = _flightCompletionGraceCts.Token;
+        var grace = FlightCompletionGraceDelay;
+
+        _ = Task.Run(async () => {
+            try {
+                if (grace > TimeSpan.Zero)
+                    await Task.Delay(grace, token);
+            } catch (TaskCanceledException) {
+                return; // El usuario cerró la sesión a mano durante el gracia: no hay aviso.
+            }
+            if (token.IsCancellationRequested) return;
+
+            IsFlightCompletionPending = true;
+            _logger.LogInformation("Realistic sesión {SessionId}: gracia vencido, aviso de finalización emitido a la UI", sessionId);
+            FlightCompletionNoticeDue?.Invoke(this, new FlightCompletionNoticeDueEventArgs { NoticeAtUtc = DateTime.UtcNow });
+        }, CancellationToken.None);
     }
     #endregion
 }

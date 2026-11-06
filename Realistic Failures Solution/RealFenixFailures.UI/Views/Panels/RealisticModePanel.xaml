@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="RealFenixFailures.UI.Views.Panels.RealisticModePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:RealFenixFailures.UI.Localization"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:vm="clr-namespace:RealFenixFailures.UI.ViewModels"
@@ -229,14 +230,23 @@
     <Grid x:Name="RealisticRoot" DataContext="{Binding Realistic}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- CARTEL DE RENDIMIENTO (estático): visible solo con el modo Realista funcionando -->
+        <Border Grid.Row="1" Margin="0,0,0,12" Padding="10,7" CornerRadius="8"
+                Background="#33B4530A" BorderBrush="{StaticResource Brush.Accent.Amber.Primary}" BorderThickness="1"
+                Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{loc:Loc Rmv_PerfHintBanner}" FontSize="10" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Text.Secondary}"/>
+        </Border>
+
         <!-- ENCABEZADO -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="MODO REALISTA" FontSize="10" FontWeight="Bold"
+            <TextBlock Text="{loc:Loc Rm_Header}" FontSize="10" FontWeight="Bold"
                        Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
-            <TextBlock Text="El sistema monitorea el historial de vuelos y genera fallas de forma autónoma basándose en el desgaste acumulado."
+            <TextBlock Text="{loc:Loc Rm_Subtitle}"
                        FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
                        TextWrapping="Wrap" Margin="0,6,0,0"/>
 
@@ -249,7 +259,7 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="1"
                             IsEnabled="{Binding CanNavigateToStep1}"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 1 · Aeronave">
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{loc:Loc Rm_Step1Tooltip}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
                                 <Style.Triggers>
@@ -259,11 +269,11 @@
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
-                        <TextBlock Text="1 · Aeronave" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="{loc:Loc Rm_Step1}" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
                     </Button>
                     <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="2"
                             IsEnabled="{Binding CanNavigateToStep2}"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 2 · Resumen">
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{loc:Loc Rm_Step2Tooltip}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
                                 <Style.Triggers>
@@ -273,11 +283,11 @@
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
-                        <TextBlock Text="2 · Resumen" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="{loc:Loc Rm_Step2}" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
                     </Button>
                     <Button Margin="0,0,6,0" Command="{Binding NavigateToStepCommand}" CommandParameter="3"
                             IsEnabled="{Binding CanNavigateToStep3}"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="Ir al paso 3 · Preparación">
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{loc:Loc Rm_Step3Tooltip}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource StepPillButtonStyle}">
                                 <Style.Triggers>
@@ -287,22 +297,22 @@
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
-                        <TextBlock Text="3 · Preparación" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="{loc:Loc Rm_Step3}" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
                     </Button>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}">
-                        <Run Text="Estado: "/><Run Text="{Binding SessionStatusDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
+                        <Run Text="{loc:Loc Rm_StatusLabel}"/><Run Text="{Binding SessionStatusDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Blue.Primary}"/>
                     </TextBlock>
                     <TextBlock FontSize="11" Margin="14,0,0,0" Foreground="{StaticResource Brush.Text.Secondary}">
-                        <Run Text="Perfil: "/><Run Text="{Binding HeaderProfileDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
+                        <Run Text="{loc:Loc Rm_ProfileLabel}"/><Run Text="{Binding HeaderProfileDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
                     </TextBlock>
                 </StackPanel>
             </Grid>
         </StackPanel>
 
         <!-- CONTENIDO DE PASOS -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
 
             <!-- ================= PASO 1: SELECCIÓN / CREACIÓN DE AERONAVE ================= -->
             <Grid Visibility="{Binding IsStep1, Converter={StaticResource BoolToVis}}">
@@ -312,13 +322,13 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="PASO 1 · SELECCIONÁ UNA AERONAVE" FontSize="10" FontWeight="Bold"
+                <TextBlock Grid.Row="0" Text="{loc:Loc Rm_Step1Header}" FontSize="10" FontWeight="Bold"
                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <!-- Estado vacío -->
-                        <TextBlock Text="No hay aeronaves registradas. Creá una nueva para empezar."
+                        <TextBlock Text="{loc:Loc Rm_NoAircraft}"
                                    FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
                                    TextWrapping="Wrap" Margin="0,0,0,10"
                                    Visibility="{Binding HasAircraft, Converter={StaticResource InverseBoolToVis}}"/>
@@ -350,7 +360,7 @@
                                                     </Border>
                                                     <Border Background="#2A1C0A" CornerRadius="4" Padding="6,1" Margin="10,0,0,0"
                                                             Visibility="{Binding HasOpenSession, Converter={StaticResource BoolToVis}}">
-                                                        <TextBlock Text="Sesión sin finalizar" FontSize="10"
+                                                        <TextBlock Text="{loc:Loc Rm_UnfinishedSession}" FontSize="10"
                                                                    Foreground="{StaticResource Brush.Accent.Amber.Primary}"/>
                                                     </Border>
                                                 </StackPanel>
@@ -363,7 +373,7 @@
                                                                Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                    <TextBlock Text="Desgaste medio: " FontSize="11"
+                                                    <TextBlock Text="{loc:Loc Rm_AverageWearLabel}" FontSize="11"
                                                                Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                     <TextBlock Text="{Binding WearAverageDisplay}" FontSize="11"
                                                                Foreground="{StaticResource Brush.Text.Primary}"/>
@@ -383,22 +393,22 @@
                                 BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,6,0,0"
                                 Visibility="{Binding ShowCreateForm, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
-                                <TextBlock Text="NUEVA AERONAVE" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Rm_NewAircraftHeader}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
-                                <TextBlock Text="Matrícula (Registration, máx. 10)" FontSize="11"
+                                <TextBlock Text="{loc:Loc Rm_RegistrationLabel}" FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,4"/>
                                 <TextBox Style="{StaticResource DarkTextBoxStyle}" MaxLength="10"
                                          Text="{Binding NewRegistration, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Tipo ICAO (flota permitida: A319/A320/A321)" FontSize="11"
+                                <TextBlock Text="{loc:Loc Rm_IcaoTypeLabel}" FontSize="11"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,10,0,4"/>
                                 <ComboBox Style="{StaticResource DarkComboBoxStyle}"
                                           ItemsSource="{Binding IcaoOptions}"
                                           SelectedItem="{Binding NewIcaoTypeCode, UpdateSourceTrigger=PropertyChanged}"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                    <Button Content="Crear aeronave"
+                                    <Button Content="{loc:Loc Rm_CreateAircraft}"
                                             Command="{Binding CreateAircraftCommand}"
                                             Style="{StaticResource SuccessButtonStyle}" Height="34" Padding="16,0"/>
-                                    <Button Content="Cancelar"
+                                    <Button Content="{loc:Loc Rm_Cancel}"
                                             Command="{Binding ToggleCreateFormCommand}"
                                             Style="{StaticResource GhostButtonStyle}" Height="34" Padding="16,0" Margin="8,0,0,0"/>
                                 </StackPanel>
@@ -408,7 +418,7 @@
                 </ScrollViewer>
 
                 <Button Grid.Row="2" Margin="0,12,0,0" Height="40"
-                        Content="+  Crear nueva aeronave"
+                        Content="{loc:Loc Rm_NewAircraftButton}"
                         Command="{Binding ToggleCreateFormCommand}"
                         Style="{StaticResource GhostButtonStyle}"
                         Visibility="{Binding ShowCreateForm, Converter={StaticResource InverseBoolToVis}}"/>
@@ -439,26 +449,26 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                                 <StackPanel>
-                                    <TextBlock Text="VUELOS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatFlights}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFlights}" FontSize="22" FontWeight="Bold"
                                                Foreground="{StaticResource Brush.Text.Primary}" Margin="0,4,0,0"/>
-                                    <TextBlock Text="registrados" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatFlightsUnit}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="1" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12" Margin="0,0,8,0">
                                 <StackPanel>
-                                    <TextBlock Text="HORAS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatHours}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFlightHours, StringFormat='{}{0:F1}'}" FontSize="22" FontWeight="Bold"
                                                Foreground="{StaticResource Brush.Text.Primary}" Margin="0,4,0,0"/>
-                                    <TextBlock Text="acumuladas" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatHoursUnit}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="12">
                                 <StackPanel>
-                                    <TextBlock Text="FALLAS" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatFailures}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                     <TextBlock Text="{Binding DashTotalFailures}" FontSize="22" FontWeight="Bold"
                                                Foreground="{StaticResource Brush.Accent.Amber.Primary}" Margin="0,4,0,0"/>
-                                    <TextBlock Text="generadas" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                    <TextBlock Text="{loc:Loc Rm_StatFailuresUnit}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -466,7 +476,7 @@
                         <!-- Desgaste -->
                         <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,0,14">
                             <StackPanel>
-                                <TextBlock Text="DESGASTE ACUMULADO" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Rm_StatWear}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,12"/>
                                 <ItemsControl ItemsSource="{Binding WearSystems}">
                                     <ItemsControl.ItemTemplate>
@@ -493,9 +503,9 @@
                         </Border>
 
                         <!-- Historial de sesiones -->
-                        <TextBlock Text="HISTORIAL DE VUELOS" FontSize="10" FontWeight="Bold"
+                        <TextBlock Text="{loc:Loc Rm_HistoryHeader}" FontSize="10" FontWeight="Bold"
                                    Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,8"/>
-                        <TextBlock Text="Sin sesiones registradas para esta aeronave."
+                        <TextBlock Text="{loc:Loc Rm_HistoryEmpty}"
                                    FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}"
                                    Visibility="{Binding HasSessions, Converter={StaticResource InverseBoolToVis}}"/>
                         <ItemsControl ItemsSource="{Binding Sessions}">
@@ -525,15 +535,15 @@
                                                                        Foreground="{StaticResource Brush.Text.Primary}"/>
                                                             <Border Background="#7F1D1D" CornerRadius="4" Padding="6,1" Margin="8,0,0,0"
                                                                     Visibility="{Binding IsDiscarded, Converter={StaticResource BoolToVis}}">
-                                                                <TextBlock Text="Descartada" FontSize="10" FontWeight="SemiBold" Foreground="#FCA5A5"/>
+                                                                <TextBlock Text="{loc:Loc Rm_HistoryDiscarded}" FontSize="10" FontWeight="SemiBold" Foreground="#FCA5A5"/>
                                                             </Border>
                                                         </StackPanel>
                                                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                                            <TextBlock Text="Riesgo: " FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                                            <TextBlock Text="{loc:Loc Rm_HistoryRiskLabel}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                             <TextBlock Text="{Binding RiskLevelDisplay}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
-                                                            <TextBlock Text="  ·  Duración: " FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                                            <TextBlock Text="{loc:Loc Rm_HistoryDurationLabel}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                             <TextBlock Text="{Binding DurationDisplay}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
-                                                            <TextBlock Text="  ·  OFP: " FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                                            <TextBlock Text="{loc:Loc Rm_HistoryOfpLabel}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                             <TextBlock Text="{Binding OfpStatusDisplay}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                                         </StackPanel>
                                                     </StackPanel>
@@ -546,8 +556,8 @@
                                                                 Padding="8,2" Margin="0,0,10,0" Cursor="Hand"
                                                                 Command="{Binding DataContext.ShowSessionResultFromHistoryCommand, ElementName=RealisticRoot}"
                                                                 CommandParameter="{Binding Id}"
-                                                                ToolTip="Ver el modal de resultados de esta sesión">
-                                                            <TextBlock Text="Resultados" FontSize="10" FontWeight="SemiBold" Foreground="#1F6FEB"/>
+                                                                ToolTip="{loc:Loc Rm_HistoryResultsTooltip}">
+                                                            <TextBlock Text="{loc:Loc Rm_HistoryResults}" FontSize="10" FontWeight="SemiBold" Foreground="#1F6FEB"/>
                                                         </Button>
                                                         <TextBlock Text="▾" FontSize="12"
                                                                    Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
@@ -582,7 +592,7 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                 </Border>
-                                                <TextBlock Text="Sin fallas disparadas en esta sesión." FontSize="11"
+                                                <TextBlock Text="{loc:Loc Rm_HistoryNoFailures}" FontSize="11"
                                                            Foreground="{StaticResource Brush.Text.Secondary}"
                                                            Visibility="{Binding HasFailures, Converter={StaticResource InverseBoolToVis}}"/>
                                             </StackPanel>
@@ -595,7 +605,7 @@
                 </ScrollViewer>
 
                 <Button Grid.Row="2" Margin="0,12,0,0" Height="42"
-                        Content="Continuar a preparación  ▶"
+                        Content="{loc:Loc Rm_ContinueToPreparation}"
                         Command="{Binding ContinueToPrepCommand}"
                         Style="{StaticResource PrimaryButtonStyle}"/>
             </Grid>
@@ -630,7 +640,7 @@
                                     <TextBlock Grid.Column="1" Text="{Binding SelectedAircraftTitle}" FontSize="15" FontWeight="Bold"
                                                Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center" Margin="0,0,16,0"/>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="Desgaste medio" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
+                                        <TextBlock Text="{loc:Loc Rm_WearAverageTitle}" FontSize="10" Foreground="{StaticResource Brush.Text.Secondary}"/>
                                         <TextBlock Text="{Binding SelectedAircraft.WearAverageDisplay}" FontSize="11"
                                                    Foreground="{StaticResource Brush.Text.Primary}"/>
                                         <TextBlock Text="{Binding ExpectationDisplay}" FontSize="10"
@@ -638,14 +648,14 @@
                                                    ToolTip="{Binding ExpectationToolTip}"
                                                    TextWrapping="Wrap" Margin="0,3,0,0"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="3" Text="▾  Desgaste" FontSize="11"
+                                    <TextBlock Grid.Column="3" Text="{loc:Loc Rm_WearSectionTitle}" FontSize="11"
                                                Foreground="{StaticResource Brush.Text.Secondary}" VerticalAlignment="Center"/>
                                 </Grid>
                             </ToggleButton>
 
                             <StackPanel Margin="0,10,0,0"
                                         Visibility="{Binding IsChecked, ElementName=WearHeaderToggle, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Sin datos de desgaste (pendiente del backend de desgaste)."
+                                <TextBlock Text="{loc:Loc Rm_WearNoData}"
                                            FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
                                            Visibility="{Binding SelectedAircraft.HasWearData, Converter={StaticResource InverseBoolToVis}}"/>
                                 <ItemsControl ItemsSource="{Binding WearSystems}"
@@ -682,11 +692,11 @@
 
                         <Border Grid.Column="0" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,0,6,0">
                             <StackPanel>
-                                <TextBlock Text="OFP Y RUTA" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Rm_OfpHeader}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
 
                                 <!-- Estado vacío (spec §8.1) -->
-                                <TextBlock Text="Sin OFP · Descargalo para ver los detalles del vuelo."
+                                <TextBlock Text="{loc:Loc Rm_OfpNone}"
                                            FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
                                            TextWrapping="Wrap" Margin="0,0,0,10"
                                            Visibility="{Binding HasOfpDetails, Converter={StaticResource InverseBoolToVis}}"/>
@@ -698,7 +708,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Ruta" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="0" Text="{loc:Loc Rm_OfpRouteLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Border Background="#1A2540" CornerRadius="4" Padding="6,1">
                                                 <TextBlock Text="{Binding OfpOriginDisplay}" FontSize="10"
@@ -730,21 +740,21 @@
                                             <RowDefinition/>
                                             <RowDefinition/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Nº de vuelo" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Rm_OfpFlightNumberLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FlightNumberDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Callsign" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CallsignDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Salida programada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Rm_OfpDepartureLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OffBlockDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Llegada estimada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Rm_OfpArrivalLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ArrivalDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Duración estimada" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Rm_OfpDurationLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding OfpDurationDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Distancia" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Rm_OfpDistanceLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding DistanceDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Aeronave del OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Rm_OfpAircraftLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,3"/>
                                         <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding OfpAircraftDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,0,3"/>
-                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Fuente" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,0"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Rm_OfpSourceLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0,0,12,0"/>
                                         <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SourceDisplay}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" Margin="0"/>
                                     </Grid>
                                 </StackPanel>
@@ -768,24 +778,24 @@
                                             ToolTip="{Binding OfpButtonToolTip}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Descargar OFP" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Rm_OfpDownload}" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{StaticResource DangerIconButtonStyle}"
                                             Command="{Binding DeleteOfpCommand}"
                                             ToolTipService.ShowOnDisabled="True"
-                                            ToolTip="Descartar el OFP cargado: el panel vuelve a «Sin OFP» y tendrás que descargar otro antes de activar.">
+                                            ToolTip="{loc:Loc Rm_OfpDiscardTooltip}">
                                         <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
                                     </Button>
                                 </StackPanel>
-                                <TextBlock Text="Userid guardado solo en tus preferencias (nunca en la BD)."
+                                <TextBlock Text="{loc:Loc Rm_OfpUseridPrivacy}"
                                            FontSize="9" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,6,0,0"/>
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="1" Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="6,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="REQUISITOS PARA ACTIVAR" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Rm_RequirementsHeader}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10"/>
                                 <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
@@ -813,7 +823,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Datos aeronave" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc Rm_ReqAircraftData}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"/>
                                     <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -834,7 +844,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Perfil" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"/>
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc Rm_ProfileChipLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"/>
                                     <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -855,8 +865,8 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Aeronave del OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="El tipo ICAO del OFP debe coincidir con la aeronave seleccionada."/>
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc Rm_OfpAircraftLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="{loc:Loc Rm_ReqAircraftIcaoTooltip}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding OfpAircraftMatchDisplay}" FontSize="11" FontWeight="SemiBold"
                                                ToolTip="{Binding OfpValidationToolTip}">
                                         <TextBlock.Style>
@@ -877,7 +887,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="OFP" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="Obligatorio para activar: descargá tu plan desde SimBrief y se valida automáticamente (aeronave, campos mínimos y ventana de salida)."/>
+                                               ToolTip="{loc:Loc Rm_ReqOfpTooltip}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding OfpRowDisplay}" FontSize="11" FontWeight="SemiBold"
                                                ToolTip="{Binding OfpValidationToolTip}">
                                         <TextBlock.Style>
@@ -897,16 +907,16 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Fenix (opcional)" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
-                                               ToolTip="No es requisito para activar: sin Fenix la sesión prepara fallas en cola y las envía cuando Fenix está disponible."/>
-                                    <TextBlock Grid.Column="1" Text="✔ Opcional (prepara en cola)" FontSize="11" FontWeight="SemiBold"
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc Rm_ReqFenixOptional}" FontSize="11" Foreground="{StaticResource Brush.Text.Primary}"
+                                               ToolTip="{loc:Loc Rm_ReqFenixTooltip}"/>
+                                    <TextBlock Grid.Column="1" Text="{loc:Loc Rm_ReqFenixOptionalOk}" FontSize="11" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Accent.Green.Primary}"/>
                                 </Grid>
                                 <Button Margin="0,10,0,0" Click="OpenRiskProfileWindow"
                                         Style="{StaticResource CardButtonStyle}"
                                         IsEnabled="{Binding CanChangeProfile}"
                                         ToolTipService.ShowOnDisabled="True"
-                                        ToolTip="Abrí el selector para elegir el perfil de riesgo de la sesión.">
+                                        ToolTip="{loc:Loc Rm_ProfileSelectorTooltip}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -944,7 +954,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="👁" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="Pensamiento del motor" FontSize="12"
+                                    <TextBlock Grid.Column="1" Text="{loc:Loc Rm_ReasoningTitle}" FontSize="12"
                                                Foreground="{StaticResource Brush.Text.Primary}" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center">
                                         <TextBlock.Style>
@@ -965,7 +975,7 @@
 
                             <Border Background="#111318" CornerRadius="6" Padding="10" Margin="0,10,0,8"
                                     Visibility="{Binding IsSessionActiveWithoutFenix, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Fenix no está disponible: la sesión prepara fallas en cola y las envía cuando Fenix vuelva. Sin Fenix nunca se arma una falla en el avión."
+                                <TextBlock Text="{loc:Loc Rm_ReasoningFenixOffline}"
                                            FontSize="11" Foreground="{StaticResource Brush.Accent.Amber.Primary}" TextWrapping="Wrap"/>
                             </Border>
                             <Button Content="{Binding DiscardPreparedLabel}" Height="30" Padding="14,0"
@@ -973,13 +983,13 @@
                                     Style="{StaticResource GhostButtonStyle}"
                                     Command="{Binding DiscardPreparedCommand}"
                                     Visibility="{Binding IsDiscardPreparedVisible, Converter={StaticResource BoolToVis}}"
-                                    ToolTip="Descarta las fallas preparadas en cola (Fenix no disponible) sin enviarlas ni armar nada."/>
+                                    ToolTip="{loc:Loc Rm_DiscardPreparedTooltip}"/>
 
                             <StackPanel Margin="0,4,0,0"
                                         Visibility="{Binding IsChecked, ElementName=ThinkingToggle, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="FALLAS DE LA SESIÓN ACTUAL" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="{loc:Loc Rm_SessionFailuresHeader}" FontSize="10" FontWeight="Bold"
                                            Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,4"/>
-                                <TextBlock Text="Estado: cada falla se confirma contra el estado real de Fenix en cada ciclo de evaluación: enviada → activa confirmada → resuelta."
+                                <TextBlock Text="{loc:Loc Rm_SessionFailuresDesc}"
                                            FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,10" TextWrapping="Wrap"/>
                                 <ItemsControl ItemsSource="{Binding LiveTriggeredFailures}" MaxHeight="140">
                                     <ItemsControl.ItemTemplate>
@@ -990,9 +1000,9 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="Sin datos de razonamiento: el backend de decisión todavía no existe, así que no hay eventos que mostrar."
+                                <TextBlock Text="{loc:Loc Rm_ReasoningNoData}"
                                            FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,10,0,8"/>
-                                <TextBlock Text="A futuro este panel mostrará el razonamiento de nivel de decisión del motor: el motivo por el que selecciona o descarta cada falla. Hasta entonces no se simulan eventos."
+                                <TextBlock Text="{loc:Loc Rm_ReasoningFuture}"
                                            FontSize="11" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap"/>
                             </StackPanel>
                         </StackPanel>
@@ -1002,7 +1012,7 @@
                     <Border Background="{StaticResource Brush.Background.Glass.Inner}" CornerRadius="8" Padding="14" Margin="0,12,0,0"
                             Visibility="{Binding DebugClockVisible, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
-                            <TextBlock Text="RELOJ DE SIMULACIÓN (DEBUG)" FontSize="10" FontWeight="Bold"
+                            <TextBlock Text="{loc:Loc Rm_SimClockHeader}" FontSize="10" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,0,8"/>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding SimulatedTimeScaleDisplay}" FontSize="12" FontWeight="SemiBold"
@@ -1010,17 +1020,17 @@
                                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <Button Content="1x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="1"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"
-                                        ToolTip="Tiempo real"/>
+                                        ToolTip="{loc:Loc Rm_ClockRealTime}"/>
                                 <Button Content="5x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="5"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
                                 <Button Content="15x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="15"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
                                 <Button Content="60x" Command="{Binding SetSimulatedScaleCommand}" CommandParameter="60"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0"
-                                        ToolTip="Un vuelo de 2h30 corre en 2min30"/>
+                                        ToolTip="{loc:Loc Rm_ClockSimTime}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <TextBlock Text="Saltar:" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
+                                <TextBlock Text="{loc:Loc Rm_SimClockSkipLabel}" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}"
                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <Button Content="+10 min" Command="{Binding AdvanceSimulatedTimeCommand}" CommandParameter="10"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
@@ -1028,7 +1038,7 @@
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0" Margin="0,0,6,0"/>
                                 <Button Content="+1 h" Command="{Binding AdvanceSimulatedTimeCommand}" CommandParameter="60"
                                         Style="{StaticResource GhostButtonStyle}" Height="28" Padding="10,0"
-                                        ToolTip="Salta el escenario (p. ej. directo al descenso)"/>
+                                        ToolTip="{loc:Loc Rm_SkipScenarioTooltip}"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -1040,14 +1050,14 @@
                             CornerRadius="8" Padding="12" Margin="0,0,0,10"
                             Visibility="{Binding StopConfirmationVisible, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
-                            <TextBlock Text="⚠ Estás en vuelo (fuera de tierra). ¿Detener la sesión ahora?"
+                            <TextBlock Text="{loc:Loc Rm_StopInFlightConfirm}"
                                        FontSize="12" Foreground="{StaticResource Brush.Accent.Amber.Primary}"
                                        TextWrapping="Wrap" Margin="0,0,0,10"/>
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="Sí, detener" Height="32" Padding="16,0"
+                                <Button Content="{loc:Loc Rm_StopYes}" Height="32" Padding="16,0"
                                         Command="{Binding ActivateCommand}"
                                         Style="{StaticResource GhostButtonStyle}"/>
-                                <Button Content="Cancelar" Height="32" Padding="16,0" Margin="8,0,0,0"
+                                <Button Content="{loc:Loc Rm_Cancel}" Height="32" Padding="16,0" Margin="8,0,0,0"
                                         Command="{Binding CancelStopCommand}"
                                         Style="{StaticResource GhostButtonStyle}"/>
                             </StackPanel>
@@ -1083,10 +1093,10 @@
                                 Style="{StaticResource GhostButtonStyle}"
                                 ToolTipService.ShowOnDisabled="True"
                                 Visibility="{Binding IsEngineActive, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Pausa el motor de fallas: desarma las fallas Fenix activas y bloquea nuevas fallas hasta reanudar la sesión.">
+                                ToolTip="{loc:Loc Rm_PauseTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="❚❚" VerticalAlignment="Center" FontSize="12" Margin="0,0,10,0"/>
-                                <TextBlock Text="PAUSAR FALLAS" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="{loc:Loc Rm_PauseButton}" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
 
@@ -1095,10 +1105,10 @@
                                 Command="{Binding ResumeSessionCommand}"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Visibility="{Binding IsSessionPaused, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Reanuda la evaluación del motor tras una pausa y re-arma en Fenix las fallas que estaban en curso (mejor esfuerzo: las que no se puedan reconstruir quedan en el log).">
+                                ToolTip="{loc:Loc Rm_ResumeTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="⏵" VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0"/>
-                                <TextBlock Text="REANUDAR EVALUACIÓN" VerticalAlignment="Center"
+                                <TextBlock Text="{loc:Loc Rm_ResumeButton}" VerticalAlignment="Center"
                                            FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -1142,6 +1152,33 @@
                     </Grid>
                 </StackPanel>
 
+                <!-- Aviso de fin de vuelo: modal de confirmación Finalizar / Ahora no (issue #15) -->
+                <Grid Grid.RowSpan="3" Background="#C0080A0F"
+                      Visibility="{Binding IsFlightCompletionConfirmVisible, Converter={StaticResource BoolToVis}}">
+                    <Border Width="480" Background="{StaticResource Brush.Background.Card}"
+                            BorderBrush="{StaticResource Brush.Accent.Green.Primary}" BorderThickness="1"
+                            CornerRadius="12" Padding="20"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Rm_FlightCompletedHeader}" FontSize="12" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Accent.Green.Primary}" Margin="0,0,0,10"/>
+                            <TextBlock Text="{loc:Loc Rm_FlightCompletedText}"
+                                       FontSize="12" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="{loc:Loc Rm_FlightCompletedLater}" Height="34" Padding="16,0" Margin="0,0,8,0"
+                                        Command="{Binding CancelFlightCompletionCommand}"
+                                        Style="{StaticResource GhostButtonStyle}"/>
+                                <Button Content="{loc:Loc Rm_FlightCompletedFinish}" Height="34" Padding="16,0"
+                                        Command="{Binding ConfirmFlightCompletionCommand}"
+                                        Style="{StaticResource PrimaryButtonStyle}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
                 <Grid Grid.RowSpan="3" Background="#C0080A0F"
                       Visibility="{Binding IsVatsimConfirmVisible, Converter={StaticResource BoolToVis}}">
                     <Border Width="480" Background="{StaticResource Brush.Background.Card}"
@@ -1152,15 +1189,15 @@
                             <DropShadowEffect Color="Black" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
                         </Border.Effect>
                         <StackPanel>
-                            <TextBlock Text="⚠ CONFIRMACIÓN DE INICIO" FontSize="12" FontWeight="Bold"
+                            <TextBlock Text="{loc:Loc Rm_StartConfirmHeader}" FontSize="12" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Accent.Amber.Primary}" Margin="0,0,0,10"/>
-                            <TextBlock Text="En redes VATSIM el controlador ATC tiene la última palabra. Si te exige quitar las emergencias, la pausa que desarma fallas aún no está implementada: usá Detener y verificá el desarme en el sistema Fenix. Preferible terminar la sesión en tierra, pero está permitido detener en vuelo."
+                            <TextBlock Text="{loc:Loc Rm_StartConfirmText}"
                                        FontSize="12" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap" Margin="0,0,0,14"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="Cancelar" Height="34" Padding="16,0" Margin="0,0,8,0"
+                                <Button Content="{loc:Loc Rm_Cancel}" Height="34" Padding="16,0" Margin="0,0,8,0"
                                         Command="{Binding CancelVatsimStartCommand}"
                                         Style="{StaticResource GhostButtonStyle}"/>
-                                <Button Content="Confirmar inicio" Height="34" Padding="16,0"
+                                <Button Content="{loc:Loc Rm_StartConfirmButton}" Height="34" Padding="16,0"
                                         Command="{Binding ConfirmVatsimStartCommand}"
                                         Style="{StaticResource PrimaryButtonStyle}"/>
                             </StackPanel>

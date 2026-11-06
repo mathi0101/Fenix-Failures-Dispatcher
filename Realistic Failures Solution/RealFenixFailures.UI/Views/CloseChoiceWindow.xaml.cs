@@ -21,9 +21,9 @@ public partial class CloseChoiceWindow : Window {
         InitializeComponent();
         if (!allowFullExit) {
             ShutdownButton.IsEnabled = false;
-            ShutdownButton.ToolTip = "El cierre completo está bloqueado mientras el modo Realistic tiene una sesión activa.";
+            ShutdownButton.ToolTip = RealFenixFailures.UI.Localization.Loc.T("Close_ShutdownBlockedTooltip");
             ShutdownLockIcon.Visibility = Visibility.Visible;
-            ShutdownSubtitle.Text = "Bloqueado: hay una sesión en curso. Para salir de la app, terminá la sesión primero.";
+            ShutdownSubtitle.Text = RealFenixFailures.UI.Localization.Loc.T("Close_ShutdownBlockedSubtitle");
             ShutdownSubtitle.FontWeight = FontWeights.SemiBold;
             ShutdownSubtitle.Foreground = new System.Windows.Media.SolidColorBrush(
                 (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F5B741"));

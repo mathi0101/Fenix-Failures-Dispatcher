@@ -17,20 +17,20 @@ public partial class FatalErrorDialog : Window {
         MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 60);
         MessageText.Text = report.Message;
         BehaviorText.Text = report.IsFatal
-            ? "La aplicación se cerrará al confirmar o cerrar esta ventana."
-            : "Podés continuar usando la aplicación al aceptar. Revisá el estado de la operación que falló.";
-        ConfirmButton.Content = report.IsFatal ? "Cerrar aplicación" : "Aceptar";
+            ? RealFenixFailures.UI.Localization.Loc.T("Fatal_BehaviorFatal")
+            : RealFenixFailures.UI.Localization.Loc.T("Fatal_BehaviorNonFatal");
+        ConfirmButton.Content = report.IsFatal ? RealFenixFailures.UI.Localization.Loc.T("Fatal_CloseApp") : RealFenixFailures.UI.Localization.Loc.T("Fatal_Accept");
         SeverityBar.Fill = new System.Windows.Media.SolidColorBrush(report.IsFatal
             ? System.Windows.Media.Color.FromRgb(239, 68, 68) : System.Windows.Media.Color.FromRgb(245, 158, 11));
         var logPath = report.LogPath;
 
         if (string.IsNullOrEmpty(logPath)) {
-            LogInfoText.Text = "No se pudo guardar el archivo de diagnóstico. El detalle técnico sigue disponible abajo.";
+            LogInfoText.Text = RealFenixFailures.UI.Localization.Loc.T("Fatal_NoDiagnosticFile");
             OpenLogButton.IsEnabled = false;
         }
         else {
             LogInfoText.Text =
-                $"Se generó un registro de crash en:{Environment.NewLine}{logPath}";
+                RealFenixFailures.UI.Localization.Loc.T("Fatal_CrashLogCreated", Environment.NewLine, logPath);
             _logPath = logPath;
         }
 
@@ -78,7 +78,7 @@ public partial class FatalErrorDialog : Window {
             Process.Start(new ProcessStartInfo(_logPath) { UseShellExecute = true });
         }
         catch (Exception ex) {
-            LogInfoText.Text = $"No se pudo abrir el registro: {ex.Message}{Environment.NewLine}{_logPath}";
+            LogInfoText.Text = RealFenixFailures.UI.Localization.Loc.T("Fatal_LogOpenFailed", ex.Message, Environment.NewLine, _logPath);
         }
     }
 

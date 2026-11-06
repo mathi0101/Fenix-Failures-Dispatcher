@@ -1,7 +1,6 @@
 using RealFenixFailures.Domain.Enums;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Windows;
+using RealFenixFailures.UI.Localization;
+using RealFenixFailures.UI.ViewModels.Base;
 using System.Windows.Media;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
@@ -12,20 +11,21 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 /// Colores por estado (diseño objetivo §14): enviada amarillo, activa Minor/Major naranja,
 /// activa Critical rojo, resuelta verde.
 /// </summary>
-public sealed class LiveFailureEntryViewModel : INotifyPropertyChanged {
-    public event PropertyChangedEventHandler? PropertyChanged;
-
+public sealed class LiveFailureEntryViewModel : LocalizedViewModelBase {
     public required string FenixFailureId { get; init; }
     public required string TimestampText { get; init; }
     public required string Description { get; init; }
 
-    private string _stateLabel = "Enviada — esperando confirmación";
+    private FailureLifecycleState? _currentState;
+    private FailureSeverity? _currentSeverity;
+
+    private string _stateLabel = Loc.T("Lf_SentAwaiting");
     public string StateLabel {
         get => _stateLabel;
         private set => SetProperty(ref _stateLabel, value);
     }
 
-    private string _displayText;
+    private string _displayText = string.Empty;
     public string DisplayText {
         get => _displayText;
         private set => SetProperty(ref _displayText, value);
@@ -43,17 +43,10 @@ public sealed class LiveFailureEntryViewModel : INotifyPropertyChanged {
 
     /// <summary>Actualiza la entrada cuando Fenix confirma una transición del ciclo de vida.</summary>
     public void ApplyState(FailureLifecycleState newState, FailureSeverity? severity) {
-        StateLabel = newState switch {
-            FailureLifecycleState.Active when severity == FailureSeverity.Critical => "Activa (Critical)",
-            FailureLifecycleState.Active => severity switch {
-                FailureSeverity.Minor => "Activa (Minor)",
-                FailureSeverity.Major => "Activa (Major)",
-                _ => "Activa"
-            },
-            FailureLifecycleState.ResolvedByPilot => "Resuelta por el piloto",
-            FailureLifecycleState.AutoResolved => "Auto-resuelta por el engine",
-            _ => StateLabel
-        };
+        _currentState = newState;
+        _currentSeverity = severity;
+
+        StateLabel = StateLabelText(newState, severity);
         DisplayText = $"{TimestampText}  {StateLabel}  ·  {Description}";
         StateBrush = newState switch {
             FailureLifecycleState.Active when severity == FailureSeverity.Critical => ResolveBrush("Brush.Accent.Red.Primary"),
@@ -63,13 +56,26 @@ public sealed class LiveFailureEntryViewModel : INotifyPropertyChanged {
         };
     }
 
-    private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null) {
-        if (Equals(field, value)) return false;
-        field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        return true;
+    private static string StateLabelText(FailureLifecycleState newState, FailureSeverity? severity)
+        => newState switch {
+            FailureLifecycleState.Active when severity == FailureSeverity.Critical => Loc.T("Lf_ActiveCritical"),
+            FailureLifecycleState.Active => severity switch {
+                FailureSeverity.Minor => Loc.T("Lf_ActiveMinor"),
+                FailureSeverity.Major => Loc.T("Lf_ActiveMajor"),
+                _ => Loc.T("Lf_Active")
+            },
+            FailureLifecycleState.ResolvedByPilot => Loc.T("Lf_ResolvedByPilot"),
+            FailureLifecycleState.AutoResolved => Loc.T("Lf_AutoResolved"),
+            _ => Loc.T("Lf_SentAwaiting")
+        };
+
+    protected override void OnLanguageChanged() {
+        _stateLabel = Loc.T("Lf_SentAwaiting");
+        if (_currentState.HasValue)
+            StateLabel = StateLabelText(_currentState.Value, _currentSeverity);
+        DisplayText = $"{TimestampText}  {StateLabel}  ·  {Description}";
     }
 
     private static Brush ResolveBrush(string resourceKey) =>
-        System.Windows.Application.Current?.TryFindResource(resourceKey) as Brush ?? Brushes.Gray;
+        System.Windows.Application.Current?.TryFindResource(resourceKey) as Brush ?? System.Windows.Media.Brushes.Gray;
 }

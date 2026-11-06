@@ -12,6 +12,12 @@ public class FenixFailureDefinition {
     public FailureSeverity Severity { get; set; }
     public bool CanBeTemporary { get; set; }
     public bool CanBeRepaired { get; set; }
+    /// <summary>
+    /// Baja lógica del catálogo: el sincronizador nunca borra definiciones físicamente porque el
+    /// historial (TriggeredFailure, PresetFailureDefinition) las referencia por FK Restrict. Una
+    /// falla ausente del JSON vigente queda inactiva y los candidatos del motor la filtran.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 
     public ICollection<PresetFailureDefinition> PresetFailureDefinitions { get; set; } = new List<PresetFailureDefinition>();
 }

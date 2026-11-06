@@ -74,7 +74,8 @@ public class FlightEventDetectorTests {
                 "Iniciando rodaje (taxi)",
                 "Despegue",
                 "Ascenso",
-                "Crucero alcanzado",
+                // El FL sale de la altitud del fixture (altMsl 12000 → FL120), mismo cálculo que el detector.
+                $"Crucero FL{12_000 / 100:0} alcanzado",
                 "Iniciando descenso",
                 "Aproximación",
                 "Aterrizaje",
@@ -211,7 +212,7 @@ public class FlightEventDetectorTests {
         Assert.Equal(ComplexFlightPhaseEnum.Climb, detector.ProcessSnapshot(Airborne(altAgl: 12000, verticalSpeed: 0, altMsl: 12000, observedAt: AtSeconds(30))));
         Assert.Equal(ComplexFlightPhaseEnum.Cruise, detector.ProcessSnapshot(Airborne(altAgl: 12000, verticalSpeed: 0, altMsl: 12000, observedAt: AtSeconds(60))));
 
-        Assert.Contains(events, e => e.Kind == FlightEventKind.PhaseChanged && e.Message == "Crucero alcanzado");
+        Assert.Contains(events, e => e.Kind == FlightEventKind.PhaseChanged && e.Message == $"Crucero FL{12_000 / 100:0} alcanzado");
     }
 
     [Fact]
@@ -242,7 +243,7 @@ public class FlightEventDetectorTests {
         Assert.Equal(ComplexFlightPhaseEnum.Taxi, detector.ProcessSnapshot(Airborne(altAgl: 40, verticalSpeed: 0, altMsl: 140, observedAt: AtSeconds(13))));
         Assert.Equal(ComplexFlightPhaseEnum.Taxi, detector.ProcessSnapshot(Airborne(altAgl: 50, verticalSpeed: -100, altMsl: 150, observedAt: AtSeconds(14))));
 
-        Assert.DoesNotContain(events, e => e.Kind == FlightEventKind.PhaseChanged && e.Message == "Crucero alcanzado");
+        Assert.DoesNotContain(events, e => e.Kind == FlightEventKind.PhaseChanged && e.Message.StartsWith("Crucero FL"));
     }
 
     [Fact]

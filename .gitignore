@@ -12,6 +12,9 @@
 *.env
 Agent Prompts/
 
+# Borradores de trabajo de agentes (drafts de issues, mapas wayfinder): solo local, no se versionan
+.scratch/
+
 # DB Files
 *.db
 

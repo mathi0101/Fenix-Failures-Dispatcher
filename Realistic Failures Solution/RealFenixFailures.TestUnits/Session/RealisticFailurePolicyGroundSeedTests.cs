@@ -59,27 +59,39 @@ public class RealisticFailurePolicyGroundSeedTests {
     };
 
     // -------------------------------------------------------------------------
-    // GroundSeedProbability (fórmula unificada, base de tierra)
+    // GroundSeedProbability (λ₀ repartido entre el universo elegible)
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void GroundSeed_WithoutWear_EqualsBase() {
+    public void GroundSeed_WithoutWear_EqualsLambdaOverUniverse() {
         var physics = Physics();
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 1.0);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 5, Profile(), physics, wearFactor: 1.0);
 
-        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor, p, precision: 9);
+        Assert.Equal(physics.GroundSeedLambdaBase * physics.SeverityRateMultiplier.Minor / 5, p, precision: 9);
     }
 
     [Theory]
     [InlineData(50, 2.0)]   // 50% de desgaste con max ×3 duplica el factor
     [InlineData(100, 3.0)]  // 100% de desgaste con max ×3 triplica el factor
-    public void GroundSeed_WithWear_AmplifiesBase(double wear, double factor) {
+    public void GroundSeed_WithWear_AmplifiesLambda(double wear, double factor) {
         var physics = Physics();
         var wearFactor = RealisticFailurePolicy.WearFactor(Profile(), wear);
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 5, Profile(), physics, wearFactor);
 
-        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor * factor, p, precision: 9);
+        Assert.Equal(physics.GroundSeedLambdaBase * physics.SeverityRateMultiplier.Minor * factor / 5, p, precision: 9);
+    }
+
+    [Fact]
+    public void GroundSeed_TotalAcrossUniverse_EqualsProfileLambda() {
+        // La suma de las p individuales reconstruye el λ del perfil: el catálogo reparte, no escala la cadencia.
+        var physics = Physics();
+        var profile = Profile(probabilityMultiplier: 1.5);
+        const int universe = 244;
+        var total = Enumerable.Range(0, universe)
+            .Sum(i => RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universe, profile, physics, wearFactor: 1.0));
+
+        Assert.Equal(physics.GroundSeedLambdaBase * profile.ProbabilityMultiplier, total, precision: 9);
     }
 
     [Fact]
@@ -87,24 +99,31 @@ public class RealisticFailurePolicyGroundSeedTests {
         var physics = Physics();
         Assert.Equal(1.0, RealisticFailurePolicy.WearFactor(Profile(), wearPercentage: null), precision: 6);
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 1.0);
-        Assert.Equal(physics.GroundSeedBaseProbability * physics.SeverityRateMultiplier.Minor, p, precision: 9);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 5, Profile(), physics, wearFactor: 1.0);
+        Assert.Equal(physics.GroundSeedLambdaBase * physics.SeverityRateMultiplier.Minor / 5, p, precision: 9);
     }
 
     [Fact]
     public void GroundSeed_ClampsToUnit() {
-        var physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = 0.9 };
+        var physics = new RealisticPhysicsSettings { GroundSeedLambdaBase = 100 };
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 3.0);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 1, Profile(), physics, wearFactor: 3.0);
 
         Assert.Equal(1.0, p, precision: 6);
     }
 
     [Fact]
-    public void GroundSeed_NegativeBase_TreatedAsZero() {
-        var physics = new RealisticPhysicsSettings { GroundSeedBaseProbability = -1 };
+    public void GroundSeed_NegativeLambda_TreatedAsZero() {
+        var physics = new RealisticPhysicsSettings { GroundSeedLambdaBase = -1 };
 
-        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, Profile(), physics, wearFactor: 2.0);
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 5, Profile(), physics, wearFactor: 2.0);
+
+        Assert.Equal(0.0, p, precision: 6);
+    }
+
+    [Fact]
+    public void GroundSeed_EmptyUniverse_NoSeeds() {
+        var p = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universeWeight: 0, Profile(), Physics(), wearFactor: 1.0);
 
         Assert.Equal(0.0, p, precision: 6);
     }

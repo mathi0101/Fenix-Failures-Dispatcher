@@ -38,11 +38,17 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private bool _subscribedToFlightEvents;
     private bool _hasEverHadFenixRead;
     private bool _groundSeeded;
+    private bool _hasObservedFlight;
+    private bool _flightCompletionDetected;
     private Dictionary<string, int>? _ataByFenixId;
     private IReadOnlyList<PresetFailureDefinition>? _flightUniverse;
     private DateTime? _lastCadenceTickUtc;
     private DateTime _scenarioStartedAtUtc;
     private DateTime? _flightTimeStartedAtUtc;
+
+    /// <summary>Anclaje de fin de horas de vuelo: momento (reloj de simulación) de la detección de fin de vuelo;
+    /// null hasta entonces. Corta la acumulación de desgaste en la detección, no en el cierre de la sesión.</summary>
+    private DateTime? _flightTimeEndedAtUtc;
 
 
     private RealisticSession? _session;
@@ -140,6 +146,11 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
         };
         _scenarioStartedAtUtc = _policy.UtcNow;
         _flightTimeStartedAtUtc = null;
+        _flightTimeEndedAtUtc = null;
+        // Secuencia de fin de vuelo fresca por sesión (issue #15): cada sesión arranca sin observaciones previas,
+        // aunque la aeronave ya esté volando (la fase aérea se observa en los primeros ticks).
+        _hasObservedFlight = false;
+        _flightCompletionDetected = false;
         _logger.LogDebug("Realistic sesión {SessionId}: inicio aceptado; aeronave {AircraftId}, perfil {Risk}, presets {Count}, multiplicador {Multiplier}, desgaste máximo x{WearMax}, cap agravamiento {Cap}, cap tierra {GroundCap}, escenario {ScenarioUtc}",
             newSession.Id, context.Aircraft.Id, Session.RiskLevel, presets.Count, Session.RiskProfile.ProbabilityMultiplier,
             Session.RiskProfile.WearMaxMultiplier, Session.RiskProfile.AggravationCap, Session.RiskProfile.GroundFailuresCap, _scenarioStartedAtUtc);
@@ -233,22 +244,34 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var currentPhase = _flightEventDetector.ProcessSnapshot(rawData);
             await DrainFlightEventsAsync(currentPhase, ct);
             Session!.ProcessSimData(rawData, failuresList ?? Session.AllFenixFailures, currentPhase);
+            var flightCompletedThisTick = TrackFlightCompletion(currentPhase);
 
-            if (currentPhase != ComplexFlightPhaseEnum.OnGate && Queue.HasGround) {
-                Queue.DiscardGround();
+            // El aviso de fin de vuelo viaja en el resultado del tick (mismo camino que fallas y cambios de estado).
+            EvaluationResult Finish(EvaluationResult result) => flightCompletedThisTick
+                ? result.WithFlightCompletionDetected()
+                : result;
+
+            // Fin de vuelo detectado (este tick o uno anterior): el motor deja de sortear, armar o encolar
+            // fallas (decisión 2026-11-05); sigue solo la conciliación del ciclo de vida de las ya armadas
+            // (Sent→Active, Active→Resolved, expiraciones) y el desgaste queda anclado en la detección.
+            if (_flightCompletionDetected) {
+                var quietChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
+                await ExpireTemporaryFailuresAsync(currentPhase, quietChanges, ct);
+                _lastCadenceTickUtc = _policy.UtcNow;
+                return Finish(EvaluationResult.NoAction().WithStateChanges(quietChanges));
             }
 
             if (!fenixAvailable) {
                 if (_hasEverHadFenixRead) {
                     _lastCadenceTickUtc = _policy.UtcNow;
-                    return EvaluationResult.NoAction();
+                    return Finish(EvaluationResult.NoAction());
                 }
                 if (Queue.Count >= _settings.PreparedQueueLimit) {
                     _lastCadenceTickUtc = _policy.UtcNow;
-                    return EvaluationResult.NoAction();
+                    return Finish(EvaluationResult.NoAction());
                 }
                 var activeOwned = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
-                return await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct);
+                return Finish(await TryChooseAsync(currentPhase, activeOwned, fenixAvailable: false, ct));
             }
 
             var stateChanges = await ReconcileFailureLifecycleAsync(currentPhase, ct);
@@ -256,10 +279,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
 
             var activeAfterReconcile = await _triggeredFailureRepository.GetActiveForSessionAsync(Session.Session.Id, ct);
             var flush = await FlushPreparedAsync(currentPhase, activeAfterReconcile, ct);
-            if (flush.Attempted) return EvaluationResult.Completed(flush.Sent).WithStateChanges(stateChanges);
+            if (flush.Attempted) return Finish(EvaluationResult.Completed(flush.Sent).WithStateChanges(stateChanges));
 
             var chosen = await TryChooseAsync(currentPhase, activeAfterReconcile, fenixAvailable: true, ct);
-            return chosen.WithStateChanges(stateChanges);
+            return Finish(chosen.WithStateChanges(stateChanges));
         } catch (OperationCanceledException) {
             // Cancelación (pausa/stop manual): no es un fallo fatal; no se cierra la sesión acá.
             throw;
@@ -326,6 +349,40 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     }
 
     private static string PhaseCode(ComplexFlightPhaseEnum phase) => phase.ToString().ToUpperInvariant();
+
+    /// <summary>
+    /// Secuencia de fin de vuelo (issue #15 / decisión de grilling 2026-10-31): se marca que hubo vuelo cuando se
+    /// observa por primera vez una fase aérea (Climb/Cruise/Descent/Approach; la sesión puede iniciarse ya volando),
+    /// y el vuelo se considera terminado en el primer tick posterior en gate con ambos motores apagados
+    /// (<see cref="ComplexFlightPhaseEnum.OnGate"/>, que el detector describe como «Motores apagados en gate»).
+    /// Sin validación de posición ni de destino del OFP: un desvío también cuenta como fin de operación.
+    /// El estado vive en la instancia del engine, por lo que sobrevive pausas y reanudaciones de la sesión.
+    /// Devuelve true solo en el tick que completa la secuencia (se emite una única vez por sesión).
+    /// </summary>
+    private bool TrackFlightCompletion(ComplexFlightPhaseEnum phase) {
+        if (_flightCompletionDetected || !IsRunning) return false;
+
+        if (!_hasObservedFlight && IsAirbornePhase(phase)) {
+            _hasObservedFlight = true;
+            _logger.LogDebug("Realistic sesión {SessionId}: fase aérea observada ({Phase}); armada la secuencia de fin de vuelo, escenario {ScenarioUtc}",
+                Session!.Session.Id, phase, _policy.UtcNow);
+        }
+
+        if (!_hasObservedFlight || phase != ComplexFlightPhaseEnum.OnGate) return false;
+
+        _flightCompletionDetected = true;
+        _flightTimeEndedAtUtc = _policy.UtcNow;
+        _logger.LogInformation("Realistic sesión {SessionId}: vuelo finalizado detectado (aeronave en gate con motores apagados), escenario {ScenarioUtc}",
+            Session!.Session.Id, _policy.UtcNow);
+        return true;
+    }
+
+    /// <summary>Fases estrictamente aéreas (mismo criterio que <c>FlightEventDetector.IsAirbornePhase</c>).</summary>
+    private static bool IsAirbornePhase(ComplexFlightPhaseEnum phase) =>
+        phase is ComplexFlightPhaseEnum.Climb
+            or ComplexFlightPhaseEnum.Cruise
+            or ComplexFlightPhaseEnum.Descent
+            or ComplexFlightPhaseEnum.Approach;
 
     /// <summary>
     /// Reconciliación del ciclo de vida por lectura de Fenix (diseño objetivo §10): cada tick compara las fallas
@@ -648,7 +705,9 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
     private async Task<IReadOnlyList<PresetFailureDefinition>> GetFlightUniverseAsync(CancellationToken ct) {
         if (_flightUniverse is not null) return _flightUniverse;
         if (_fenixFailureDefinitions is null) return [];
-        var catalog = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        // Solo definiciones activas del catálogo (las de baja lógica del sync quedan fuera; GetAll
+        // sin filtrar es para la reconciliación de fallas disparadas, que sí necesita el historial).
+        var catalog = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x => x.IsActive);
         _flightUniverse = catalog.Select(entity => new PresetFailureDefinition {
             FenixFailureId = entity.FenixFailureId,
             FenixFailure = entity,
@@ -702,7 +761,10 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: sin encendido de motores registrado, no acumula desgaste", session.Session.Id);
                 return [];
             }
-            var hours = (_policy.UtcNow - flightStart).TotalHours;
+            // El desgaste cuenta hasta la detección de fin de vuelo, no hasta el cierre (decisión 2026-11-05):
+            // los minutos en gate con motores apagados (gracia del aviso) no desgastan sistemas.
+            var wearEnd = _flightTimeEndedAtUtc ?? _policy.UtcNow;
+            var hours = (wearEnd - flightStart).TotalHours;
             if (hours <= 0) return [];
             var wears = await _aircraftSystemWearRepository.GetForAircraftAsync(session.Aircraft.Id, ct);
             var eligible = wears.Where(w => (w.WearableSystem?.WearPerFlightHour ?? 0) > 0).ToList();
@@ -720,11 +782,12 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
                 _logger.LogDebug("Realistic sesión {SessionId}: acumulan {Count} de {Total} sistemas elegibles por {Hours:F1} h de vuelo (tope {Cap})",
                     session.Session.Id, count, eligibleCount, hours, cap);
             var noticeThreshold = _settings.Wear.ThresholdNoticePct;
+            var rateMultiplier = Math.Max(0, _settings.Wear.WearRateMultiplier);
             var deltas = new List<SystemWearDeltaDto>();
             foreach (var wear in eligible) {
                 var rate = wear.WearableSystem?.WearPerFlightHour ?? 0;
                 if (rate <= 0) continue;
-                var delta = rate * hours;
+                var delta = rate * rateMultiplier * hours;
                 var previousWear = wear.WearPercentage;
                 wear.WearPercentage = Math.Clamp(wear.WearPercentage + delta, 0, 100);
                 if (wear.WearPercentage > previousWear)
@@ -856,15 +919,15 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             var queued = Queue.TryEnqueue(item);
             if (queued) {
                 enqueued++;
-                _logger.LogDebug("Realistic sesión {SessionId}: tierra {FailureId} seleccionada y encolada tras cap {Cap}, p {Probability}, azar {Roll}, desgaste {WearPct}%, factor desgaste {WearFactor}, base {Base}, mult perfil {ProfileMultiplier}, cola {Count}",
+                _logger.LogDebug("Realistic sesión {SessionId}: tierra {FailureId} seleccionada y encolada tras cap {Cap}, p {Probability}, azar {Roll}, desgaste {WearPct}%, factor desgaste {WearFactor}, lambda0 {LambdaBase}, mult perfil {ProfileMultiplier}, cola {Count}",
                     session.Session.Id, def.FenixFailureId, session.RiskProfile.GroundFailuresCap, candidate.Probability,
                     positiveRolls?.GetValueOrDefault(def.FenixFailureId), candidate.WearPercentage,
-                    RealisticFailurePolicy.WearFactor(session.RiskProfile, candidate.WearPercentage), _settings.Physics.GroundSeedBaseProbability, session.RiskProfile.ProbabilityMultiplier, Queue.Count);
+                    RealisticFailurePolicy.WearFactor(session.RiskProfile, candidate.WearPercentage), _settings.Physics.GroundSeedLambdaBase, session.RiskProfile.ProbabilityMultiplier, Queue.Count);
             }
         }
         if (enqueued > 0) _logger.LogInformation(
-            "Fallas de tierra sembradas: {Count} de {Candidates} candidatos (perfil {Risk}, p_base {Base}, tope {Cap})",
-            enqueued, candidates.Count, session.RiskLevel, _settings.Physics.GroundSeedBaseProbability, session.RiskProfile.GroundFailuresCap);
+            "Fallas de tierra sembradas: {Count} de {Candidates} candidatos (perfil {Risk}, lambda0 {LambdaBase}, tope {Cap})",
+            enqueued, candidates.Count, session.RiskLevel, _settings.Physics.GroundSeedLambdaBase, session.RiskProfile.GroundFailuresCap);
     }
 
     private async Task<List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>> BuildGroundCandidatesAsync(CancellationToken ct) {
@@ -882,15 +945,22 @@ public class RealisticSessionEngine : INotifyPropertyChanged {
             .ToDictionary(g => g.Key, g => g.Max(x => x.WearPercentage));
 
         var result = new List<GroundFailureCandidate<(PresetFailureDefinition Def, string PresetName)>>();
-        var availableFailures = await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct);
+        // Solo activas: una falla dada de baja lógicamente por el sync de catálogos no vuelve a sembrarse en tierra.
+        var availableFailures = (await _fenixFailureDefinitions.GetAllWithSystemsAsync(ct)).Where(x => x.IsActive);
         // Solo leves Y recuperables (tipos-de-falla.md §4.1): nunca se arranca una sesión con una falla
         // permanente que el piloto no puede resolver en tierra.
-        foreach (var entity in availableFailures.Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)) {
-            if (entity.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal)) continue;
+        var eligible = availableFailures
+            .Where(x => x.Severity is FailureSeverity.Minor && x.CanBeRepaired)
+            .Where(x => !x.FenixFailureId.StartsWith("F_OH_NAV_IR_ALIGNMENT", StringComparison.Ordinal))
+            .ToList();
+        // λ₀ (GroundSeedLambdaBase, semillas esperadas por vuelo) se reparte entre el universo elegible:
+        // el catálogo decide el reparto individual, no la cadencia total (λ₀ × perfil × desgaste).
+        var universe = eligible.Count;
+        foreach (var entity in eligible) {
             var ataId = entity.Group?.System?.AtaId ?? 0;
             var wear = wearByAta.GetValueOrDefault(ataId);
             var wearFactor = RealisticFailurePolicy.WearFactor(profile, wear);
-            var probability = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, profile, physics, wearFactor);
+            var probability = RealisticFailurePolicy.GroundSeedProbability(FailureSeverity.Minor, 1.0, universe, profile, physics, wearFactor);
             // Candidato sintético que referencia la entidad persistida (trackeada por GetAllWithSystemsAsync,
             // misma identidad que el contexto de sesión): no se mutan navegaciones ajenas, así que el
             // SaveChanges posterior al seed no dispara conflictos de identity de EF.

@@ -2,6 +2,7 @@ using RealFenixFailures.Application.Interfaces;
 using RealFenixFailures.Application.Services;
 using RealFenixFailures.Domain.Enums;
 using RealFenixFailures.Domain.Services;
+using RealFenixFailures.UI.Localization;
 using RealFenixFailures.UI.ViewModels.Base;
 
 namespace RealFenixFailures.UI.ViewModels.Realistic;
@@ -9,17 +10,17 @@ namespace RealFenixFailures.UI.ViewModels.Realistic;
 /// <summary>
 /// ViewModel del modal de selección de perfil de riesgo: siempre refleja la configuración leída vigente
 /// (perfiles resueltos por <see cref="RealisticModeSettings.ProfileFor"/> y física del motor) y recalcula
-/// los mensajes y las tasas por hora de vuelo cada vez que se abre la ventana.
+/// los mensajes y las tasas por hora de vuelo cada vez que se abre la ventana. Al cambiar el idioma
+/// reconstruye las tarjetas con sus textos localizados y refresca las estimaciones.
 /// </summary>
-public sealed class RiskProfileWindowViewModel : ObservableObject {
+public sealed class RiskProfileWindowViewModel : LocalizedViewModelBase {
     private readonly RealisticModeViewModel _owner;
     private readonly IRealisticExpectationService? _expectationService;
     private readonly Func<double?> _averageWear;
     private RiskProfileOptionViewModel? _selected;
-    private string _footNote = FootNoteBase;
+    private string _footNote = Loc.T("Rpw_FootNoteNone");
     private string _estimateFootNote = string.Empty;
-
-    private const string FootNoteBase = "La elección queda fija al iniciar la sesión.";
+    private int? _lastSelectedLevel;
 
     public RiskProfileWindowViewModel(
         RealisticModeViewModel owner,
@@ -33,14 +34,16 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
             option.SelectedChanged += (_, _) => Selected = option;
     }
 
-    public IReadOnlyList<RiskProfileOptionViewModel> Profiles { get; }
+    public IReadOnlyList<RiskProfileOptionViewModel> Profiles { get; private set; }
 
     public RiskProfileOptionViewModel? Selected {
         get => _selected;
         private set {
             if (!SetProperty(ref _selected, value)) return;
+            if (value is not null)
+                _lastSelectedLevel = value.Level;
             OnPropertyChanged(nameof(CanConfirm));
-            FootNote = value is null ? FootNoteBase : $"Seleccionado: {value.Name}. {FootNoteBase}";
+            FootNote = value is null ? Loc.T("Rpw_FootNoteNone") : Loc.T("Rpw_FootNoteSelected", value.Name);
         }
     }
 
@@ -53,7 +56,7 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
     /// <summary>Recalcula todo desde la configuración vigente y preselecciona el perfil actual del panel.</summary>
     public async Task RefreshAsync() {
         if (_expectationService is null) {
-            EstimateFootNote = "* Estimación no disponible en esta sesión.";
+            EstimateFootNote = Loc.T("Rpw_EstimateUnavailable");
             return;
         }
 
@@ -68,14 +71,14 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
                 option.ApplyExpectation(dto, maxMultiplier, maxWear);
             }
 
-            var wearDisplay = wear is null ? "sin datos de desgaste" : $"desgaste medio {Math.Round(wear.Value):0} %";
-            EstimateFootNote = $"* Fallas graves (Major) y críticas (Critical) en vuelo, aproximadas por cada 10 horas de vuelo con la "
-                + $"configuración vigente del motor y {wearDisplay}. La semilla de tierra (fallas del arranque) se describe en los chips. "
-                + "La cadencia real la decide el motor tick a tick.";
+            var wearDisplay = wear is null
+                ? Loc.T("Rpw_WearNoData")
+                : Loc.T("Rpw_WearAverage", Math.Round(wear.Value));
+            EstimateFootNote = Loc.T("Rpw_EstimateDetail", wearDisplay);
 
             Preselect(_owner.SelectedRiskLevel);
         } catch (Exception) {
-            EstimateFootNote = "* No se pudo calcular la estimación con la configuración actual.";
+            EstimateFootNote = Loc.T("Rpw_EstimateFailed");
         }
     }
 
@@ -96,5 +99,19 @@ public sealed class RiskProfileWindowViewModel : ObservableObject {
             other.IsSelected = false;
         Selected = option;
         option.IsSelected = true;
+    }
+
+    protected override void OnLanguageChanged() {
+        // Reconstruye las tarjetas con los textos del idioma nuevo y vuelve a aplicar
+        // la última estimación conocida (los DTOs se piden de nuevo al servicio).
+        Profiles = RiskProfileOptionViewModel.CreateDefaults();
+        OnPropertyChanged(nameof(Profiles));
+        foreach (var option in Profiles)
+            option.SelectedChanged += (_, _) => Selected = option;
+        _selected = Profiles.FirstOrDefault(p => p.Level == _lastSelectedLevel);
+        OnPropertyChanged(nameof(Selected));
+        OnPropertyChanged(nameof(CanConfirm));
+        FootNote = _selected is null ? Loc.T("Rpw_FootNoteNone") : Loc.T("Rpw_FootNoteSelected", _selected.Name);
+        _ = RefreshAsync();
     }
 }

@@ -1,11 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- UseWPF: los tests de localización (issue #12) cargan tipos de la UI (Loc,
+         resx satélites) que requieren WindowsDesktop.App en runtime. -->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,14 +27,15 @@
     <ProjectReference Include="..\RealFenixFailures.Integrations.Fenix\RealFenixFailures.Integrations.Fenix.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimBrief\RealFenixFailures.Integrations.SimBrief.csproj" />
     <ProjectReference Include="..\RealFenixFailures.Integrations.SimConnect\RealFenixFailures.Integrations.SimConnect.csproj" />
+    <ProjectReference Include="..\RealFenixFailures.UI\RealFenixFailures.UI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
-    <Compile Include="..\RealFenixFailures.UI\ViewModels\Realistic\SessionResultWindowViewModel.cs" Link="Presentation\SessionResultWindowViewModel.cs" />
-    <Compile Include="..\RealFenixFailures.UI\Diagnostics\CrashReportCoordinator.cs" Link="Diagnostics\CrashReportCoordinator.cs" />
-    <Compile Include="..\RealFenixFailures.UI\Diagnostics\UnexpectedErrorSink.cs" Link="Diagnostics\UnexpectedErrorSink.cs" />
-    <Compile Include="..\RealFenixFailures.UI\Diagnostics\CrashLogWriter.cs" Link="Diagnostics\CrashLogWriter.cs" />
+    <!-- El SDK de WindowsDesktop no incluye System.IO/System.Net.Http en los usings
+         implícitos; los tests existentes los usan sin using explícito. -->
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
   </ItemGroup>
 
 </Project>

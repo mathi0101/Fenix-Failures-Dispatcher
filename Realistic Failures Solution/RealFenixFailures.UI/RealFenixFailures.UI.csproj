@@ -30,6 +30,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <!-- Localización bilingüe ES/EN (issue #12): sin paquete externo. WPFLocalizeExtension
+         3.10.0 no compila con el compilador XAML de .NET 10 (MC3074, verificado en spike);
+         se usa el patrón clásico de WPF: Localization/Loc.cs + resx satélites. -->
   </ItemGroup>
 
   <ItemGroup>
@@ -92,6 +95,10 @@
          fijo, necesario para SplashWindow y sus splash-frame-*.png). -->
     <AssemblyName>RealFenixFailures</AssemblyName>
     <RootNamespace>RealFenixFailures.UI</RootNamespace>
+    <!-- Localización (issue #12): cultura neutra = inglés (fallback de cualquier clave
+         faltante) y solo satélites en/es al publicar (higiene de carpeta de salida). -->
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;es</SatelliteResourceLanguages>
     <ApplicationIcon>Assets\Branding\app-icon.ico</ApplicationIcon>
     <StartupObject>RealFenixFailures.UI.Program</StartupObject>
     <UserSecretsId>c3f0d6c2-11c7-4213-8bfe-3c14a4f51279</UserSecretsId>

@@ -48,31 +48,75 @@ public class RealisticProfileExpectationTests {
     }
 
     [Fact]
-    public void ExpectedGroundSeedsPerFlight_MatchesThePolicysOwnFormula() {
-        var counts = FailureCatalogStats.SeverityCounts();
+    public void GroundSeedDistribution_SumsToOne_AndStartsAtExpMinusLambda() {
         foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
             var profile = Defaults.ProfileFor(risk);
-            var wearFactor = RealisticFailurePolicy.WearFactor(profile, wearPercentage: 25);
+            var wearPct = 25.0;
+            var lambda = RealisticProfileExpectation.GroundSeedLambda(Physics, profile, wearPct);
 
-            var lambda = Physics.GroundSeedBaseProbability
-                * (counts.Minor * Physics.SeverityRateMultiplier.Minor + counts.Major * Physics.SeverityRateMultiplier.Major)
+            var distribution = RealisticProfileExpectation.GroundSeedDistribution(Physics, profile, wearPct);
+
+            Assert.Equal(profile.GroundFailuresCap + 1, distribution.Length);
+            Assert.Equal(1.0, distribution.Sum(), precision: 9);
+            Assert.Equal(Math.Exp(-lambda), distribution[0], precision: 9);
+        }
+    }
+
+    [Fact]
+    public void GroundSeedDistribution_Mean_MatchesExpectedGroundSeedsPerFlight() {
+        foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
+            var profile = Defaults.ProfileFor(risk);
+            var distribution = RealisticProfileExpectation.GroundSeedDistribution(Physics, profile, wearPct: 50);
+            var mean = distribution.Select((p, k) => k * p).Sum();
+
+            Assert.Equal(RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(Physics, profile, wearPct: 50), mean, precision: 9);
+        }
+    }
+
+    [Fact]
+    public void GroundSeedDistribution_ZeroCap_AlwaysClean() {
+        var profile = new RealisticProfileSettings {
+            RiskLevel = (int)RiskLevel.Moderate, ProbabilityMultiplier = 1.2, WearMaxMultiplier = 3, GroundFailuresCap = 0
+        };
+
+        var distribution = RealisticProfileExpectation.GroundSeedDistribution(Physics, profile, wearPct: 100);
+
+        Assert.Equal(1.0, distribution[0], precision: 9);
+    }
+
+    [Fact]
+    public void ExpectedGroundSeedsPerFlight_MatchesThePolicysOwnFormula() {
+        foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
+            var profile = Defaults.ProfileFor(risk);
+
+            var lambda = Physics.GroundSeedLambdaBase
                 * profile.ProbabilityMultiplier
-                * wearFactor;
+                * RealisticFailurePolicy.WearFactor(profile, wearPercentage: 25);
             var expected = RealisticProfileExpectation.MeanTruncatedPoisson(lambda, profile.GroundFailuresCap);
 
-            var actual = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(
-                Physics, profile, counts.Minor, counts.Major, wearPct: 25);
+            var actual = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(Physics, profile, wearPct: 25);
             Assert.Equal(expected, actual, precision: 9);
         }
     }
 
     [Fact]
+    public void ExpectedGroundSeedsPerFlight_IsCatalogIndependent() {
+        // El universo elegible solo reparte la probabilidad (GroundSeedProbability normaliza por Σ pesos):
+        // la estimación del total no toma tamaños del catálogo como input, así que curar el catálogo no
+        // mueve la cadencia de tierra.
+        var profile = Defaults.ProfileFor(RiskLevel.Moderate);
+        var expected = RealisticProfileExpectation.MeanTruncatedPoisson(
+            Physics.GroundSeedLambdaBase * profile.ProbabilityMultiplier, profile.GroundFailuresCap);
+
+        Assert.Equal(expected, RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(Physics, profile, wearPct: 0), precision: 9);
+    }
+
+    [Fact]
     public void ExpectedGroundSeedsPerFlight_ZeroWear_IsMonotoneAcrossProfiles() {
-        var counts = FailureCatalogStats.SeverityCounts();
         var previous = 0.0;
         foreach (var risk in RealisticProfileDefaultsTests.AllRisks) {
             var expected = RealisticProfileExpectation.ExpectedGroundSeedsPerFlight(
-                Physics, Defaults.ProfileFor(risk), counts.Minor, counts.Major, wearPct: 0);
+                Physics, Defaults.ProfileFor(risk), wearPct: 0);
             Assert.True(expected > previous, $"Se esperaba crecimiento por perfil, pero {risk} dio {expected}.");
             previous = expected;
         }
